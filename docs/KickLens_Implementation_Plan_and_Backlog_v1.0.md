@@ -1,4 +1,4 @@
-# SoccerEdge Implementation Plan and Backlog Version 1.0
+# KickLens Implementation Plan and Backlog Version 1.0
 
 **Derived from:** V2.0 spec · Dependency Verification · Build Contract v2.1 · ML Experimental Protocol v1.0.
 **Audience:** one developer, AI-assisted. **No application code in this document.**

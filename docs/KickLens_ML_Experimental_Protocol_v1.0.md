@@ -1,6 +1,6 @@
-# SoccerEdge ML Experimental Protocol Version 1.0
+# KickLens ML Experimental Protocol Version 1.0
 
-**Derived from:** SoccerEdge Build Contract v2.1 (frozen decisions).
+**Derived from:** KickLens Build Contract v2.1 (frozen decisions).
 **Purpose:** pre-register every methodological choice **before results are observed**, so model selection cannot drift toward the final-test set. This document optimizes for **trustworthy evidence**, not impressive numbers.
 **Prime directive:** all model-selection decisions are made on the **development walk-forward (2018–2024 predictions)**. The **2025 season is untouched** until a single, one-shot, confirmatory final test. **The final test changes no decision** — it reports the out-of-time performance of an already-selected pipeline plus pre-registered baselines.
 **Status:** pre-registered. Any change after dev results are viewed requires a version bump (§13); any change after the final test is viewed **burns** the 2025 test and requires a new reserved season.

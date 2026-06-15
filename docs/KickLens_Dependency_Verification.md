@@ -1,4 +1,4 @@
-# SoccerEdge V2.0 — External Dependency & Factual Verification
+# KickLens V2.0 — External Dependency & Factual Verification
 
 **Scope:** verify only the external dependencies and factual assumptions of the V2.0 spec. No redesign, no code.
 **Date:** June 14, 2026

@@ -1,4 +1,4 @@
-# SoccerEdge — Master Project Specification, Version 2.0
+# KickLens — Master Project Specification, Version 2.0
 
 **Version:** 2.0 (corrected after adversarial review)
 **Date:** June 14, 2026
@@ -16,7 +16,7 @@ Supersedes V1.0. Reuses V1.0 content where it survived review; everything flagge
 
 ## 1. Executive summary
 
-SoccerEdge issues a single **official forecast** — calibrated home/draw/away probabilities — for each MLS regular-season fixture at a fixed pre-kickoff **cutoff**, using only information available at that cutoff. The official forecast is written once to an immutable record, recorded in an append-only event ledger, and **hashed and anchored publicly before kickoff** so the prediction provably predates the result. After the match, the official forecast is graded automatically; cumulative metrics derive only from immutable, graded records. The market is an **optional aggregate benchmark**, compared fairly (same cutoff), never republished as raw odds, never framed as betting advice.
+KickLens issues a single **official forecast** — calibrated home/draw/away probabilities — for each MLS regular-season fixture at a fixed pre-kickoff **cutoff**, using only information available at that cutoff. The official forecast is written once to an immutable record, recorded in an append-only event ledger, and **hashed and anchored publicly before kickoff** so the prediction provably predates the result. After the match, the official forecast is graded automatically; cumulative metrics derive only from immutable, graded records. The market is an **optional aggregate benchmark**, compared fairly (same cutoff), never republished as raw odds, never framed as betting advice.
 
 This is the ML / data-engineering / MLOps flagship of a two-project portfolio (GoDrive carries full-stack/AI). The credibility comes from **rigor and operational integrity** — leakage prevention, a real baseline ladder including Poisson/Dixon-Coles, honest temporal validation, fair benchmarking, and a tamper-evident live loop — not from model exotica. The honest success target is **well-calibrated probabilities competitive with strong baselines, reported with uncertainty**; beating the market is explicitly not claimed.
 

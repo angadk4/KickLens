@@ -1,4 +1,4 @@
-# SoccerEdge Final Pre-Build Review
+# KickLens Final Pre-Build Review
 
 **Reviewer role:** CTO and principal ML engineer, personally accountable for the decision to begin development.
 **Documents reviewed:** Master Specification v2.0 · Adversarial Review · Build Contract v2.1 · External Dependency Verification · ML Experimental Protocol v1.0 · Implementation Plan & Backlog v1.0.

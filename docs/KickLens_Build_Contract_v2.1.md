@@ -1,4 +1,4 @@
-# SoccerEdge — Build Contract Version 2.1
+# KickLens — Build Contract Version 2.1
 
 **Purpose:** a decision-complete implementation contract handed to a team that may not guess. Supersedes V2.0 for implementation. Every ambiguity in V2.0 is resolved to a single frozen choice; the **only** unresolved items are the three blocking pre-build experiments (E1–E3) explicitly isolated in §2. In-build empirical choices (E4–E6) have **safe defaults** so they never block the start.
 **Principle applied:** no scope increase; simplest defensible choice; one implementation per decision, plus at most one named emergency fallback.
