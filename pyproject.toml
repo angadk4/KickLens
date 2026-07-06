@@ -6,7 +6,9 @@ readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "alembic>=1.14",
+    "fastapi>=0.139.0",
     "lightgbm>=4.6.0",
+    "mangum>=0.21.0",
     "numpy>=2.5.1",
     "psycopg[binary]>=3.2",
     "python-dotenv>=1.0",
@@ -21,6 +23,8 @@ dev = [
     "pytest>=8.3",
     "pre-commit>=4.0",
     "scipy-stubs>=1.18.0.0",
+    "httpx>=0.28.1",
+    "uvicorn>=0.50.2",
 ]
 
 [build-system]
@@ -29,6 +33,7 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = [
+    "apps",
     "packages/common",
     "packages/ingestion",
     "packages/features",
@@ -56,8 +61,8 @@ select = [
 [tool.mypy]
 python_version = "3.12"
 strict = true
-# add "jobs" once the first job handler exists (T-140+)
-files = ["packages", "tests"]
+# add "jobs" once the first job handler exists (T-221 container wiring)
+files = ["packages", "tests", "apps"]
 warn_unreachable = true
 pretty = true
 

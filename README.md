@@ -3,23 +3,31 @@
 A methodologically honest **MLS regular-season 1X2 (home/draw/away) forecaster** with a public,
 tamper-evident track record.
 
-> **Status: pre-MVP, under construction.** Nothing described below as planned exists yet unless
-> explicitly marked as built. No performance claims are made until the evidence exists.
+> **Status: pre-launch.** The full local system is built and tested; cloud deployment (M8) and
+> the live launch remain. No performance claim is made beyond what `docs/` records with CIs.
 
-## What it will do (planned)
+## What exists today (all tested; 155+ tests green)
 
-- Train a multinomial logistic model (LightGBM as challenger experiment only) on historical MLS
-  regular-season data (2017–2024 dev era), calibrated with temperature scaling.
-- Validate with expanding walk-forward and a **touch-once** 2025 test season.
-- Freeze each official forecast at **kickoff − 3h** with a SHA-256 hash anchored in a public git repo.
-- Grade automatically against results and serve a read-only dashboard that keeps
-  dev / test / backtest / live evidence strictly separated.
+- **Data pipeline:** football-data.co.uk history (6,034 matches) with SHA-256 snapshots,
+  validation gates + quarantine, verified playoff filter, curated team-alias map, DQ suite.
+  Live adapters for Highlightly (fixtures) and SportsGameOdds (3-way odds near cutoff).
+- **Leakage-safe features (fs-v1):** point-in-time Elo/form/rest/schedule engine with the
+  never-cut R1–R8 leakage suite (bit-for-bit recompute parity over every stored row).
+- **A sealed, pre-registered model:** multinomial logistic on Elo diff + neutral site with
+  temperature calibration — selected via a 20-config ablation over a 210-fold expanding
+  walk-forward and frozen (`packages/models/champion.py`) before the touch-once 2025 test.
+  Honest headline: it is statistically **equivalent to a plain Elo baseline** and ~0.02 nats
+  **behind the closing market** on dev data (see `docs/model-card.md`).
+- **The tamper-evident forecast loop:** write-once official forecasts at kickoff−3h, SHA-256
+  hashes anchored to public git files, daily Merkle roots, postponement supersession,
+  automated grading/regrading, and metrics that never merge dev/test/backtest/live evidence.
+- **A read-only FastAPI + React/Recharts dashboard** (`apps/api`, `apps/web`).
 
-## What exists today
+## Key documents
 
-- M0 data spikes: playoff-filter rule, historical odds coverage, sample-size analysis
-  (see `docs/spikes/`).
-- This repo scaffold: monorepo layout, tooling (`uv`, `ruff`, `mypy`, `pytest`, `pre-commit`).
+`docs/model-card.md` · `docs/data-card.md` · `docs/selection.md` (sealed) ·
+`docs/baselines.md` · `docs/leakage-tests.md` · `docs/pre-final-test-checklist.md` ·
+`docs/data-pipeline.md` · spikes under `docs/spikes/`
 
 ## Repo layout
 

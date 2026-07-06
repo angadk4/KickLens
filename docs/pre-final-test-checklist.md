@@ -4,10 +4,9 @@
 > Last updated 2026-07-06. Unticked items are listed with exactly what closes them.
 
 **Pre-registration & freeze**
-- [ ] **Protocol v1.0 git-tagged before any training** — *DEVELOPER ACTION:* tag the pre-build
-  commit that introduced the protocol doc (predates all experiment code/runs), e.g.
-  `git tag -a protocol-v1.0 <sha-of-docs-commit> -m "pre-registration"` + push the tag; record
-  the SHA here.
+- [x] **Protocol v1.0 git-tagged before any training** — tag `protocol-v1.0` (object
+  `4a59ac3c94`) → commit `df73e3f2568321982f37e5a2183a57d35996c0d7`, the last docs/config-only
+  commit preceding all experiment code and runs. Tagged + pushed by the developer *(2026-07-06)*.
 - [x] Dataset snapshot pinned: `ds-mls-20260706-9d8cbcc3` (SHA-256 recorded in
   `dataset_snapshot` + runs.jsonl). *(2026-07-06)*
 - [x] Included/excluded seasons + match rules match Protocol §2 (dev 2017–2024, R1 playoff
@@ -29,15 +28,18 @@
 - [x] Champion + F-set + hyperparameters + calibration frozen: `packages/models/champion.py`,
   developer-approved 2026-07-06.
 - [x] Pre-registered fallback named: **B3 Elo ordinal**. *(2026-07-06)*
-- [ ] **The single final-test script exists** evaluating ALL pre-registered models (champion,
-  B0–B5) on 2025 in one pass with immutable output — *to be written as T-260 prep; must be
-  reviewed BEFORE it is ever executed.*
+- [x] **The single final-test script exists**: `packages/models/run_final_test.py` — evaluates
+  champion + B0–B5 + market on 2025 in one pass; triple-gated (this checklist parsed for
+  unticked boxes / deliberate env flag / immutable-output-exists refusal); procedure
+  pre-registered in its docstring; gate behavior unit-tested. Written 2026-07-06, **never
+  executed**. *(Developer should read it once before the run.)*
 
 **Integrity**
 - [x] 2025 never loaded into any selection/tuning step — structurally enforced
   (`walkforward.load_dev_samples` hard-caps at 2024) and true of every recorded run. *(2026-07-06)*
 - [ ] **Written self-attestation of no test-set peeking** — *DEVELOPER ACTION at T-260 time.*
-- [ ] Reporting template listing every metric for every model, with CIs, sample sizes, market
-  caveat — *to be written with the final-test script.*
+- [x] Reporting template exists: `docs/final-test-report-template.md` — every metric for every
+  model, CIs, sample sizes, market-subset caveat; no selective omission possible by
+  construction (the script emits all of it). *(2026-07-06)*
 
 > When all boxes are ticked: run once, record immutably, do not iterate.
