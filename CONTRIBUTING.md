@@ -2,6 +2,12 @@
 
 Single-developer project, AI-assisted. These conventions keep the build reproducible and honest.
 
+## Databases (local)
+
+- `kicklens` = the **dev dataset** (loaded history + features). Never point pytest at it.
+- `kicklens_test` = throwaway; integration tests migrate/wipe it freely:
+  `DATABASE_URL=postgresql://kicklens:kicklens@localhost:5432/kicklens_test uv run pytest`
+
 ## Ground rules
 
 - **Python 3.12**, locked with `uv` (`uv.lock` is committed). `ruff` + `mypy --strict` + `pytest`

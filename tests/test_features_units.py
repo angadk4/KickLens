@@ -52,12 +52,16 @@ def test_update_is_zero_sum_and_winner_gains() -> None:
     assert abs((post_h - INIT_RATING) + (post_a - INIT_RATING)) < 1e-9
 
 
-def test_draw_leaves_ratings_unchanged_frozen_formula() -> None:
-    # ln(|0|+1)=0 → G=0: the frozen Contract formula moves nothing on draws.
-    # FLAGGED to the developer (BUILD_LOG 2026-07-06); a change needs an ADR.
+def test_draw_moves_ratings_toward_underdog_adr001() -> None:
+    # ADR-001: draws use G=1. Equal teams: home is the expected winner (H=60), so a draw
+    # costs the home side and rewards the away side, zero-sum.
     engine = EloEngine()
     post_h, post_a = engine.update(em(1, 0, 10, 20, 1, 1))
-    assert post_h == post_a == INIT_RATING
+    assert post_h < INIT_RATING < post_a
+    assert abs((post_h - INIT_RATING) + (post_a - INIT_RATING)) < 1e-9
+    # expected magnitude: K * 1 * (0.5 - E_home)
+    e = EloEngine.expected_home(INIT_RATING, INIT_RATING)
+    assert abs((post_h - INIT_RATING) - 20.0 * (0.5 - e)) < 1e-9
 
 
 def test_upset_moves_more_than_expected_win() -> None:

@@ -8,6 +8,20 @@ from common.config import ConfigError, load_settings
 DB_URL = "postgresql://user:s3cret@localhost:5432/kicklens"
 
 
+@pytest.fixture(autouse=True)
+def _clean_provider_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Isolate from ambient env: migrations/env.py's load_dotenv() (run by the test-DB
+    bootstrap in conftest) exports the developer's real .env keys into os.environ."""
+    for key in (
+        "API_FOOTBALL_KEY",
+        "HIGHLIGHTLY_KEY",
+        "SPORTSGAMEODDS_KEY",
+        "NEON_DATABASE_URL",
+        "KICKLENS_ENV",
+    ):
+        monkeypatch.delenv(key, raising=False)
+
+
 def test_loads_from_overrides() -> None:
     s = load_settings({"DATABASE_URL": DB_URL, "API_FOOTBALL_KEY": "abc"}, dotenv_path=None)
     assert s.database_url == DB_URL

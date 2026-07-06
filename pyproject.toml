@@ -6,8 +6,12 @@ readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "alembic>=1.14",
+    "lightgbm>=4.6.0",
+    "numpy>=2.5.1",
     "psycopg[binary]>=3.2",
     "python-dotenv>=1.0",
+    "scikit-learn>=1.9.0",
+    "scipy>=1.18.0",
 ]
 
 [dependency-groups]
@@ -16,6 +20,7 @@ dev = [
     "mypy>=1.13",
     "pytest>=8.3",
     "pre-commit>=4.0",
+    "scipy-stubs>=1.18.0.0",
 ]
 
 [build-system]

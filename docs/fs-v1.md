@@ -33,10 +33,9 @@ recompute-parity anchor.
 2. **season_progress granularity:** frozen as "completed/total scheduled **matchweeks**"; MLS
    matchweeks are irregular, so the engine uses the scheduled **match-count fraction** — the
    same monotone quantity at finer granularity, still schedule-only (leak-tested by R5).
-3. **⚠ Draws under the frozen MOV formula:** `ln(|gd|+1)` = 0 at gd=0 ⇒ **draws produce zero
-   Elo change** (~25% of matches). Implemented literally; explicitly tested
-   (`test_draw_leaves_ratings_unchanged_frozen_formula`) and **flagged for a developer
-   decision** — counting draws (e.g. G=1 when gd=0) would need an ADR before M3 modeling.
+3. **Draws (ADR-001, 2026-07-06):** the frozen MOV formula's literal `ln(|gd|+1)` is 0 at
+   gd=0; per developer-approved **ADR-001**, draws use **G = 1.0** so `(S−E)` alone scales
+   the update. Decisive matches keep the frozen formula unchanged.
 
 ## Verified state (2026-07-06)
 

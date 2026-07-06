@@ -145,7 +145,7 @@
 
 | Feature | Formula | Window | Min history | Shift/lag | Season boundary | Offseason | Cold-start | Missing rule | Type/units |
 |---|---|---|---|---|---|---|---|---|---|
-| `elo_diff` | `elo_home − elo_away` at T-3h. Update after each completed RS match: `R'=R+K(S−E)`, K=20, `E=1/(1+10^(−(R_home+H−R_away)/400))`, **H=60**; MOV multiplier `ln(|gd|+1)·2.2/((Δelo)·0.001+2.2)` | full history | none (starts 1500) | excludes current match | start-of-season regress: `R←1500+0.75(R−1500)` | carried (no decay in gap) | new team R₀=**1500** | n/a | float, Elo pts |
+| `elo_diff` | `elo_home − elo_away` at T-3h. Update after each completed RS match: `R'=R+K(S−E)`, K=20, `E=1/(1+10^(−(R_home+H−R_away)/400))`, **H=60**; MOV multiplier `ln(|gd|+1)·2.2/((Δelo)·0.001+2.2)` for decisive matches; **draws: G=1 (ADR-001, 2026-07-06)** | full history | none (starts 1500) | excludes current match | start-of-season regress: `R←1500+0.75(R−1500)` | carried (no decay in gap) | new team R₀=**1500** | n/a | float, Elo pts |
 | `form5_pts`, `form10_pts` | mean PPG (3/1/0) over last 5 / 10 RS matches before T-3h | 5, 10 | use n<k if fewer; n=0→league mean ≈1.35 | excludes current | spans boundaries | n/a | shrink to 1.35 | shrink to league mean | float, pts/game |
 | `form5_gd`, `form10_gd` | mean (GF−GA) over last 5 / 10 | 5, 10 | as above; n=0→0.0 | excludes current | spans boundaries | n/a | 0.0 | 0.0 | float, goals/game |
 | `home_form5_pts` | home team's last 5 **home** RS matches PPG | 5 (home) | n=0→1.35 | excludes current | spans boundaries | n/a | 1.35 | 1.35 | float |

@@ -4,7 +4,8 @@
   E = 1/(1 + 10^(-((R_home + H) - R_away)/400)), **H = 60** (home advantage, home side only).
 - MOV multiplier G = ln(|gd|+1) · 2.2/((Δelo)·0.001 + 2.2), with Δelo = (adjusted) winner
   rating - loser rating (H applied to the home side), so upsets move ratings more.
-  **Literal consequence (flagged to the developer): draws ⇒ |gd|=0 ⇒ G=0 ⇒ no rating change.**
+  **ADR-001 (2026-07-06): draws use G = 1.0** (the frozen formula's literal ln(1)=0 would
+  discard draw information; developer-approved amendment - see docs/adr/ADR-001-elo-draw-mov.md).
 - Start of season: R ← 1500 + 0.75·(R - 1500); offseason otherwise carried; new team R₀ = 1500.
 - The current match NEVER contributes to its own pre-match ratings (leakage rule).
 
@@ -68,7 +69,7 @@ class EloEngine:
         s_home = 1.0 if gd > 0 else 0.0 if gd < 0 else 0.5
 
         if gd == 0:
-            g = 0.0  # frozen formula: ln(0+1) = 0 — draws do not move ratings (see module doc)
+            g = 1.0  # ADR-001 (2026-07-06): draws move ratings; (S-E) alone scales the update
         else:
             adj_home, adj_away = r_home + HOME_ADV, r_away
             delta_winner = (adj_home - adj_away) if gd > 0 else (adj_away - adj_home)
