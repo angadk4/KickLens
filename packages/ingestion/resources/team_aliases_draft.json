@@ -1,0 +1,321 @@
+{
+  "generated": "2026-07-06",
+  "canonical_source": "football-data.co.uk new/USA.csv (2017-2026 names)",
+  "aliases": [
+    {
+      "provider": "api-football",
+      "provider_key": "1608",
+      "provider_name": "Atlanta United FC",
+      "canonical": "Atlanta Utd"
+    },
+    {
+      "provider": "api-football",
+      "provider_key": "16489",
+      "provider_name": "Austin",
+      "canonical": "Austin FC"
+    },
+    {
+      "provider": "api-football",
+      "provider_key": "1614",
+      "provider_name": "CF Montreal",
+      "canonical": "CF Montreal"
+    },
+    {
+      "provider": "api-football",
+      "provider_key": "18310",
+      "provider_name": "Charlotte",
+      "canonical": "Charlotte"
+    },
+    {
+      "provider": "api-football",
+      "provider_key": "1607",
+      "provider_name": "Chicago Fire",
+      "canonical": "Chicago Fire"
+    },
+    {
+      "provider": "api-football",
+      "provider_key": "1610",
+      "provider_name": "Colorado Rapids",
+      "canonical": "Colorado Rapids"
+    },
+    {
+      "provider": "api-football",
+      "provider_key": "1613",
+      "provider_name": "Columbus Crew",
+      "canonical": "Columbus Crew"
+    },
+    {
+      "provider": "api-football",
+      "provider_key": "1615",
+      "provider_name": "DC United",
+      "canonical": "DC United"
+    },
+    {
+      "provider": "api-football",
+      "provider_key": "2242",
+      "provider_name": "FC Cincinnati",
+      "canonical": "FC Cincinnati"
+    },
+    {
+      "provider": "api-football",
+      "provider_key": "1597",
+      "provider_name": "FC Dallas",
+      "canonical": "FC Dallas"
+    },
+    {
+      "provider": "api-football",
+      "provider_key": "1600",
+      "provider_name": "Houston Dynamo",
+      "canonical": "Houston Dynamo"
+    },
+    {
+      "provider": "api-football",
+      "provider_key": "9568",
+      "provider_name": "Inter Miami",
+      "canonical": "Inter Miami"
+    },
+    {
+      "provider": "api-football",
+      "provider_key": "1616",
+      "provider_name": "Los Angeles FC",
+      "canonical": "Los Angeles FC"
+    },
+    {
+      "provider": "api-football",
+      "provider_key": "1605",
+      "provider_name": "Los Angeles Galaxy",
+      "canonical": "Los Angeles Galaxy"
+    },
+    {
+      "provider": "api-football",
+      "provider_key": "1612",
+      "provider_name": "Minnesota United FC",
+      "canonical": "Minnesota United"
+    },
+    {
+      "provider": "api-football",
+      "provider_key": "9569",
+      "provider_name": "Nashville SC",
+      "canonical": "Nashville SC"
+    },
+    {
+      "provider": "api-football",
+      "provider_key": "1609",
+      "provider_name": "New England Revolution",
+      "canonical": "New England Revolution"
+    },
+    {
+      "provider": "api-football",
+      "provider_key": "1604",
+      "provider_name": "New York City FC",
+      "canonical": "New York City"
+    },
+    {
+      "provider": "api-football",
+      "provider_key": "1602",
+      "provider_name": "New York Red Bulls",
+      "canonical": "New York Red Bulls"
+    },
+    {
+      "provider": "api-football",
+      "provider_key": "1598",
+      "provider_name": "Orlando City SC",
+      "canonical": "Orlando City"
+    },
+    {
+      "provider": "api-football",
+      "provider_key": "1599",
+      "provider_name": "Philadelphia Union",
+      "canonical": "Philadelphia Union"
+    },
+    {
+      "provider": "api-football",
+      "provider_key": "1617",
+      "provider_name": "Portland Timbers",
+      "canonical": "Portland Timbers"
+    },
+    {
+      "provider": "api-football",
+      "provider_key": "1606",
+      "provider_name": "Real Salt Lake",
+      "canonical": "Real Salt Lake"
+    },
+    {
+      "provider": "api-football",
+      "provider_key": "1596",
+      "provider_name": "San Jose Earthquakes",
+      "canonical": "San Jose Earthquakes"
+    },
+    {
+      "provider": "api-football",
+      "provider_key": "1595",
+      "provider_name": "Seattle Sounders",
+      "canonical": "Seattle Sounders"
+    },
+    {
+      "provider": "api-football",
+      "provider_key": "1611",
+      "provider_name": "Sporting Kansas City",
+      "canonical": "Sporting Kansas City"
+    },
+    {
+      "provider": "api-football",
+      "provider_key": "20787",
+      "provider_name": "St. Louis City",
+      "canonical": "St. Louis City"
+    },
+    {
+      "provider": "api-football",
+      "provider_key": "1601",
+      "provider_name": "Toronto FC",
+      "canonical": "Toronto FC"
+    },
+    {
+      "provider": "api-football",
+      "provider_key": "1603",
+      "provider_name": "Vancouver Whitecaps",
+      "canonical": "Vancouver Whitecaps"
+    },
+    {
+      "provider": "highlightly",
+      "provider_key": "1369192",
+      "provider_name": "Atlanta United FC",
+      "canonical": "Atlanta Utd"
+    },
+    {
+      "provider": "highlightly",
+      "provider_key": "14032923",
+      "provider_name": "Austin",
+      "canonical": "Austin FC"
+    },
+    {
+      "provider": "highlightly",
+      "provider_key": "15582594",
+      "provider_name": "Charlotte",
+      "canonical": "Charlotte"
+    },
+    {
+      "provider": "highlightly",
+      "provider_key": "1368341",
+      "provider_name": "Chicago Fire",
+      "canonical": "Chicago Fire"
+    },
+    {
+      "provider": "highlightly",
+      "provider_key": "1373447",
+      "provider_name": "Columbus Crew",
+      "canonical": "Columbus Crew"
+    },
+    {
+      "provider": "highlightly",
+      "provider_key": "1375149",
+      "provider_name": "DC United",
+      "canonical": "DC United"
+    },
+    {
+      "provider": "highlightly",
+      "provider_key": "1908726",
+      "provider_name": "FC Cincinnati",
+      "canonical": "FC Cincinnati"
+    },
+    {
+      "provider": "highlightly",
+      "provider_key": "8143152",
+      "provider_name": "Inter Miami",
+      "canonical": "Inter Miami"
+    },
+    {
+      "provider": "highlightly",
+      "provider_key": "1376000",
+      "provider_name": "Los Angeles FC",
+      "canonical": "Los Angeles FC"
+    },
+    {
+      "provider": "highlightly",
+      "provider_key": "1366639",
+      "provider_name": "Los Angeles Galaxy",
+      "canonical": "Los Angeles Galaxy"
+    },
+    {
+      "provider": "highlightly",
+      "provider_key": "1372596",
+      "provider_name": "Minnesota United",
+      "canonical": "Minnesota United"
+    },
+    {
+      "provider": "highlightly",
+      "provider_key": "1374298",
+      "provider_name": "Montr\u00e9al Impact",
+      "canonical": "CF Montreal"
+    },
+    {
+      "provider": "highlightly",
+      "provider_key": "8144003",
+      "provider_name": "Nashville SC",
+      "canonical": "Nashville SC"
+    },
+    {
+      "provider": "highlightly",
+      "provider_key": "1370043",
+      "provider_name": "New England Revolution",
+      "canonical": "New England Revolution"
+    },
+    {
+      "provider": "highlightly",
+      "provider_key": "1365788",
+      "provider_name": "New York City FC",
+      "canonical": "New York City"
+    },
+    {
+      "provider": "highlightly",
+      "provider_key": "1364086",
+      "provider_name": "New York Red Bulls",
+      "canonical": "New York Red Bulls"
+    },
+    {
+      "provider": "highlightly",
+      "provider_key": "1360682",
+      "provider_name": "Orlando City",
+      "canonical": "Orlando City"
+    },
+    {
+      "provider": "highlightly",
+      "provider_key": "1361533",
+      "provider_name": "Philadelphia Union",
+      "canonical": "Philadelphia Union"
+    },
+    {
+      "provider": "highlightly",
+      "provider_key": "1367490",
+      "provider_name": "Real Salt Lake",
+      "canonical": "Real Salt Lake"
+    },
+    {
+      "provider": "highlightly",
+      "provider_key": "1358129",
+      "provider_name": "Seattle Sounders",
+      "canonical": "Seattle Sounders"
+    },
+    {
+      "provider": "highlightly",
+      "provider_key": "17690521",
+      "provider_name": "St. Louis City SC",
+      "canonical": "St. Louis City"
+    },
+    {
+      "provider": "highlightly",
+      "provider_key": "1363235",
+      "provider_name": "Toronto FC",
+      "canonical": "Toronto FC"
+    }
+  ],
+  "unresolved": [],
+  "canonical_without_provider_id": [
+    "Chivas USA",
+    "San Diego FC"
+  ],
+  "defunct": [
+    "Chivas USA"
+  ],
+  "_note_defunct": "Chivas USA folded after 2014; appears only in pre-era (2012-2014) rows kept for the post-MVP sensitivity check. No live-provider id will ever exist."
+}

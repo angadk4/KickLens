@@ -1,0 +1,26 @@
+{
+  "_doc": "US-local Decision Day (final regular-season day) per season; drives the R1 playoff filter (docs/spikes/E1-playoffs.md). 2020 additionally excludes the MLS-is-Back knockout window. Add each new season when the league publishes its calendar; a missing season excludes nothing (degrades safely).",
+  "decision_day": {
+    "2012": "2012-10-28",
+    "2013": "2013-10-27",
+    "2014": "2014-10-26",
+    "2015": "2015-10-25",
+    "2016": "2016-10-23",
+    "2017": "2017-10-22",
+    "2018": "2018-10-28",
+    "2019": "2019-10-06",
+    "2020": "2020-11-08",
+    "2021": "2021-11-07",
+    "2022": "2022-10-09",
+    "2023": "2023-10-21",
+    "2024": "2024-10-19",
+    "2025": "2025-10-18"
+  },
+  "extra_exclusion_windows": {
+    "2020": [["2020-07-25", "2020-08-12"]]
+  },
+  "neutral_site_windows": {
+    "_doc": "MLS-is-Back group stage (counted as RS) was played at a neutral venue (Disney).",
+    "2020": [["2020-07-08", "2020-07-24"]]
+  }
+}
