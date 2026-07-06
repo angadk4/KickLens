@@ -2,8 +2,10 @@
 
 **Date:** 2026-07-06 · All numbers: 210 matchweek folds / 3,012 evaluated matches, seed 42,
 2,000-resample block-bootstrap CIs. Full trail in `experiments/runs.jsonl`.
-**Nothing is frozen by this document** — the freeze happens with the developer, and only after
-it does the 2025 touch-once test (T-260) become permissible.
+**STATUS: SELECTION SEALED — developer approved the freeze 2026-07-06.** The frozen recipe
+lives in `packages/models/champion.py` (logistic F1 C=0.1 + temperature; pre-registered
+fallback B3). No further tuning is possible; the 2025 touch-once test (T-260) runs only after
+the full Protocol §14 checklist (see `docs/pre-final-test-checklist.md`).
 
 ## T-090 — Logistic F0–F4 × C ablation (RQ7, pre-registered)
 

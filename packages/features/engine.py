@@ -148,6 +148,83 @@ def inputs_hash(match_id: int, cutoff: datetime, features: dict[str, float]) -> 
     return hashlib.sha256(canonical.encode()).hexdigest()
 
 
+def build_features_for_upcoming(
+    completed: list[MatchInput],
+    *,
+    match_id: int,
+    season_year: int,
+    kickoff_utc: datetime,
+    home_team_id: int,
+    away_team_id: int,
+    neutral_site: bool = False,
+    season_scheduled_total: int | None = None,
+    season_scheduled_before: int | None = None,
+) -> FeatureRow:
+    """fs-v1 row for a FUTURE fixture as of its T-3h cutoff: walk the completed history
+    strictly before the cutoff, then compute — the same point-in-time discipline as the
+    historical builder (the upcoming match has no result to leak by construction)."""
+    cutoff = kickoff_utc - CUTOFF_BEFORE_KICKOFF
+    history = [m for m in completed if m.kickoff_utc < cutoff]
+
+    elo = EloEngine()
+    hist: dict[int, TeamHistory] = {}
+    for m in sorted(history, key=lambda x: (x.kickoff_utc, x.match_id)):
+        em = EloMatch(
+            match_id=m.match_id,
+            season_year=m.season_year,
+            order_key=m.kickoff_utc,
+            match_date=m.kickoff_utc.date(),
+            home_team_id=m.home_team_id,
+            away_team_id=m.away_team_id,
+            home_goals=m.home_goals,
+            away_goals=m.away_goals,
+        )
+        elo.update(em)
+        gd = m.home_goals - m.away_goals
+        hist.setdefault(m.home_team_id, TeamHistory()).entries.append(
+            CompletedEntry(m.kickoff_utc, 3 if gd > 0 else 1 if gd == 0 else 0, gd, True)
+        )
+        hist.setdefault(m.away_team_id, TeamHistory()).entries.append(
+            CompletedEntry(m.kickoff_utc, 3 if gd < 0 else 1 if gd == 0 else 0, -gd, False)
+        )
+
+    pre_home = elo._rating(home_team_id, season_year)
+    pre_away = elo._rating(away_team_id, season_year)
+    # schedule-derived progress: caller supplies published-schedule counts; fallback = played
+    if season_scheduled_total and season_scheduled_before is not None:
+        progress = season_scheduled_before / season_scheduled_total
+    else:
+        played = sum(1 for m in history if m.season_year == season_year)
+        progress = played / max(played + 1, 1)
+
+    target = MatchInput(
+        match_id=match_id,
+        season_year=season_year,
+        kickoff_utc=kickoff_utc,
+        home_team_id=home_team_id,
+        away_team_id=away_team_id,
+        home_goals=0,
+        away_goals=0,
+        neutral_site=neutral_site,
+    )
+    feats = compute_features(
+        target,
+        cutoff,
+        hist.get(home_team_id, TeamHistory()).before(cutoff),
+        hist.get(away_team_id, TeamHistory()).before(cutoff),
+        pre_home,
+        pre_away,
+        progress,
+    )
+    return FeatureRow(
+        match_id=match_id,
+        as_of_utc=cutoff,
+        feature_set_version=FEATURE_SET_VERSION,
+        features=feats,
+        inputs_hash=inputs_hash(match_id, cutoff, feats),
+    )
+
+
 def build_feature_rows(matches: list[MatchInput]) -> list[FeatureRow]:
     """Walk RS matches chronologically; emit each match's fs-v1 row as of its T-3h cutoff.
     Deterministic; the current match and all later matches are structurally excluded."""

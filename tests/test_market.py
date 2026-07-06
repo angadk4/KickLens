@@ -32,6 +32,8 @@ if DATABASE_URL:
         assert DATABASE_URL is not None
         with psycopg.connect(DATABASE_URL) as conn:
             probs = load_market_probs(conn, 2017, 2024)
+            if not probs:
+                pytest.skip("dev historical dataset not loaded in this DB (dev-data test)")
             n = conn.execute(
                 "SELECT count(*) FROM match m JOIN season s USING (season_id)"
                 " WHERE m.is_regular_season AND m.result IS NOT NULL"
