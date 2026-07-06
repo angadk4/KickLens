@@ -1,0 +1,8 @@
+# The full ML/job stack the jobs container will need (Contract §5-§6 + backlog T-006).
+scikit-learn>=1.5
+lightgbm>=4.5
+statsmodels>=0.14
+pandas>=2.2
+numpy>=2.0
+scipy>=1.14
+psycopg[binary]>=3.2

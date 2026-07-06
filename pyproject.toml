@@ -1,0 +1,61 @@
+[project]
+name = "kicklens"
+version = "0.1.0"
+description = "KickLens — methodologically honest MLS 1X2 forecaster with a tamper-evident public track record"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "alembic>=1.14",
+    "psycopg[binary]>=3.2",
+    "python-dotenv>=1.0",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.8",
+    "mypy>=1.13",
+    "pytest>=8.3",
+    "pre-commit>=4.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = [
+    "packages/common",
+    "packages/ingestion",
+    "packages/features",
+    "packages/models",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+extend-exclude = ["infra"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "SIM", # flake8-simplify
+    "DTZ", # flake8-datetimez — all timestamps UTC (CLAUDE.md §2.6)
+    "RUF", # ruff-specific
+]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+# add "jobs" once the first job handler exists (T-140+)
+files = ["packages", "tests"]
+warn_unreachable = true
+pretty = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

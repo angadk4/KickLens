@@ -323,7 +323,7 @@ flowchart TB
       APIF[API-Football / Highlightly<br/>live MLS results + odds]
     end
     subgraph gh[GitHub Actions]
-      CI[CI/CD] 
+      CI[CI/CD]
       TRAIN[Training job -> S3]
     end
     subgraph aws[AWS - no VPC]

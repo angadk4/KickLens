@@ -1,0 +1,40 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-kicklens}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kicklens}
+      POSTGRES_DB: ${POSTGRES_DB:-kicklens}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-kicklens} -d ${POSTGRES_DB:-kicklens}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build: .
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-kicklens}:${POSTGRES_PASSWORD:-kicklens}@postgres:5432/${POSTGRES_DB:-kicklens}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # Placeholder until the FastAPI app exists (M6): prove the image imports the packages.
+    command: ["python", "-c", "import common, ingestion, features, models; print('kicklens packages OK')"]
+
+  job:
+    build: .
+    profiles: ["job"]
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-kicklens}:${POSTGRES_PASSWORD:-kicklens}@postgres:5432/${POSTGRES_DB:-kicklens}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # Placeholder until the first job handler exists (M5).
+    command: ["python", "-c", "print('kicklens job container placeholder')"]
+
+volumes:
+  pgdata:
