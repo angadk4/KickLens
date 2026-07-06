@@ -8,11 +8,13 @@
    has no stage/round column, but every completed season contains 13–37 rows dated after that
    season's regular-season end ("Decision Day"), including every MLS Cup final 2017–2025
    (e.g. 2023-12-09 Columbus Crew vs Los Angeles FC; 2025-12-06 Inter Miami vs Vancouver Whitecaps).
-2. **File dates are UTC (or UK-local), not US-local.** US evening kickoffs appear dated **+1 day**
+2. **File dates are UK-local, not US-local.** US evening kickoffs appear dated **+1 day**
    vs the US-local match date (e.g. the 2024 Decision Day games of Sat 2024-10-19 ET appear as
    2024-10-20; the 2018 MLS Cup final of 2018-12-08 appears as 2018-12-09). A naive
    `date > DecisionDay` filter would therefore misclassify ~7 genuine regular-season matches per
-   season as playoffs. This also matters for T-030 ingestion generally: **treat `Date`+`Time` as UTC.**
+   season as playoffs. *(Refined by T-002, 2026-07-06: cross-checking live-API UTC kickoffs
+   against the file proves Date+Time is **UK-local — Europe/London**, i.e. UTC+1 in summer, not
+   UTC. T-030 ingestion must parse as Europe/London → convert to UTC, `kickoff_approx=true`.)*
 3. **2020 (COVID) needs one extra window.** The "MLS is Back" tournament's **knockout rounds**
    (which did *not* count toward the regular-season standings) are in the file: 15 matches in
    2020-07-25..2020-08-12. The MIB **group stage** (36 matches, 2020-07-08..2020-07-24) *did* count
