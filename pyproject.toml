@@ -61,8 +61,7 @@ select = [
 [tool.mypy]
 python_version = "3.12"
 strict = true
-# add "jobs" once the first job handler exists (T-221 container wiring)
-files = ["packages", "tests", "apps"]
+files = ["packages", "tests", "apps", "jobs"]
 warn_unreachable = true
 pretty = true
 

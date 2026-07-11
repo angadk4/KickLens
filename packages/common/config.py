@@ -57,10 +57,21 @@ class Settings:
 
 
 def _from_ssm(prefix: str) -> Mapping[str, str]:
-    raise ConfigError(
-        "SSM Parameter Store config source is not implemented until deployment (M8, T-220+); "
-        "unset KICKLENS_ENV or set it to 'local'."
-    )
+    """Cloud source (T-221): SecureStrings under /kicklens/ read via boto3 (present in every
+    AWS Lambda runtime/base image). NEON_DATABASE_URL doubles as DATABASE_URL in cloud."""
+    try:
+        import boto3  # type: ignore[import-not-found]
+    except ImportError as exc:  # pragma: no cover
+        raise ConfigError("KICKLENS_ENV=cloud requires boto3 (bundled in AWS runtimes)") from exc
+    ssm = boto3.client("ssm")
+    out: dict[str, str] = {}
+    paginator = ssm.get_paginator("get_parameters_by_path")
+    for page in paginator.paginate(Path=prefix, WithDecryption=True):
+        for p in page["Parameters"]:
+            out[p["Name"].removeprefix(prefix)] = p["Value"]
+    if "NEON_DATABASE_URL" in out and "DATABASE_URL" not in out:
+        out["DATABASE_URL"] = out["NEON_DATABASE_URL"]
+    return out
 
 
 def load_settings(

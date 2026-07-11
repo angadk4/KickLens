@@ -1,0 +1,23 @@
+# T-221: THE production job container (one image, multi-handler — Contract §8).
+# Base: official AWS Lambda Python 3.12. libgomp is REQUIRED by lightgbm (spike T-006 finding).
+FROM public.ecr.aws/lambda/python:3.12
+
+RUN dnf install -y libgomp && dnf clean all
+
+# dependencies from the locked project (exported without dev/editable entries)
+COPY requirements-jobs.txt .
+RUN pip install --no-cache-dir -r requirements-jobs.txt
+
+# project code onto the Lambda task root
+COPY packages/common ${LAMBDA_TASK_ROOT}/common
+COPY packages/ingestion ${LAMBDA_TASK_ROOT}/ingestion
+COPY packages/features ${LAMBDA_TASK_ROOT}/features
+COPY packages/models ${LAMBDA_TASK_ROOT}/models
+COPY jobs/handlers.py ${LAMBDA_TASK_ROOT}/handlers.py
+COPY alembic.ini ${LAMBDA_TASK_ROOT}/alembic.ini
+COPY migrations ${LAMBDA_TASK_ROOT}/migrations
+
+ENV KICKLENS_ENV=cloud
+
+# default handler; each Lambda function overrides CMD (ingest/feature/inference/grade)
+CMD ["handlers.ingest"]

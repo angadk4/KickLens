@@ -20,3 +20,15 @@ build/
 .env
 .env.*
 !.env.example
+
+# Terraform — provider binaries (100s of MB) + state; init re-fetches them.
+# Keep .terraform.lock.hcl (committed on purpose: it pins provider versions/hashes).
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfvars
+crash.log
+crash.*.log
+
+# Node / frontend build (belt-and-braces alongside apps/web/.gitignore)
+node_modules/

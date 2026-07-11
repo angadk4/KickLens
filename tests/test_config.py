@@ -60,6 +60,8 @@ def test_repr_masks_secrets() -> None:
     assert "***" in shown and "env='local'" in shown
 
 
-def test_cloud_ssm_path_is_explicit_stub() -> None:
-    with pytest.raises(ConfigError, match="SSM"):
+def test_cloud_ssm_path_requires_boto3() -> None:
+    # locally boto3 is not installed; the cloud path must fail fast with a clear error
+    # (in AWS runtimes boto3 is bundled and the path reads /kicklens/* SecureStrings)
+    with pytest.raises(ConfigError, match="boto3"):
         load_settings({"KICKLENS_ENV": "cloud", "DATABASE_URL": DB_URL}, dotenv_path=None)
