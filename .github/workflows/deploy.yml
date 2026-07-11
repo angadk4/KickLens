@@ -1,0 +1,85 @@
+# T-211: build + publish + deploy on merge to main.
+# Requires repo secrets: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY.
+# Idempotent: re-running redeploys the same infra/artifacts. Terraform state is remote (S3).
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # manual "Run workflow" button
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPO: 025042200085.dkr.ecr.us-east-1.amazonaws.com/kicklens-jobs
+  SITE_BUCKET: kicklens-025042200085-site
+  CLOUDFRONT_ID: E4P6RZC8JEYJK
+  API_URL: https://8dhidvy9q5.execute-api.us-east-1.amazonaws.com
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # never deploy a red build: this waits on the CI workflow via branch protection
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Install uv + Node
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # ---- job container -> ECR ----
+      - name: Login to ECR
+        run: |
+          aws ecr get-login-password --region $AWS_REGION \
+            | docker login --username AWS --password-stdin ${ECR_REPO%/*}
+      - name: Export locked job requirements
+        run: uv export --frozen --no-dev --no-emit-project --no-hashes -o requirements-jobs.txt
+      - name: Build + push job image
+        run: |
+          docker buildx build --platform linux/amd64 --provenance=false --sbom=false \
+            -f Dockerfile.jobs -t $ECR_REPO:${{ github.sha }} -t $ECR_REPO:latest --push .
+      - name: Point job Lambdas at the new image
+        run: |
+          for fn in ingest feature inference grade; do
+            aws lambda update-function-code --function-name kicklens-$fn \
+              --image-uri $ECR_REPO:${{ github.sha }} >/dev/null
+          done
+
+      # ---- slim API zip -> Lambda ----
+      - name: Build + deploy API zip
+        run: |
+          uv run python scripts/build_api_zip.py
+          aws lambda update-function-code --function-name kicklens-api \
+            --zip-file fileb://dist/kicklens-api.zip >/dev/null
+
+      # ---- frontend -> S3 + CloudFront ----
+      - name: Build + publish dashboard
+        working-directory: apps/web
+        run: |
+          npm ci
+          VITE_API_URL=$API_URL npm run build
+      - name: Sync to S3 + invalidate
+        run: |
+          aws s3 sync apps/web/dist s3://$SITE_BUCKET --delete
+          aws cloudfront create-invalidation --distribution-id $CLOUDFRONT_ID --paths "/*"
+
+      # ---- infra drift ----
+      - uses: hashicorp/setup-terraform@v3
+      - name: Terraform apply (infra drift only)
+        run: |
+          terraform -chdir=infra/terraform init
+          terraform -chdir=infra/terraform apply -auto-approve

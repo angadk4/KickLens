@@ -1,0 +1,38 @@
+# T-231: monthly retraining -> a CHALLENGER (never auto-promoted). Frozen cadence: 1st, 10:00 UTC.
+# Produces a fresh model_version from current data; promotion stays manual behind the §10 gate
+# (Contract §6.6 rollback/promotion policy). Requires: AWS secrets + NEON_DATABASE_URL secret.
+name: Monthly training
+
+on:
+  schedule:
+    - cron: "0 10 1 * *"
+  workflow_dispatch:
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.NEON_DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - run: uv sync --frozen
+
+      # ingest the latest results into the training DB first (idempotent)
+      - name: Refresh data + features
+        run: |
+          uv run python -m ingestion.load
+          uv run python -m features.builder
+
+      # challenger: train the frozen recipe on all data-to-date; do NOT promote
+      - name: Train challenger (no promote)
+        run: uv run python -m models.train_production --allow-before-final-test
+
+      - name: Upload challenger artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: challenger-${{ github.run_id }}
+          path: data/artifacts/
+          if-no-files-found: warn
