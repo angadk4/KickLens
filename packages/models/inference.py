@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 import psycopg
+from common.config import load_settings
 from common.db import advisory_lock, claim_job, finish_job
 from common.hashing import ForecastFields
 from features.engine import CUTOFF_BEFORE_KICKOFF, MatchInput, build_features_for_upcoming
@@ -218,6 +219,25 @@ def finalize_fixture(conn: psycopg.Connection, match_id: int, now: datetime) -> 
             fields_for_hash=fields,
             now=now,
         )
+        # T-261: publish the anchor to the public repo BEFORE kickoff. A push failure never
+        # blocks the forecast (frozen fail-stop): it is retried, then logged as an event.
+        from common.anchor import AnchorPushError, publish_anchor
+
+        from models.ledger import append_event
+
+        settings = load_settings(dotenv_path=None)
+        try:
+            pushed = publish_anchor(
+                fields,
+                token=settings.github_anchor_token,
+                repo=settings.github_anchor_repo,
+                anchored_at=now,
+            )
+            if pushed:
+                append_event(conn, match_id, "AnchorPublished", prediction_id)
+        except AnchorPushError as exc:
+            print(f"ANCHOR-PUSH-FAILED match={match_id}: {exc}")
+            append_event(conn, match_id, "AnchorPushFailed", prediction_id, details=None)
         finish_job(conn, job_id)
         return prediction_id
 

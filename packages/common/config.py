@@ -24,7 +24,14 @@ from dotenv import dotenv_values
 __all__ = ["ConfigError", "Settings", "load_settings"]
 
 _REQUIRED = ("DATABASE_URL",)
-_OPTIONAL = ("API_FOOTBALL_KEY", "HIGHLIGHTLY_KEY", "SPORTSGAMEODDS_KEY", "NEON_DATABASE_URL")
+_OPTIONAL = (
+    "API_FOOTBALL_KEY",
+    "HIGHLIGHTLY_KEY",
+    "SPORTSGAMEODDS_KEY",
+    "NEON_DATABASE_URL",
+    "GITHUB_ANCHOR_TOKEN",
+    "GITHUB_ANCHOR_REPO",
+)
 _NON_SECRET_FIELDS = frozenset({"env"})
 
 
@@ -42,6 +49,8 @@ class Settings:
     highlightly_key: str | None
     sportsgameodds_key: str | None
     neon_database_url: str | None
+    github_anchor_token: str | None
+    github_anchor_repo: str | None
 
     def __repr__(self) -> str:  # never leak secret values
         parts = []
@@ -106,4 +115,6 @@ def load_settings(
         highlightly_key=opt("HIGHLIGHTLY_KEY"),
         sportsgameodds_key=opt("SPORTSGAMEODDS_KEY"),
         neon_database_url=opt("NEON_DATABASE_URL"),
+        github_anchor_token=opt("GITHUB_ANCHOR_TOKEN"),
+        github_anchor_repo=opt("GITHUB_ANCHOR_REPO"),
     )
