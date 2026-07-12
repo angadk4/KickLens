@@ -25,6 +25,7 @@ dev = [
     "scipy-stubs>=1.18.0.0",
     "httpx>=0.28.1",
     "uvicorn>=0.50.2",
+    "boto3>=1.43.46",
 ]
 
 [build-system]

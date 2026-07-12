@@ -2,8 +2,14 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:
+      # Sealed/append-only integrity records must be committed byte-for-byte exactly as their
+      # producer wrote them — never reformatted. The touch-once test output (immutable), the
+      # append-only experiment-run trail, and the public forecast-hash anchors are all excluded
+      # from whitespace normalization.
       - id: trailing-whitespace
+        exclude: ^(experiments/|anchors/)
       - id: end-of-file-fixer
+        exclude: ^(experiments/|anchors/)
       - id: check-yaml
       - id: check-added-large-files
         args: ["--maxkb=1024"]

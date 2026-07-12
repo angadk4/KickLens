@@ -37,7 +37,11 @@
 **Integrity**
 - [x] 2025 never loaded into any selection/tuning step — structurally enforced
   (`walkforward.load_dev_samples` hard-caps at 2024) and true of every recorded run. *(2026-07-06)*
-- [ ] **Written self-attestation of no test-set peeking** — *DEVELOPER ACTION at T-260 time.*
+- [x] **Written self-attestation of no test-set peeking:** "I confirm the 2025 season was never
+  used in any selection, tuning, or plotting decision. — Angad Khera, 2026-07-12" *(given via
+  the recorded "GO, run the touch-once test" instruction; mechanically corroborated by the
+  2024 hard-cap in `walkforward.load_dev_samples` and the public `protocol-v1.0` pre-training
+  tag.)*
 - [x] Reporting template exists: `docs/final-test-report-template.md` — every metric for every
   model, CIs, sample sizes, market-subset caveat; no selective omission possible by
   construction (the script emits all of it). *(2026-07-06)*

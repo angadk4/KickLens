@@ -18,11 +18,20 @@ import psycopg
 DEFAULT_ARTIFACT_ROOT = Path("data/artifacts")
 
 
-def _store(obj: Any, root: Path, kind: str) -> tuple[str, str]:
-    """Pickle obj content-addressed; returns (uri, sha256)."""
+def _store(obj: Any, root: Path | str, kind: str) -> tuple[str, str]:
+    """Pickle obj content-addressed; returns (uri, sha256). Root may be a local dir or an
+    s3://bucket[/prefix] URI (production: Contract §8 = S3 artifacts + Postgres metadata)."""
     blob = pickle.dumps(obj)
     sha = hashlib.sha256(blob).hexdigest()
-    path = root / kind / f"{sha[:16]}.pkl"
+    if isinstance(root, str) and root.startswith("s3://"):
+        import boto3  # type: ignore[import-untyped]  # lazy: cloud/dev-with-creds only
+
+        bucket_and_prefix = root.removeprefix("s3://").rstrip("/")
+        bucket, _, prefix = bucket_and_prefix.partition("/")
+        key = f"{prefix + '/' if prefix else ''}{kind}/{sha[:16]}.pkl"
+        boto3.client("s3").put_object(Bucket=bucket, Key=key, Body=blob)
+        return f"s3://{bucket}/{key}", sha
+    path = Path(root) / kind / f"{sha[:16]}.pkl"
     path.parent.mkdir(parents=True, exist_ok=True)
     if not path.exists():
         path.write_bytes(blob)
@@ -30,6 +39,12 @@ def _store(obj: Any, root: Path, kind: str) -> tuple[str, str]:
 
 
 def load_artifact(uri: str) -> Any:
+    if uri.startswith("s3://"):
+        import boto3
+
+        bucket, _, key = uri.removeprefix("s3://").partition("/")
+        body = boto3.client("s3").get_object(Bucket=bucket, Key=key)["Body"].read()
+        return pickle.loads(body)
     path = Path(uri.removeprefix("file:///").removeprefix("file://"))
     return pickle.loads(path.read_bytes())
 
@@ -58,7 +73,7 @@ def save_model_artifact(
     training_run_id: int,
     model: Any,
     *,
-    root: Path = DEFAULT_ARTIFACT_ROOT,
+    root: Path | str = DEFAULT_ARTIFACT_ROOT,
 ) -> int:
     uri, sha = _store(model, root, "model")
     row = conn.execute(
@@ -77,7 +92,7 @@ def save_calibration_artifact(
     *,
     method: str = "temperature",
     param_t: float | None = None,
-    root: Path = DEFAULT_ARTIFACT_ROOT,
+    root: Path | str = DEFAULT_ARTIFACT_ROOT,
 ) -> int:
     uri, _sha = _store(calibrator, root, "calibration")
     row = conn.execute(

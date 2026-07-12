@@ -105,7 +105,7 @@ def train_production(
     *,
     promote_it: bool = False,
     require_final_test: bool = True,
-    artifact_root: Path = DEFAULT_ARTIFACT_ROOT,
+    artifact_root: Path | str = DEFAULT_ARTIFACT_ROOT,
 ) -> TrainResult:
     if require_final_test and not FINAL_TEST_OUTPUT.exists():
         raise TrainingOrderError(
@@ -164,6 +164,11 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--promote", action="store_true", help="set this model_version as production")
     ap.add_argument(
+        "--artifact-root",
+        default=str(DEFAULT_ARTIFACT_ROOT),
+        help="local dir or s3://bucket[/prefix] (production)",
+    )
+    ap.add_argument(
         "--allow-before-final-test",
         action="store_true",
         help="monthly-challenger use ONLY; the launch bootstrap must NOT set this",
@@ -171,7 +176,10 @@ def main() -> int:
     args = ap.parse_args()
     with psycopg.connect(load_settings().database_url) as conn:
         result = train_production(
-            conn, promote_it=args.promote, require_final_test=not args.allow_before_final_test
+            conn,
+            promote_it=args.promote,
+            require_final_test=not args.allow_before_final_test,
+            artifact_root=args.artifact_root,
         )
         conn.commit()
     print(

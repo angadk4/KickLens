@@ -1,0 +1,139 @@
+{
+  "comparisons": {
+    "champion_minus_b3": {
+      "ci95": [
+        -0.004312,
+        0.005518
+      ],
+      "mean": 0.000362
+    },
+    "champion_minus_market": {
+      "ci95": [
+        0.009659,
+        0.028408
+      ],
+      "mean": 0.019001
+    }
+  },
+  "models": {
+    "B0": {
+      "accuracy": 0.437255,
+      "brier": 0.656562,
+      "classwise_ece_A": 0.063629,
+      "classwise_ece_D": 0.001768,
+      "classwise_ece_H": 0.061861,
+      "ece": 0.061861,
+      "log_loss": 1.082712,
+      "log_loss_ci95": [
+        1.068782,
+        1.09608
+      ],
+      "n": 510.0,
+      "rps": 0.234264
+    },
+    "B1": {
+      "accuracy": 0.437255,
+      "brier": 0.654389,
+      "classwise_ece_A": 0.052441,
+      "classwise_ece_D": 0.001768,
+      "classwise_ece_H": 0.054209,
+      "ece": 0.054209,
+      "log_loss": 1.080231,
+      "log_loss_ci95": [
+        1.054231,
+        1.104302
+      ],
+      "n": 510.0,
+      "rps": 0.233177
+    },
+    "B2": {
+      "accuracy": 0.437255,
+      "brier": 0.654407,
+      "classwise_ece_A": 0.052341,
+      "classwise_ece_D": 0.001751,
+      "classwise_ece_H": 0.054092,
+      "ece": 0.054092,
+      "log_loss": 1.080269,
+      "log_loss_ci95": [
+        1.054333,
+        1.10425
+      ],
+      "n": 510.0,
+      "rps": 0.233181
+    },
+    "B3-fallback": {
+      "accuracy": 0.462745,
+      "brier": 0.631745,
+      "classwise_ece_A": 0.052157,
+      "classwise_ece_D": 0.003622,
+      "classwise_ece_H": 0.054063,
+      "ece": 0.035789,
+      "log_loss": 1.050379,
+      "log_loss_ci95": [
+        1.016327,
+        1.081599
+      ],
+      "n": 510.0,
+      "rps": 0.222452
+    },
+    "B4": {
+      "accuracy": 0.468627,
+      "brier": 0.649533,
+      "classwise_ece_A": 0.04831,
+      "classwise_ece_D": 0.02006,
+      "classwise_ece_H": 0.062293,
+      "ece": 0.057671,
+      "log_loss": 1.07446,
+      "log_loss_ci95": [
+        1.038755,
+        1.107403
+      ],
+      "n": 510.0,
+      "rps": 0.23016
+    },
+    "B5": {
+      "accuracy": 0.5,
+      "brier": 0.639713,
+      "classwise_ece_A": 0.057928,
+      "classwise_ece_D": 0.025506,
+      "classwise_ece_H": 0.064142,
+      "ece": 0.068286,
+      "log_loss": 1.23423,
+      "log_loss_ci95": [
+        1.113322,
+        1.362234
+      ],
+      "n": 510.0,
+      "rps": 0.225137
+    },
+    "logistic-F1-C0.1+temperature": {
+      "accuracy": 0.458824,
+      "brier": 0.631751,
+      "classwise_ece_A": 0.04191,
+      "classwise_ece_D": 0.012402,
+      "classwise_ece_H": 0.044736,
+      "ece": 0.027242,
+      "log_loss": 1.050741,
+      "log_loss_ci95": [
+        1.021308,
+        1.077798
+      ],
+      "n": 510.0,
+      "rps": 0.221988
+    },
+    "market-closing": {
+      "accuracy": 0.492157,
+      "brier": 0.619471,
+      "ece": 0.012823,
+      "log_loss": 1.03174,
+      "n": 510.0,
+      "rps": 0.216132
+    }
+  },
+  "n_blocks": 33,
+  "n_matches": 510,
+  "note": "one-shot touch-once result; protocol v1.0 is now frozen (Protocol \u00a713)",
+  "protocol_version": "1.0",
+  "season": 2025,
+  "seed": 42
+}

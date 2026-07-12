@@ -60,8 +60,33 @@ def test_repr_masks_secrets() -> None:
     assert "***" in shown and "env='local'" in shown
 
 
-def test_cloud_ssm_path_requires_boto3() -> None:
-    # locally boto3 is not installed; the cloud path must fail fast with a clear error
-    # (in AWS runtimes boto3 is bundled and the path reads /kicklens/* SecureStrings)
-    with pytest.raises(ConfigError, match="boto3"):
-        load_settings({"KICKLENS_ENV": "cloud", "DATABASE_URL": DB_URL}, dotenv_path=None)
+def test_cloud_ssm_path_reads_parameters_and_aliases_database_url(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The cloud path pulls /kicklens/* and NEON_DATABASE_URL doubles as DATABASE_URL
+    (faked boto3 -> deterministic everywhere, no AWS credentials involved)."""
+    import sys
+    import types
+
+    class FakePaginator:
+        def paginate(self, **kw: object) -> list[dict[str, list[dict[str, str]]]]:
+            return [
+                {
+                    "Parameters": [
+                        {"Name": "/kicklens/NEON_DATABASE_URL", "Value": "postgresql://ssm"},
+                        {"Name": "/kicklens/HIGHLIGHTLY_KEY", "Value": "hl-from-ssm"},
+                    ]
+                }
+            ]
+
+    class FakeClient:
+        def get_paginator(self, name: str) -> FakePaginator:
+            return FakePaginator()
+
+    fake = types.ModuleType("boto3")
+    fake.client = lambda service: FakeClient()  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "boto3", fake)
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    s = load_settings({"KICKLENS_ENV": "cloud"}, dotenv_path=None)
+    assert s.database_url == "postgresql://ssm"  # aliased from NEON_DATABASE_URL
+    assert s.highlightly_key == "hl-from-ssm"

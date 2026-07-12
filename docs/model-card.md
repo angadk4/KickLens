@@ -40,11 +40,19 @@ as of the T-3h cutoff (fs-v1; leakage suite R1–R8 enforced in CI). See `docs/d
    F0–F4 ablation); a LightGBM challenger was decisively worse (+0.039 nats). Simple won on
    the evidence, not on aesthetics.
 
-## Test evidence (2025 season)
+## Test evidence (2025 season — one-shot, run 2026-07-12)
 
-**Pending — sealed.** The 2025 season is a touch-once test set that has never been used for
-any decision. It will be evaluated exactly once (`run_final_test.py`, triple-gated) and the
-result published whatever it says, per `docs/final-test-report-template.md`.
+| Metric | Value [95% CI] |
+|---|---|
+| Log loss | **1.0507** [1.021, 1.078] (n=510) |
+| ECE | **0.0272** — best of all 8 evaluated models |
+| vs Elo fallback | +0.0004 [-0.004, +0.006] — **equivalence replicated** |
+| vs market | +0.0190 [+0.010, +0.028] behind — **dev gap replicated** |
+
+Absolute levels ran higher than dev for EVERY model including the market itself (2025 had the
+era's weakest home advantage — 43.7% home wins); every pre-registered relative comparison
+replicated exactly. Full report: `docs/final-test-report-2025.md`. Protocol v1.0 is now frozen;
+the 2025 season is spent and can never be reused.
 
 ## Live record
 
