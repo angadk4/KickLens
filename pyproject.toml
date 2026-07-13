@@ -66,6 +66,16 @@ files = ["packages", "tests", "apps", "jobs"]
 warn_unreachable = true
 pretty = true
 
+# boto3/botocore ship no type stubs or py.typed marker and are used only lazily on the cloud
+# path (SSM reads, S3 artifacts). Ignore their missing imports centrally so the result is
+# STABLE regardless of whether boto3 is installed in a given env: CI installs it (frozen
+# lockfile) so mypy emits `import-untyped`, an env without it emits `import-not-found`. A
+# per-line `# type: ignore[<code>]` pins one code and goes stale under the other — which broke
+# CI silently (a local mypy cache masked it). The override covers every import site at once.
+[[tool.mypy.overrides]]
+module = ["boto3", "boto3.*", "botocore", "botocore.*"]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"

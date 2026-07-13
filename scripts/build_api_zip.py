@@ -8,6 +8,7 @@ Run: uv run python scripts/build_api_zip.py
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import sys
@@ -21,6 +22,29 @@ RUNTIME_DEPS = ["fastapi", "mangum", "psycopg[binary]", "python-dotenv"]
 EXCLUDE_DIRS = {"__pycache__", "tests", ".dist-info"}
 
 
+def _uv_command() -> list[str]:
+    """Locate uv from inside this subprocess, cross-platform. The old hardcoded
+    `py -3.12 -m uv` is Windows-only and broke every CI deploy (Ubuntu has no `py`).
+    Try, in order: $UV (uv exports its own binary path inside `uv run` — set in BOTH CI and
+    the local `uv run` invocation), uv on PATH (CI's setup-uv), `python -m uv` (uv in this
+    venv), and the `py` launcher (local Windows). Return the first that actually responds."""
+    candidates: list[list[str]] = []
+    if env_uv := os.environ.get("UV"):
+        candidates.append([env_uv])
+    if on_path := shutil.which("uv"):
+        candidates.append([on_path])
+    candidates.append([sys.executable, "-m", "uv"])
+    if sys.platform == "win32":
+        candidates.append(["py", "-3.12", "-m", "uv"])
+    for cmd in candidates:
+        try:
+            subprocess.run([*cmd, "--version"], check=True, capture_output=True)
+            return cmd
+        except (OSError, subprocess.CalledProcessError):
+            continue
+    raise RuntimeError("could not locate the uv executable (tried $UV, PATH, -m uv, py launcher)")
+
+
 def main() -> int:
     if BUILD.exists():
         shutil.rmtree(BUILD)
@@ -28,10 +52,7 @@ def main() -> int:
 
     subprocess.run(
         [
-            "py",
-            "-3.12",
-            "-m",
-            "uv",
+            *_uv_command(),
             "pip",
             "install",
             "--quiet",

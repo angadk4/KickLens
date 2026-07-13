@@ -24,7 +24,7 @@ def _store(obj: Any, root: Path | str, kind: str) -> tuple[str, str]:
     blob = pickle.dumps(obj)
     sha = hashlib.sha256(blob).hexdigest()
     if isinstance(root, str) and root.startswith("s3://"):
-        import boto3  # type: ignore[import-untyped]  # lazy: cloud/dev-with-creds only
+        import boto3  # lazy: cloud/dev-with-creds only (mypy: see [tool.mypy.overrides])
 
         bucket_and_prefix = root.removeprefix("s3://").rstrip("/")
         bucket, _, prefix = bucket_and_prefix.partition("/")

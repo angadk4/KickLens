@@ -27,6 +27,9 @@ build/
 *.tfstate
 *.tfstate.*
 *.tfvars
+# saved plan files (`terraform plan -out=…`) — binary, transient, may embed values
+*.tfplan
+tfplan*
 crash.log
 crash.*.log
 

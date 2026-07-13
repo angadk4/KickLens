@@ -69,7 +69,7 @@ def _from_ssm(prefix: str) -> Mapping[str, str]:
     """Cloud source (T-221): SecureStrings under /kicklens/ read via boto3 (present in every
     AWS Lambda runtime/base image). NEON_DATABASE_URL doubles as DATABASE_URL in cloud."""
     try:
-        import boto3  # type: ignore[import-not-found]
+        import boto3  # missing-imports handled centrally in [tool.mypy.overrides]
     except ImportError as exc:  # pragma: no cover
         raise ConfigError("KICKLENS_ENV=cloud requires boto3 (bundled in AWS runtimes)") from exc
     ssm = boto3.client("ssm")
