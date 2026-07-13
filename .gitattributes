@@ -1,0 +1,11 @@
+# uv.lock is SHA-256'd byte-for-byte as a T-120 reproducible-lineage field (runlog.lockfile_hash).
+# With core.autocrlf=true a fresh Windows clone would check it out as CRLF while Linux (CI/Lambda)
+# gets LF, stamping different lineage hashes for byte-identical dependencies. Pin it to LF on every
+# platform. (runlog.lockfile_hash also normalizes CRLF->LF in code as the primary guarantee — this
+# is defense-in-depth so a fresh checkout is LF at the source.)
+#
+# NOTE: intentionally NOT adding `* text=auto` or any rule over experiments/** or anchors/**. Those
+# sealed, tamper-evident artifacts are committed as LF but sit in the working tree as CRLF here;
+# autocrlf currently re-normalizes them to LF on commit, preserving the seal. A `-text`/`text` rule
+# would surface that CRLF working copy and risk committing it, breaking the seal. Leave them alone.
+uv.lock text eol=lf

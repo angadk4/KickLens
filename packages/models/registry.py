@@ -9,9 +9,11 @@ from __future__ import annotations
 
 import hashlib
 import pickle
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import unquote, urlparse
 
 import psycopg
 
@@ -38,6 +40,22 @@ def _store(obj: Any, root: Path | str, kind: str) -> tuple[str, str]:
     return path.resolve().as_uri(), sha
 
 
+def _uri_to_path(uri: str) -> Path:
+    """Convert a file:// URI (from Path.as_uri()) back to a local path, cross-platform.
+
+    The old `removeprefix("file:///")` dropped the POSIX root slash — `file:///tmp/x` became
+    the RELATIVE `tmp/x`, so artifacts loaded on Linux (CI, Lambda) 404'd; it only worked on
+    Windows because the drive letter (`file:///C:/x` -> `C:/x`) kept the path absolute. This
+    is deterministic (no platform-dependent url2pathname): keep the POSIX leading slash, strip
+    only the spurious slash that precedes a Windows drive letter (`/C:/x` -> `C:/x`)."""
+    if not uri.startswith("file:"):
+        return Path(uri)  # already a bare filesystem path (defensive)
+    raw = unquote(urlparse(uri).path)  # as_uri() percent-encodes spaces etc.
+    if re.match(r"^/[A-Za-z]:", raw):  # Windows drive path "/C:/..." -> "C:/..."
+        raw = raw[1:]
+    return Path(raw)
+
+
 def load_artifact(uri: str) -> Any:
     if uri.startswith("s3://"):
         import boto3
@@ -45,8 +63,7 @@ def load_artifact(uri: str) -> Any:
         bucket, _, key = uri.removeprefix("s3://").partition("/")
         body = boto3.client("s3").get_object(Bucket=bucket, Key=key)["Body"].read()
         return pickle.loads(body)
-    path = Path(uri.removeprefix("file:///").removeprefix("file://"))
-    return pickle.loads(path.read_bytes())
+    return pickle.loads(_uri_to_path(uri).read_bytes())
 
 
 def create_training_run(

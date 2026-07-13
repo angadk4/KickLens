@@ -41,7 +41,12 @@ def lockfile_hash() -> str:
     lock = Path("uv.lock")
     if not lock.is_file():
         return "unknown"
-    return hashlib.sha256(lock.read_bytes()).hexdigest()[:16]
+    # Normalize CRLF->LF before hashing so this T-120 reproducible-lineage field is identical
+    # across platforms. With core.autocrlf=true a fresh Windows clone materializes uv.lock as
+    # CRLF while Linux (CI/Lambda) gets LF — byte-identical deps would otherwise stamp
+    # different lockfile hashes. No-op on LF (the committed form + every Linux checkout), so it
+    # does not change existing/production lineage; it only collapses the Windows-CRLF case.
+    return hashlib.sha256(lock.read_bytes().replace(b"\r\n", b"\n")).hexdigest()[:16]
 
 
 def dataset_version(conn: psycopg.Connection) -> str:
