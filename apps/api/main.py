@@ -40,8 +40,12 @@ Conn = Annotated[psycopg.Connection, Depends(db)]
 @app.get("/health")
 def health(conn: Conn) -> dict[str, Any]:
     row = conn.execute(
+        # an UNCHANGED ingest sweep is still a successful poll: count the completed ingest
+        # job_run, not only stored revisions (launch-review follow-up — quiet weeks are fresh)
         "SELECT greatest((SELECT max(fetched_at_utc) FROM source_fixture),"
-        " (SELECT max(created_at_utc) FROM dataset_snapshot)),"
+        " (SELECT max(created_at_utc) FROM dataset_snapshot),"
+        " (SELECT max(finished_at_utc) FROM job_run"
+        "   WHERE job_name = 'ingest' AND status = 'done')),"
         " (SELECT max(graded_at_utc) FROM prediction_grade)"
     ).fetchone()
     last_ingest = row[0] if row else None

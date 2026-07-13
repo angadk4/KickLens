@@ -1,0 +1,1 @@
+{"statusCode": 200, "health": {"status": "ok", "last_ingest": "2026-07-13T02:13:48+00:00", "last_grade": null, "freshness_ok": true}, "overdue_results": 0, "missed_forecasts": 0, "unpublished_anchors": 0}

@@ -56,8 +56,11 @@ def grade_match(conn: psycopg.Connection, match_id: int) -> int | None:
         > 0
     )
     grade_row = conn.execute(
+        # ON CONFLICT DO NOTHING: a double-fired grade schedule racing past the existence
+        # check must no-op, not crash (launch-review fix)
         "INSERT INTO prediction_grade (prediction_id, result_version, log_loss, rps, brier,"
-        " correct, graded_at_utc) VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING prediction_grade_id",
+        " correct, graded_at_utc) VALUES (%s,%s,%s,%s,%s,%s,%s)"
+        " ON CONFLICT (prediction_id, result_version) DO NOTHING RETURNING prediction_grade_id",
         (
             prediction_id,
             result_version,
@@ -68,7 +71,8 @@ def grade_match(conn: psycopg.Connection, match_id: int) -> int | None:
             datetime.now(UTC),
         ),
     ).fetchone()
-    assert grade_row is not None
+    if grade_row is None:
+        return None  # concurrent grader won the race — already graded
     append_event(conn, match_id, "Regraded" if is_regrade else "Graded", prediction_id)
     return int(grade_row[0])
 

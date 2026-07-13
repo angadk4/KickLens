@@ -85,7 +85,8 @@ def test_retries_then_raises_anchor_push_error() -> None:
         publish_anchor(
             FIELDS, token="t", repo="o/r", anchored_at=AT, transport=gh, sleep=delays.append
         )
-    assert delays == [5.0, 25.0, 125.0]  # frozen ladder
+    # launch-review fix: ladder shortened to fit the 120s inference Lambda timeout
+    assert delays == [2.0, 5.0]
 
 
 def test_transient_failure_recovers() -> None:

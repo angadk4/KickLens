@@ -16,7 +16,7 @@ from datetime import datetime, timedelta
 
 import psycopg
 from common.config import load_settings
-from common.db import advisory_lock, claim_job, finish_job
+from common.db import claim_job, finish_job
 from common.hashing import ForecastFields
 from features.engine import CUTOFF_BEFORE_KICKOFF, MatchInput, build_features_for_upcoming
 
@@ -100,10 +100,15 @@ def _completed_history(conn: psycopg.Connection) -> list[MatchInput]:
 
 
 def data_freshness(conn: psycopg.Connection) -> datetime | None:
-    """Time of the last successful results ingest (live: source_fixture; else snapshot)."""
+    """Time of the last successful results ingest. An UNCHANGED sweep is still a successful
+    poll (launch-review follow-up): it writes no source_fixture revision, so the completed
+    ingest job_run must count too — otherwise a quiet fixture week reads as 'stale' and
+    mis-flags officials / trips the canary falsely."""
     row = conn.execute(
         "SELECT greatest((SELECT max(fetched_at_utc) FROM source_fixture),"
-        " (SELECT max(created_at_utc) FROM dataset_snapshot))"
+        " (SELECT max(created_at_utc) FROM dataset_snapshot),"
+        " (SELECT max(finished_at_utc) FROM job_run"
+        "   WHERE job_name = 'ingest' AND status = 'done'))"
     ).fetchone()
     return None if row is None else row[0]
 
@@ -116,12 +121,30 @@ def finalize_fixture(conn: psycopg.Connection, match_id: int, now: datetime) -> 
     if not (cutoff <= now < fx.kickoff_utc) or latest_official(conn, match_id) is not None:
         return None
 
+    # Point-in-time guard (launch-review fix): if a match that KICKED OFF before this
+    # cutoff is still unresolved, defer to the next hourly run so live features match a
+    # later retrospective recompute exactly (R1 parity). Bounded: blockers resolve in ~2h.
+    blocker = conn.execute(
+        "SELECT 1 FROM match WHERE is_regular_season AND result IS NULL"
+        "   AND kickoff_utc < %s AND kickoff_utc > %s - interval '6 hours'"
+        "   AND status NOT IN ('postponed', 'cancelled', 'abandoned') LIMIT 1",
+        (cutoff, cutoff),
+    ).fetchone()
+    if blocker is not None and now < fx.kickoff_utc - timedelta(minutes=45):
+        return None  # wait for the in-play match; force through close to kickoff
+
     key = f"finalize:{match_id}:rev{fx.fixture_revision}:{cutoff.isoformat()}"
     job_id = claim_job(conn, "finalize", key)
     if job_id is None:
-        return None  # idempotency: someone already did/is doing this cutoff+revision
+        return None  # done, or another worker holds a live lease (claim_job leases expire)
 
-    with advisory_lock(conn, f"inference:league:{fx.league_id}", wait=True):
+    try:
+        # re-check under the claim: an overlapping run for an older revision may have
+        # finalized while we queued (launch-review fix; advisory locks are void over
+        # PgBouncer transaction pooling, so the leased claim row IS the mutex)
+        if latest_official(conn, match_id) is not None:
+            finish_job(conn, job_id, status="done")
+            return None
         prod = get_production_version(conn, fx.league_id)
         if prod is None:
             finish_job(conn, job_id, status="no-production-model")
@@ -175,8 +198,9 @@ def finalize_fixture(conn: psycopg.Connection, match_id: int, now: datetime) -> 
         )  # outcome/goals unused by predict()
         probs = calibrator.apply(model.predict(sample))
 
-        freshness = data_freshness(conn) or now
-        stale = (now - freshness) > FRESHNESS_LIMIT
+        freshness_raw = data_freshness(conn)
+        stale = freshness_raw is None or (now - freshness_raw) > FRESHNESS_LIMIT
+        freshness = freshness_raw or now
         run_id = record_prediction_run(
             conn,
             Lineage(
@@ -240,6 +264,14 @@ def finalize_fixture(conn: psycopg.Connection, match_id: int, now: datetime) -> 
             append_event(conn, match_id, "AnchorPushFailed", prediction_id, details=None)
         finish_job(conn, job_id)
         return prediction_id
+    except BaseException:
+        # release the lease as failed so the NEXT run can retry this cutoff
+        # (launch-review fix: a crash must never permanently consume the idempotency key)
+        try:
+            finish_job(conn, job_id, status="failed")
+        except Exception as cleanup_exc:
+            print(f"finalize cleanup failed match={match_id}: {cleanup_exc}")
+        raise
 
 
 def generate_draft(conn: psycopg.Connection, match_id: int, now: datetime) -> bool:
@@ -287,3 +319,62 @@ def generate_draft(conn: psycopg.Connection, match_id: int, now: datetime) -> bo
         (match_id, model_version_id, p[0], p[1], p[2], now),
     )
     return True
+
+
+def retry_failed_anchors(conn: psycopg.Connection, *, limit: int = 5) -> int:
+    """Catch-up publisher (launch-review fix): re-push any official forecast whose latest
+    anchor event is AnchorPushFailed. Reconstructs the exact ForecastFields from the DB,
+    verifies the recomputed hash matches the stored write-once hash (tamper self-check),
+    then publishes. Runs at the top of every inference invocation — eventual publication."""
+    from common.anchor import AnchorPushError, publish_anchor
+    from common.hashing import forecast_hash
+
+    from models.ledger import append_event
+
+    settings = load_settings(dotenv_path=None)
+    if not (settings.github_anchor_token and settings.github_anchor_repo):
+        return 0
+    rows = conn.execute(
+        "SELECT p.prediction_id, p.match_id, p.fixture_revision, r.model_version_id,"
+        " p.p_home, p.p_draw, p.p_away, p.cutoff_utc, p.forecast_creation_utc,"
+        " r.data_freshness_time_utc, r.feature_set_version, p.forecast_hash"
+        " FROM prediction p JOIN prediction_run r USING (prediction_run_id)"
+        " WHERE p.is_official AND ("
+        "   SELECT e.event_type FROM prediction_event e"
+        "   WHERE e.prediction_id = p.prediction_id"
+        "     AND e.event_type IN ('AnchorPublished', 'AnchorPushFailed')"
+        "   ORDER BY e.prediction_event_id DESC LIMIT 1) = 'AnchorPushFailed'"
+        " ORDER BY p.prediction_id LIMIT %s",
+        (limit,),
+    ).fetchall()
+    pushed = 0
+    for row in rows:
+        fields = ForecastFields(
+            match_id=int(row[1]),
+            fixture_revision=int(row[2]),
+            model_version_id=int(row[3]),
+            calibration_artifact_id=None,
+            feature_set_version=str(row[10]),
+            p_home=float(row[4]),
+            p_draw=float(row[5]),
+            p_away=float(row[6]),
+            cutoff_utc=row[7].isoformat(),
+            forecast_creation_utc=row[8].isoformat(),
+            data_freshness_time=row[9].isoformat(),
+        )
+        if forecast_hash(fields) != str(row[11]):
+            print(f"ANCHOR-RETRY-HASH-MISMATCH prediction={row[0]} — investigate immediately")
+            continue
+        try:
+            if publish_anchor(
+                fields,
+                token=settings.github_anchor_token,
+                repo=settings.github_anchor_repo,
+                anchored_at=row[8],
+            ):
+                append_event(conn, int(row[1]), "AnchorPublished", int(row[0]))
+                pushed += 1
+        except AnchorPushError as exc:
+            print(f"ANCHOR-RETRY-FAILED prediction={row[0]}: {exc}")
+            append_event(conn, int(row[1]), "AnchorPushFailed", int(row[0]))
+    return pushed

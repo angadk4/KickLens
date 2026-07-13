@@ -21,6 +21,14 @@ RUNS_PATH = Path("experiments/runs.jsonl")
 
 
 def code_commit() -> str:
+    """The running code's git SHA. In Lambda there is no git binary or .git dir, so the
+    image bakes the SHA in at build time via KICKLENS_GIT_SHA (launch-review fix — lineage
+    must never silently degrade to 'unknown' in production, T-120)."""
+    import os
+
+    env_sha = os.environ.get("KICKLENS_GIT_SHA")
+    if env_sha:
+        return env_sha
     try:
         return subprocess.run(
             ["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True

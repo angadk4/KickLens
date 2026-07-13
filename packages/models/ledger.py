@@ -124,9 +124,15 @@ def write_official_forecast(
     ).fetchone()
     assert row is not None
     prediction_id = int(row[0])
-    append_anchor(fields_for_hash, now=creation)
+    # events FIRST — the audit trail must exist even if the local file write fails
     append_event(conn, match_id, "OfficialFinalized", prediction_id)
     append_event(conn, match_id, "OfficialFrozen", prediction_id)
+    # local anchor file is best-effort (Lambda: /tmp via KICKLENS_ANCHOR_DIR; launch-review
+    # fix — the authoritative public anchor is the GitHub push done by the caller)
+    try:
+        append_anchor(fields_for_hash, now=creation)
+    except OSError as exc:
+        print(f"local-anchor-write-skipped match={match_id}: {exc}")
     return prediction_id, h
 
 

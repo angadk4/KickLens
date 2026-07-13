@@ -12,6 +12,8 @@ locals {
     feature   = { cmd = "handlers.feature", timeout = 300, memory = 1024 }
     inference = { cmd = "handlers.inference", timeout = 120, memory = 1024 }
     grade     = { cmd = "handlers.grade", timeout = 300, memory = 512 }
+    odds      = { cmd = "handlers.odds", timeout = 120, memory = 512 }
+    canary    = { cmd = "handlers.canary", timeout = 120, memory = 256 }
   }
 }
 
@@ -32,6 +34,11 @@ resource "aws_lambda_function" "jobs" {
   environment {
     variables = {
       KICKLENS_ENV = "cloud"
+      # used by the canary; harmless for the other jobs
+      KICKLENS_API_URL = aws_apigatewayv2_api.api.api_endpoint
+      # /var/task is read-only in Lambda; local anchor writes go to /tmp (best-effort —
+      # the authoritative anchor is the GitHub push)
+      KICKLENS_ANCHOR_DIR = "/tmp/anchors"
     }
   }
 

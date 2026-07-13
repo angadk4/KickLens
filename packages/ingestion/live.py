@@ -246,8 +246,10 @@ def _find_or_create_match(
     home = resolve_or_raise(teams, fx.provider, fx.home_key)
     away = resolve_or_raise(teams, fx.provider, fx.away_key)
     row = conn.execute(
+        # ±30h (launch-review fix: ±3 days can merge a weather make-up scheduled adjacent
+        # to an existing meeting of the same pair)
         "SELECT match_id FROM match WHERE season_id=%s AND home_team_id=%s AND away_team_id=%s"
-        " AND kickoff_utc BETWEEN %s - interval '3 days' AND %s + interval '3 days'",
+        " AND kickoff_utc BETWEEN %s - interval '30 hours' AND %s + interval '30 hours'",
         (season_id, home, away, fx.kickoff_utc, fx.kickoff_utc),
     ).fetchone()
     if row is not None:
@@ -274,7 +276,7 @@ def ingest_live_fixtures(
     """Upsert canonical rows: unchanged payload → no-op; changed → revision N+1 (same match).
     Finished fixtures set the match result (live provider wins for the current season)."""
     now = now or datetime.now(UTC)
-    stats = {"new": 0, "revisions": 0, "unchanged": 0, "results": 0}
+    stats = {"new": 0, "revisions": 0, "unchanged": 0, "results": 0, "voided": 0}
     for fx in fixtures:
         teams = resolver(conn, fx.provider)
         latest = _latest_revision(conn, fx.provider, fx.provider_fixture_id)
@@ -319,6 +321,21 @@ def ingest_live_fixtures(
                 now,
             ),
         )
+        # Contract §7 supersession (launch-review fix — was never wired): a kickoff move or
+        # a postpone/cancel/abandon AFTER an official freeze voids the old official; the new
+        # T-3h forecast is then produced by fixtures_due/finalize automatically.
+        prev = conn.execute(
+            "SELECT kickoff_utc FROM match WHERE match_id=%s", (match_id,)
+        ).fetchone()
+        kickoff_moved = prev is not None and prev[0] is not None and prev[0] != fx.kickoff_utc
+        if kickoff_moved or fx.status in ("postponed", "cancelled", "abandoned"):
+            from models.ledger import latest_official, void_official
+
+            official = latest_official(conn, match_id)
+            if official is not None:
+                reason = "kickoff moved" if kickoff_moved else fx.status
+                void_official(conn, official, match_id, reason=reason)
+                stats["voided"] = stats.get("voided", 0) + 1
         # kickoff moves + status flow onto the canonical match (identity unchanged)
         conn.execute(
             "UPDATE match SET kickoff_utc=%s, status=%s WHERE match_id=%s",

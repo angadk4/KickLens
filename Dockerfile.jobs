@@ -16,8 +16,15 @@ COPY packages/models ${LAMBDA_TASK_ROOT}/models
 COPY jobs/handlers.py ${LAMBDA_TASK_ROOT}/handlers.py
 COPY alembic.ini ${LAMBDA_TASK_ROOT}/alembic.ini
 COPY migrations ${LAMBDA_TASK_ROOT}/migrations
+# lockfile at the task root (= Lambda cwd) so runlog.lockfile_hash() records real lineage
+COPY uv.lock ${LAMBDA_TASK_ROOT}/uv.lock
 
 ENV KICKLENS_ENV=cloud
+
+# bake the building commit's SHA in: Lambda has no git binary, and prediction_run lineage
+# (T-120, never-cut) must record the real code SHA — pass --build-arg GIT_SHA=$(git rev-parse HEAD)
+ARG GIT_SHA=unknown
+ENV KICKLENS_GIT_SHA=${GIT_SHA}
 
 # default handler; each Lambda function overrides CMD (ingest/feature/inference/grade)
 CMD ["handlers.ingest"]

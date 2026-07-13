@@ -17,7 +17,16 @@ from pathlib import Path
 
 import psycopg
 
-ANCHOR_DIR = Path("anchors")
+
+def _anchor_dir() -> Path:
+    """Writable anchor dir: KICKLENS_ANCHOR_DIR env (Lambda: /tmp/anchors — /var/task is
+    read-only, launch-review fix), else ./anchors locally."""
+    import os
+
+    return Path(os.environ.get("KICKLENS_ANCHOR_DIR", "anchors"))
+
+
+ANCHOR_DIR = Path("anchors")  # retained for tests that monkeypatch it
 
 
 @dataclass(frozen=True)
@@ -50,7 +59,10 @@ def append_anchor(
 ) -> Path:
     """Append {hash, match_id, cutoff} to today's anchor file. Caller must have verified
     creation < kickoff (T-3h construction); the audit suite asserts it independently."""
-    anchor_dir = anchor_dir if anchor_dir is not None else ANCHOR_DIR  # resolved at call time
+    if anchor_dir is None:
+        import common.hashing as _self  # late module ref: honors test monkeypatching
+
+        anchor_dir = _self.ANCHOR_DIR if Path("anchors") != _self.ANCHOR_DIR else _anchor_dir()
     now = now or datetime.now(UTC)
     anchor_dir.mkdir(parents=True, exist_ok=True)
     path = anchor_dir / f"{now:%Y-%m-%d}.jsonl"
@@ -89,11 +101,31 @@ def merkle_root(hashes: list[str]) -> str:
     return level[0]
 
 
+def commit_daily_root_from_content(
+    conn: psycopg.Connection, day: date, jsonl_text: str
+) -> str | None:
+    """Merkle root from anchor-file CONTENT (cloud path: fetched from the public repo —
+    the grade Lambda never shares a filesystem with inference; launch-review fix)."""
+    hashes = [json.loads(line)["forecast_hash"] for line in jsonl_text.splitlines() if line]
+    if not hashes:
+        return None
+    root = merkle_root(hashes)
+    conn.execute(
+        "INSERT INTO anchor_merkle_root (day, root, committed_at_utc) VALUES (%s,%s,%s)"
+        " ON CONFLICT (day) DO NOTHING",
+        (day, root, datetime.now(UTC)),
+    )
+    return root
+
+
 def commit_daily_root(
     conn: psycopg.Connection, day: date, *, anchor_dir: Path | None = None
 ) -> str | None:
     """Compute + store the Merkle root of a day's anchored hashes (idempotent)."""
-    anchor_dir = anchor_dir if anchor_dir is not None else ANCHOR_DIR
+    if anchor_dir is None:
+        import common.hashing as _self
+
+        anchor_dir = _self.ANCHOR_DIR if Path("anchors") != _self.ANCHOR_DIR else _anchor_dir()
     path = anchor_dir / f"{day:%Y-%m-%d}.jsonl"
     if not path.is_file():
         return None

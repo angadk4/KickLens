@@ -71,7 +71,13 @@ class SportsGameOddsAdapter:
         lo, hi = now + CAPTURE_WINDOW[0], now + CAPTURE_WINDOW[1]
         out = []
         for ev in body.get("data", []):
-            kickoff = _iso(str((ev.get("status") or {}).get("startsAt")))
+            starts_at = (ev.get("status") or {}).get("startsAt")
+            if not starts_at:  # launch-review fix: a null startsAt must not kill the batch
+                continue
+            try:
+                kickoff = _iso(str(starts_at))
+            except ValueError:
+                continue
             if not (lo <= kickoff <= hi):
                 continue
             odds = ev.get("odds") or {}
@@ -132,6 +138,9 @@ def ingest_odds_captures(
     now: datetime | None = None,
 ) -> dict[str, int]:
     now = now or datetime.now(UTC)
+    # hour-bucketed capture time (launch-review fix): duplicate EventBridge deliveries within
+    # the same hour dedupe via the (match, provider, capture_time) unique key
+    now = now.replace(minute=0, second=0, microsecond=0)
     stats = {"stored": 0, "unmatched": 0}
     for cap in captures:
         match_id = _match_for_capture(conn, cap)

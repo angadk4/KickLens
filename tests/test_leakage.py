@@ -171,9 +171,14 @@ if DATABASE_URL:
     def test_r1_recompute_parity_against_stored_rows(conn) -> None:  # type: ignore[no-untyped-def]
         matches = read_rs_matches(conn)
         rebuilt = {r.match_id: r for r in build_feature_rows(matches)}
+        # Parity is defined over COMPLETED RS matches — the only rows a retrospective rebuild
+        # can produce. The live loop (T-150) legitimately stores fs-v1 rows for UPCOMING
+        # fixtures too; those are covered by R2 below and the finalization tests, not R1.
         stored = conn.execute(
-            "SELECT match_id, as_of_utc, features, inputs_hash FROM feature_row"
-            " WHERE feature_set_version = 'fs-v1'"
+            "SELECT f.match_id, f.as_of_utc, f.features, f.inputs_hash"
+            " FROM feature_row f JOIN match m USING (match_id)"
+            " WHERE f.feature_set_version = 'fs-v1'"
+            "   AND m.is_regular_season AND m.result IS NOT NULL"
         ).fetchall()
         assert len(stored) == len(rebuilt)
         for match_id, as_of, feats, ih in stored:

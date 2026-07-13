@@ -10,6 +10,8 @@ locals {
     inference-hourly = { rule = "cron(20 * * * ? *)", fn = "inference", input = "{}" }
     grade-2h         = { rule = "cron(35 */2 * * ? *)", fn = "grade", input = "{}" }
     merkle-daily     = { rule = "cron(0 12 * * ? *)", fn = "grade", input = "{\"daily_merkle\": true}" }
+    odds-hourly      = { rule = "cron(5 * * * ? *)", fn = "odds", input = "{}" }
+    canary-daily     = { rule = "cron(0 9 * * ? *)", fn = "canary", input = "{}" }
   }
 }
 
@@ -18,7 +20,9 @@ resource "aws_cloudwatch_event_rule" "jobs" {
 
   name                = "${local.prefix}-${each.key}"
   schedule_expression = each.value.rule
-  state               = "DISABLED" # armed at launch (T-261) — not before the loop is verified
+  # T-261: ARMED 2026-07-12 (developer instruction "wire missing stuff and arm the loop").
+  # ENABLED lives in code so a terraform apply can never silently disarm the live loop.
+  state = "ENABLED"
 }
 
 resource "aws_cloudwatch_event_target" "jobs" {

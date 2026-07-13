@@ -25,7 +25,11 @@ from typing import Any
 
 from common.hashing import ForecastFields, forecast_hash
 
-RETRY_DELAYS_S = (5.0, 25.0, 125.0)
+# Launch-review fix: the 5/25/125 provider ladder cannot fit the 120s inference Lambda
+# timeout (155s sleeps + 4x30s HTTP). Anchor pushes use a short in-process ladder; eventual
+# publication is guaranteed by the per-run catch-up (models.inference.retry_failed_anchors).
+RETRY_DELAYS_S = (2.0, 5.0)
+HTTP_TIMEOUT_S = 10
 _API = "https://api.github.com"
 _UA = "kicklens-anchor-bot"
 
@@ -37,7 +41,7 @@ def _http(
 ) -> tuple[int, dict[str, Any]]:
     req = urllib.request.Request(url, data=body, method=method, headers=headers)
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
+        with urllib.request.urlopen(req, timeout=HTTP_TIMEOUT_S) as resp:
             return resp.status, json.loads(resp.read() or b"{}")
     except urllib.error.HTTPError as exc:
         return exc.code, json.loads(exc.read() or b"{}")

@@ -157,6 +157,19 @@ def test_incomplete_three_way_market_skipped() -> None:
     assert sgo.captures(now, sleep=lambda _s: None) == []
 
 
+def test_null_or_malformed_startsat_skips_event_not_batch() -> None:
+    """Launch-review fix: one event with a missing/garbage startsAt must not kill the run."""
+    now = datetime(2026, 7, 18, 20, 30, tzinfo=UTC)
+    inside = (now + timedelta(hours=3)).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    payload = sgo_payload(inside)
+    broken = {**payload["data"][0], "eventID": "ev-null", "status": {"startsAt": None}}
+    garbage = {**payload["data"][0], "eventID": "ev-bad", "status": {"startsAt": "soon(tm)"}}
+    payload["data"] = [broken, garbage, payload["data"][0]]
+    sgo = SportsGameOddsAdapter("k", transport=lambda url, h: payload)
+    caps = sgo.captures(now, sleep=lambda _s: None)
+    assert [c.provider_event_id for c in caps] == ["ev1"]  # good event survives
+
+
 # ---------- integration: revision-bump ingestion ----------
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
@@ -213,7 +226,7 @@ if DATABASE_URL:
             provider_last_updated_utc=None,
         )
         s1 = ingest_live_fixtures(conn, [fx], env["season"], 2026)
-        assert s1 == {"new": 1, "revisions": 0, "unchanged": 0, "results": 0}
+        assert s1 == {"new": 1, "revisions": 0, "unchanged": 0, "results": 0, "voided": 0}
         s2 = ingest_live_fixtures(conn, [fx], env["season"], 2026)  # identical payload
         assert s2["unchanged"] == 1
         # postponement: kickoff moves +2 days → revision 1, same match identity
@@ -256,6 +269,16 @@ if DATABASE_URL:
             "SELECT count(*) FROM market_snapshot WHERE provider='sportsgameodds'"
         ).fetchone()
         assert n is not None and int(n[0]) == 1
+        # launch-review fix: capture_time_utc is hour-bucketed so duplicate EventBridge
+        # deliveries within the hour dedupe on the unique key
+        t = conn.execute(
+            "SELECT capture_time_utc FROM market_snapshot WHERE provider='sportsgameodds'"
+        ).fetchone()
+        assert t is not None and t[0] == datetime(2026, 7, 20, 20, 0, tzinfo=UTC)
+        stats3 = ingest_odds_captures(conn, [cap], now=now + timedelta(minutes=20))
+        assert stats3["stored"] == 1  # 20:50 → same 20:00 bucket → still one row
+        n2 = conn.execute("SELECT count(*) FROM market_snapshot").fetchone()
+        assert n2 is not None and int(n2[0]) == 1
         unknown = OddsCapture(
             provider_event_id="ev2",
             kickoff_utc=now + timedelta(hours=3),

@@ -103,12 +103,27 @@ def advisory_lock(conn: psycopg.Connection, name: str, *, wait: bool = False) ->
             conn.execute("SELECT pg_advisory_unlock(%s)", (key,))
 
 
+CLAIM_LEASE_MINUTES = 15
+
+
 def claim_job(conn: psycopg.Connection, job_name: str, idempotency_key: str) -> int | None:
-    """Claim a unit of work exactly once; returns job_run_id, or None if already claimed."""
+    """Claim a unit of work with LEASE semantics (launch-review fix: a crash between claim and
+    completion must never poison the key forever).
+
+    Returns job_run_id when the claim is won; None when the work is already DONE or another
+    worker holds a live (non-expired) claim. A claim is reclaimable when its status is any
+    failure state, or when it has sat in 'running' beyond the lease (crashed worker)."""
     row = conn.execute(
-        "INSERT INTO job_run (job_name, idempotency_key, started_at_utc)"
-        " VALUES (%s, %s, %s) ON CONFLICT (idempotency_key) DO NOTHING RETURNING job_run_id",
-        (job_name, idempotency_key, datetime.now(UTC)),
+        "INSERT INTO job_run (job_name, idempotency_key, status, started_at_utc)"
+        " VALUES (%s, %s, 'running', %s)"
+        " ON CONFLICT (idempotency_key) DO UPDATE"
+        "   SET status = 'running', started_at_utc = EXCLUDED.started_at_utc,"
+        "       finished_at_utc = NULL"
+        "   WHERE job_run.status <> 'done'"
+        "     AND (job_run.status <> 'running'"
+        "          OR job_run.started_at_utc < %s - make_interval(mins => %s))"
+        " RETURNING job_run_id",
+        (job_name, idempotency_key, datetime.now(UTC), datetime.now(UTC), CLAIM_LEASE_MINUTES),
     ).fetchone()
     return None if row is None else int(row[0])
 

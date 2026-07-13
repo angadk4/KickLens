@@ -11,7 +11,7 @@ resource "aws_sns_topic_subscription" "alerts_email" {
 
 # Log groups pre-created with the frozen 14-day retention
 resource "aws_cloudwatch_log_group" "jobs" {
-  for_each          = toset(["ingest", "feature", "inference", "grade"])
+  for_each          = toset(["ingest", "feature", "inference", "grade", "odds", "canary"])
   name              = "/${local.prefix}/jobs/${each.key}"
   retention_in_days = var.log_retention_days
 }
