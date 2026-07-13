@@ -25,6 +25,14 @@ from common.config import load_settings  # noqa: E402
 
 IMPORT_SECONDS = round(time.perf_counter() - _import_t0, 3)
 
+# Canary /health probe (Contract §9): tolerate a COLD API Lambda + Neon (free-tier auto-suspend)
+# wake — the canary is the first request each morning and the cold path can take ~25-30s. Retry
+# through the wake so a cold start is a non-event; a genuine outage fails every attempt and still
+# raises -> alarm. Warm calls return on attempt 1 in <1s. Tests monkeypatch the sleep to 0.
+CANARY_HEALTH_ATTEMPTS = 3
+CANARY_HEALTH_TIMEOUT_S = 40
+CANARY_HEALTH_RETRY_SLEEP_S = 3.0
+
 
 def _conn() -> psycopg.Connection:
     return psycopg.connect(load_settings(dotenv_path=None).database_url, autocommit=True)
@@ -220,15 +228,32 @@ def canary(event: dict[str, Any], context: Any) -> dict[str, Any]:
     Errors alarm (threshold 1) emails the developer. Raising is the alerting mechanism."""
     import json as _json
     import os
+    import time as _time
     import urllib.request
 
     api_url = os.environ.get("KICKLENS_API_URL", "")
     if not api_url:
         raise RuntimeError("canary: KICKLENS_API_URL not configured")
-    with urllib.request.urlopen(f"{api_url}/health", timeout=25) as resp:
-        if resp.status != 200:
-            raise RuntimeError(f"canary: /health returned {resp.status}")
-        health = _json.loads(resp.read())
+    # cold-tolerant probe: retry through an API/Neon cold wake; only raise if truly unreachable
+    health: dict[str, Any] = {}
+    last_exc: Exception | None = None
+    for attempt in range(CANARY_HEALTH_ATTEMPTS):
+        try:
+            with urllib.request.urlopen(
+                f"{api_url}/health", timeout=CANARY_HEALTH_TIMEOUT_S
+            ) as resp:
+                if resp.status != 200:
+                    raise RuntimeError(f"/health returned {resp.status}")
+                health = _json.loads(resp.read())
+            break
+        except Exception as exc:
+            last_exc = exc
+            if attempt < CANARY_HEALTH_ATTEMPTS - 1:
+                _time.sleep(CANARY_HEALTH_RETRY_SLEEP_S)
+    else:
+        raise RuntimeError(
+            f"canary: /health unreachable after {CANARY_HEALTH_ATTEMPTS} attempts: {last_exc}"
+        )
     problems: list[str] = []
     if not health.get("freshness_ok", False):
         problems.append(f"data stale: last_ingest={health.get('last_ingest')}")

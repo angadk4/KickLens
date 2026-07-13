@@ -122,6 +122,41 @@ if DATABASE_URL:
         out = handlers.canary({}, None)
         assert out["statusCode"] == 200 and out["missed_forecasts"] == 0
 
+    def test_cold_health_retries_then_succeeds(  # type: ignore[no-untyped-def]
+        env, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A cold /health (API Lambda + Neon wake) times out once, then succeeds on retry —
+        must NOT raise (this is the spurious-alarm fix)."""
+        monkeypatch.setattr(handlers, "CANARY_HEALTH_RETRY_SLEEP_S", 0)  # no real sleep
+        calls = {"n": 0}
+        ok = {"status": "ok", "freshness_ok": True, "last_ingest": "now"}
+
+        def flaky(url: str, timeout: float = 0) -> FakeResponse:
+            calls["n"] += 1
+            if calls["n"] == 1:
+                raise TimeoutError("the read operation timed out")  # cold path
+            return FakeResponse(json.dumps(ok).encode())
+
+        monkeypatch.setattr("urllib.request.urlopen", flaky)
+        out = handlers.canary({}, None)
+        assert out["statusCode"] == 200 and calls["n"] == 2  # retried once, then OK
+
+    def test_health_unreachable_raises_after_retries(  # type: ignore[no-untyped-def]
+        env, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A genuinely down /health (every attempt fails) must still raise -> alarm."""
+        monkeypatch.setattr(handlers, "CANARY_HEALTH_RETRY_SLEEP_S", 0)
+        calls = {"n": 0}
+
+        def always_timeout(url: str, timeout: float = 0) -> FakeResponse:
+            calls["n"] += 1
+            raise TimeoutError("the read operation timed out")
+
+        monkeypatch.setattr("urllib.request.urlopen", always_timeout)
+        with pytest.raises(RuntimeError, match="unreachable after"):
+            handlers.canary({}, None)
+        assert calls["n"] == handlers.CANARY_HEALTH_ATTEMPTS  # all attempts exhausted
+
     def test_missing_api_url_raises(monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv("KICKLENS_API_URL", raising=False)
         with pytest.raises(RuntimeError, match="KICKLENS_API_URL"):
