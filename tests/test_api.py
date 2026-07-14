@@ -76,3 +76,37 @@ if DATABASE_URL:
         assert client.get("/model-versions").json() == []
         cal = client.get("/calibration").json()
         assert "dev" in cal and cal["dev"]["ece"] == 0.0108
+        assert "test" not in cal  # scope not seeded here — scopes never leak into each other
+
+    # ---------- dashboard-v2 additions: empty-DB behavior ----------
+
+    def test_teams_ratings_empty(client) -> None:  # type: ignore[no-untyped-def]
+        res = client.get("/teams/ratings")
+        assert res.status_code == 200
+        body = res.json()
+        assert body["teams"] == [] and body["n_rated_matches"] == 0
+        assert body["as_of_utc"] is None and body["season"] is None
+        assert res.headers["cache-control"] == "public, max-age=300"
+
+    def test_merkle_roots_empty(client) -> None:  # type: ignore[no-untyped-def]
+        body = client.get("/merkle-roots").json()
+        assert body["items"] == [] and "algorithm" in body
+
+    def test_verification_404_unknown_match(client) -> None:  # type: ignore[no-untyped-def]
+        assert client.get("/matches/999999/verification").status_code == 404
+
+    def test_methodology_enrichment_degrades_null(client) -> None:  # type: ignore[no-untyped-def]
+        body = client.get("/methodology").json()
+        # no production model in this module → DB-backed keys degrade to null, never crash
+        assert body["calibration"]["param_t"] is None
+        assert body["dataset"]["snapshot_hash"] is None
+        ladder = body["baselines"]["ladder"]
+        assert len(ladder) == 8 and body["baselines"]["scope"] == "dev"
+        b3 = next(r for r in ladder if r["rung"] == "B3")
+        assert b3["log_loss"] == 1.0345
+        assert "anchor_repo_html_url" in body
+
+    def test_cache_headers_on_reads_not_health(client) -> None:  # type: ignore[no-untyped-def]
+        assert "cache-control" not in client.get("/health").headers
+        assert client.get("/leagues").headers["cache-control"] == "public, max-age=3600"
+        assert client.get("/matches/upcoming").headers["cache-control"] == "public, max-age=60"

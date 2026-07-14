@@ -1,7 +1,8 @@
 """T-181/T-221: build the slim API Lambda zip (no ML libraries — Contract §8).
 
-Bundles: fastapi + mangum + psycopg[binary] + python-dotenv, apps/api, packages/common.
-boto3 is NOT bundled (provided by the Lambda runtime). Output: dist/kicklens-api.zip.
+Bundles: fastapi + mangum + psycopg[binary] + python-dotenv, apps/api, packages/common, and
+the stdlib-only features/elo.py (Elo replay for /teams/ratings). boto3 is NOT bundled
+(provided by the Lambda runtime). Output: dist/kicklens-api.zip.
 
 Run: uv run python scripts/build_api_zip.py
 """
@@ -70,6 +71,12 @@ def main() -> int:
     shutil.copytree(ROOT / "apps" / "api", BUILD / "apps" / "api")
     (BUILD / "apps" / "__init__.py").write_text('"""apps"""\n')
     shutil.copytree(ROOT / "packages" / "common", BUILD / "common")
+    # /teams/ratings replays Elo with the stdlib-only engine. Copy ONLY these two files —
+    # never the whole package (engine.py/builder.py would drag dead weight into the slim zip).
+    features_build = BUILD / "features"
+    features_build.mkdir()
+    for name in ("__init__.py", "elo.py"):
+        shutil.copy(ROOT / "packages" / "features" / name, features_build / name)
 
     ZIP.parent.mkdir(exist_ok=True)
     if ZIP.exists():

@@ -1,18 +1,13 @@
-// KickLens read-only dashboard (M7 / E20). Evidence scopes are never merged: every metric
-// panel is tagged dev / test / backtest / live with its sample size (Contract §2 guarantees).
+// Root layout: top nav, health banners, routed outlet, footer. Evidence scopes are never
+// merged anywhere in this app: every metric renders with its scope + sample size (T-171).
 import { useEffect, useState } from "react";
+import { Outlet, ScrollRestoration } from "react-router-dom";
 import { api, type Health } from "./api";
-import { Upcoming } from "./components/Upcoming";
-import { Archive } from "./components/Archive";
-import { Performance } from "./components/Performance";
-import { Methodology } from "./components/Methodology";
-import "./App.css";
-
-const TABS = ["Upcoming", "Archive", "Performance", "Methodology"] as const;
-type Tab = (typeof TABS)[number];
+import { HealthContext } from "./components/layout/HealthContext";
+import { SiteFooter } from "./components/layout/SiteFooter";
+import { TopNav } from "./components/layout/TopNav";
 
 export default function App() {
-  const [tab, setTab] = useState<Tab>("Upcoming");
   const [health, setHealth] = useState<Health | null>(null);
   const [apiDown, setApiDown] = useState(false);
 
@@ -24,13 +19,9 @@ export default function App() {
   }, []);
 
   return (
-    <div className="shell">
-      <header>
-        <h1>KickLens</h1>
-        <p className="tagline">
-          MLS 1X2 forecasts, frozen at kickoff−3h, hashed and publicly anchored. Honest by
-          construction.
-        </p>
+    <HealthContext.Provider value={{ health, apiDown }}>
+      <TopNav />
+      <div className="shell">
         {apiDown && (
           <div className="banner error">
             API unreachable — showing nothing rather than something stale without saying so.
@@ -42,24 +33,10 @@ export default function App() {
             staleness are tagged.
           </div>
         )}
-        <nav>
-          {TABS.map((t) => (
-            <button key={t} className={t === tab ? "active" : ""} onClick={() => setTab(t)}>
-              {t}
-            </button>
-          ))}
-        </nav>
-      </header>
-      <main>
-        {tab === "Upcoming" && <Upcoming />}
-        {tab === "Archive" && <Archive />}
-        {tab === "Performance" && <Performance />}
-        {tab === "Methodology" && <Methodology />}
-      </main>
-      <footer>
-        Every official forecast is SHA-256 hashed at creation and anchored to a public git
-        repository before kickoff. No forecast is ever revised or back-filled.
-      </footer>
-    </div>
+        <Outlet />
+        <SiteFooter />
+      </div>
+      <ScrollRestoration />
+    </HealthContext.Provider>
   );
 }

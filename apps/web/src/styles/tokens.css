@@ -1,0 +1,83 @@
+/* KickLens "Anchor Terminal" design tokens — the single source of truth.
+   Dark-only by design; palette validated for contrast + CVD on the card surface. */
+
+:root {
+  color-scheme: dark;
+
+  /* Surfaces — violet-tinted near-black ladder */
+  --bg-0: #0a0912;
+  --bg-1: #110f1c;
+  --bg-2: #181529;
+  --line: #262238;
+  --line-strong: #363150;
+
+  /* Ink (contrast measured on --bg-1) */
+  --ink: #e8e6f0; /* 15.3:1 */
+  --ink-muted: #9b97ad; /* 6.7:1 */
+  --ink-faint: #6e6a80; /* 3.6:1 — large/decorative only */
+
+  /* Brand (from the favicon mark) */
+  --accent: #9d7bff;
+  --accent-strong: #863bff;
+  --accent-cyan: #47bfff;
+
+  /* Outcomes — fixed H|D|A order everywhere; identity never rides hue alone */
+  --home: #3987e5;
+  --draw: #8b90a0; /* near-neutral on purpose: a draw is "no side" */
+  --away: #d95926;
+
+  /* Evidence scopes (T-171) — never shown without their text label */
+  --scope-dev: #8a5cf6;
+  --scope-test: #c98500;
+  --scope-backtest: #66708a;
+  --scope-live: #18a558;
+  --scope-dev-text: #b79aff;
+  --scope-test-text: #e5a93d;
+  --scope-backtest-text: #98a2b8;
+  --scope-live-text: #3ecf82;
+
+  /* Status — always icon + label, never color alone */
+  --success: #34d399;
+  --warn: #e8a13c;
+  --danger: #ef6a5f;
+
+  /* Glow & elevation (interactive/hero only, never body text) */
+  --glow-accent: 0 0 24px rgba(134, 59, 255, 0.25);
+  --glow-cyan: 0 0 20px rgba(71, 191, 255, 0.18);
+  --shadow-card:
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    0 8px 24px rgba(0, 0, 0, 0.35);
+
+  /* Type */
+  --font-display: "Space Grotesk Variable", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, monospace;
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.75rem;
+  --text-3xl: 2.25rem;
+  --text-hero: clamp(2.75rem, 6vw, 4rem);
+
+  /* Spacing (4px scale) + radius */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 14px;
+  --r-full: 999px;
+
+  /* Motion */
+  --dur-fast: 150ms;
+  --dur-med: 250ms;
+  --dur-slow: 500ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+}
