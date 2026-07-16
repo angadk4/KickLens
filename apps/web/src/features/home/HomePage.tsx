@@ -6,10 +6,11 @@ import { api, type UpcomingMatch } from "../../api";
 import { Section } from "../../components/ui/Section";
 import { StatTile } from "../../components/ui/StatTile";
 import { Skeleton } from "../../components/ui/states";
-import { cutoffOf, kickoffLocal, kickoffUTC, nats } from "../../lib/format";
+import { cutoffOf, kickoffLocal, kickoffUTC, nats, teamName } from "../../lib/format";
 import { useApi, type ApiState } from "../../lib/useApi";
 import { useCountdown } from "../../lib/useCountdown";
 import { FixtureCard } from "../forecasts/FixtureCard";
+import { PitchHero } from "./PitchHero";
 
 function Hero({ upcoming }: { upcoming: ApiState<UpcomingMatch[]> }) {
   // next freeze = earliest future cutoff among fixtures without an official forecast
@@ -25,78 +26,93 @@ function Hero({ upcoming }: { upcoming: ApiState<UpcomingMatch[]> }) {
   const cd = useCountdown(next?.cutoff ?? null);
 
   return (
-    <div className="entry">
+    <div className="entry hero-entry">
       <div className="entry-marker">
         MLS 2026
-        <span className="em-meta">the match ledger</span>
-        <span className="em-meta">read-only</span>
+        <span className="em-meta">read-only record</span>
+        <span className="em-meta">freeze = kickoff−3h</span>
       </div>
-      <div className="entry-body hero-body">
-        <div className="hero-copy">
-          <h1>Every official forecast goes on the record. None come off.</h1>
-          <p className="sub">
-            Each one freezes 3 hours before kickoff, is SHA-256 hashed and anchored to a
-            public GitHub repository, then graded automatically against the result. Honest by
-            construction — even about what the model can't do.
-          </p>
-          <div className="hero-ctas">
-            <Link to="/forecasts" className="btn primary">
-              See upcoming forecasts
-            </Link>
-            <Link to="/methodology" className="btn ghost">
-              How verification works
-            </Link>
-          </div>
-        </div>
-
-        {next && !cd.expired && (
-          <div className="freeze-panel">
-            <div className="fp-head">next official freeze in</div>
-            <div className="countdown" aria-live="off">
-              {(() => {
-                const units = [
-                  { v: cd.d, l: "days" },
-                  { v: cd.h, l: "hrs" },
-                  { v: cd.m, l: "min" },
-                  { v: cd.s, l: "sec" },
-                ];
-                let leading = true;
-                return units.map((u) => {
-                  const zero = leading && u.v === 0;
-                  if (u.v !== 0) leading = false;
-                  return (
-                    <span key={u.l} className={`unit ${zero ? "zero" : ""}`}>
-                      <span className="value">{String(u.v).padStart(2, "0")}</span>
-                      <span className="label">{u.l}</span>
-                    </span>
-                  );
-                });
-              })()}
-            </div>
-            <div className="fc-match">
-              <span className="who">
-                {next.m.home} <span className="vs">vs</span> {next.m.away}
-              </span>
-              <span className="when">
-                freezes{" "}
-                <time
-                  dateTime={next.cutoff.toISOString()}
-                  title={kickoffUTC(next.cutoff.toISOString())}
-                >
-                  {kickoffLocal(next.cutoff.toISOString())}
-                </time>
-              </span>
-            </div>
-          </div>
-        )}
-        {next && cd.expired && (
-          <div className="freeze-panel">
-            <div className="fp-head">freezing now</div>
-            <p className="countdown-caption">
-              An official forecast is being frozen and anchored about now.
+      <div className="entry-body">
+        <div className="hero-stage">
+          <div className="hero-copy">
+            <h1>Every official forecast goes on the record. None come off.</h1>
+            <p className="sub">
+              Each one freezes 3 hours before kickoff, is SHA-256 hashed and anchored to a
+              public GitHub repository, then graded automatically against the result. Honest
+              by construction — even about what the model can't do.
             </p>
+            <div className="hero-ctas">
+              <Link to="/forecasts" className="btn primary">
+                See upcoming forecasts
+              </Link>
+              {/* secondary action speaks in the site's native voice: a chalk underline,
+                  not a templated ghost-button twin */}
+              <Link to="/methodology" style={{ alignSelf: "center" }}>
+                How verification works →
+              </Link>
+            </div>
           </div>
-        )}
+
+          <PitchHero
+            expired={!!next && cd.expired}
+            top={
+              next ? (
+                !cd.expired ? (
+                  <>
+                    <div className="fp-head">next official freeze in</div>
+                    <div className="countdown" aria-live="off">
+                      {(() => {
+                        const units = [
+                          { v: cd.d, l: "days" },
+                          { v: cd.h, l: "hrs" },
+                          { v: cd.m, l: "min" },
+                          { v: cd.s, l: "sec" },
+                        ];
+                        let leading = true;
+                        return units.map((u) => {
+                          const zero = leading && u.v === 0;
+                          if (u.v !== 0) leading = false;
+                          return (
+                            <span key={u.l} className={`unit ${zero ? "zero" : ""}`}>
+                              <span className="value">{String(u.v).padStart(2, "0")}</span>
+                              <span className="label">{u.l}</span>
+                            </span>
+                          );
+                        });
+                      })()}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="fp-head">freezing now</div>
+                    <p className="countdown-caption">
+                      An official forecast is being frozen and anchored about now.
+                    </p>
+                  </>
+                )
+              ) : undefined
+            }
+            bottom={
+              next && !cd.expired ? (
+                <div className="fc-match">
+                  <span className="who">
+                    {teamName(next.m.home)} <span className="vs">vs</span>{" "}
+                    {teamName(next.m.away)}
+                  </span>
+                  <span className="when">
+                    freezes{" "}
+                    <time
+                      dateTime={next.cutoff.toISOString()}
+                      title={kickoffUTC(next.cutoff.toISOString())}
+                    >
+                      {kickoffLocal(next.cutoff.toISOString())}
+                    </time>
+                  </span>
+                </div>
+              ) : undefined
+            }
+          />
+        </div>
       </div>
     </div>
   );
@@ -180,8 +196,9 @@ export function HomePage() {
           )}
         </div>
         <p className="blurb" style={{ fontSize: "var(--text-xs)" }}>
-          Log loss — lower is better. Guessing ⅓/⅓/⅓ every match scores 1.0986; every
-          hundredth below that is real signal.
+          Log loss — lower is better. Guessing ⅓/⅓/⅓ every match scores 1.0986; the full
+          baseline ladder, market included, is on{" "}
+          <Link to="/performance">Performance</Link>.
         </p>
       </Section>
 
@@ -191,8 +208,8 @@ export function HomePage() {
         title="Upcoming fixtures"
         description={
           <>
-            Dashed cards are pencilled in — preliminary until each fixture's cutoff. Stamped
-            cards are frozen officials. <Link to="/forecasts">All forecasts →</Link>
+            Preliminary probabilities refresh until each fixture's cutoff; frozen official
+            forecasts are sealed and never revised. <Link to="/forecasts">All forecasts →</Link>
           </>
         }
       >
@@ -244,6 +261,10 @@ export function HomePage() {
             </p>
           </div>
         </div>
+        <p className="eyebrow" style={{ textTransform: "none", letterSpacing: "0.04em" }}>
+          This is also a systems exercise — one container image, eight schedules, a
+          write-once ledger. <Link to="/engineering">How it's engineered →</Link>
+        </p>
       </Section>
     </div>
   );

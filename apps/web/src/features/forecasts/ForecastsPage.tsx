@@ -42,7 +42,8 @@ export function ForecastsPage() {
           </span>
         </div>
         <span className="eyebrow">
-          dashed card = pencilled in, may change · stamped card = frozen official
+          preliminary = may change until the freeze · frozen = sealed official forecast, never
+          revised
         </span>
         {loading && (
           <div className="grid-2">

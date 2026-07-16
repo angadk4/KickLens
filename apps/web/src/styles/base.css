@@ -1,4 +1,4 @@
-/* Base: reset, paper canvas, typography defaults, focus, scrollbar, reduced motion. */
+/* Base: reset, night-pitch canvas (floodlight pools), typography, focus, reduced motion. */
 
 *,
 *::before,
@@ -13,11 +13,18 @@ html {
 body {
   margin: 0;
   min-height: 100vh;
-  background: var(--bg-0);
+  /* two asymmetric floodlight pools (banks at the pitch edges — never one hero halo)
+     over a 1–2% luminance drift; flat hexes read rough, this reads soft */
+  background:
+    radial-gradient(900px 480px at 18% -12%, rgba(245, 239, 217, 0.075), transparent 70%),
+    radial-gradient(720px 420px at 82% -16%, rgba(245, 239, 217, 0.055), transparent 70%),
+    linear-gradient(180deg, #121c16 0, var(--bg-0) 340px);
+  background-attachment: fixed;
+  background-color: var(--bg-0);
   color: var(--ink);
   font-family: var(--font-display);
   font-size: var(--text-base);
-  line-height: 1.55;
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -26,27 +33,59 @@ h2,
 h3,
 h4 {
   margin: 0;
-  font-weight: 700;
+  font-weight: 650; /* chalk on dark renders visually heavier; 700 reads harsh */
   line-height: 1.15;
 }
 
-/* Display voice: expanded caps — rationed to the wordmark, page titles, and team
+/* Display voice: expanded caps — rationed to the wordmark, the hero thesis, and team
    matchups (the athletic gesture stays a gesture, not wallpaper). */
 h1,
 .display {
   text-transform: uppercase;
   font-stretch: var(--stretch-display);
   letter-spacing: 0.01em;
+  font-weight: 700;
 }
 
 h3,
 h4 {
-  font-weight: 650;
   letter-spacing: -0.01em;
 }
 
+p {
+  margin: 0;
+}
+
+/* Interaction is chalk: soft underline that commits on hover. */
+a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  text-decoration-color: rgba(232, 237, 230, 0.45);
+  transition: text-decoration-color var(--dur-fast) var(--ease-out);
+}
+
+a:hover {
+  text-decoration-color: var(--ink);
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+code,
+.mono {
+  font-family: var(--font-mono);
+}
+
 /* Every mono context gets slashed zeros + tabular figures — probabilities and
-   hashes align in columns, the way ledger figures do. */
+   hashes align in columns. */
 code,
 .mono,
 .chip,
@@ -65,42 +104,13 @@ code,
   font-variant-numeric: tabular-nums;
 }
 
-p {
-  margin: 0;
-}
-
-a {
-  color: var(--accent);
-  text-decoration: underline;
-  text-decoration-thickness: 1px;
-  text-underline-offset: 2px;
-  text-decoration-color: color-mix(in srgb, var(--accent) 45%, transparent);
-}
-
-a:hover {
-  text-decoration-color: var(--accent);
-}
-
-button {
-  font: inherit;
-  color: inherit;
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 0;
-}
-
-code,
-.mono {
-  font-family: var(--font-mono);
-}
-
+/* gold selection — officialness in the smallest possible dose */
 ::selection {
-  background: rgba(30, 107, 60, 0.22);
+  background: rgba(201, 168, 106, 0.3);
 }
 
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--ink);
   outline-offset: 2px;
   border-radius: var(--r-sm);
 }

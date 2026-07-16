@@ -8,7 +8,7 @@ import { ProbBar } from "../../components/ui/ProbBar";
 import { ScopeChip } from "../../components/ui/ScopeChip";
 import { Section } from "../../components/ui/Section";
 import { EmptyState, ErrorState, Skeleton } from "../../components/ui/states";
-import { dateShort, nats } from "../../lib/format";
+import { cutoffOf, dateShort, kickoffLocal, nats, teamName } from "../../lib/format";
 import { useApi } from "../../lib/useApi";
 
 const RESULT_LABEL = { H: "home win", D: "draw", A: "away win" } as const;
@@ -16,9 +16,14 @@ const RESULT_LABEL = { H: "home win", D: "draw", A: "away win" } as const;
 export function RecordPage() {
   const { data, error, loading, retry } = useApi(() => api.completed());
   const upcoming = useApi(() => api.upcoming());
-  // officials already frozen but not yet graded — so launch day reads "running", not "empty"
+  // official forecasts already frozen but not yet graded — launch day reads "running"
   const frozenAwaiting =
     upcoming.data?.filter((m) => m.forecast?.type === "official-frozen").length ?? 0;
+  // derived, never hardcoded: the next freeze instant from the schedule itself
+  const nextCutoff = (upcoming.data ?? [])
+    .map((m) => cutoffOf(m.kickoff_utc))
+    .filter((c) => c.getTime() > Date.now())
+    .sort((a, b) => a.getTime() - b.getTime())[0];
   return (
     <div className="page">
       <Section
@@ -34,13 +39,17 @@ export function RecordPage() {
           <>
             {frozenAwaiting > 0 && (
               <span className="chip" style={{ justifySelf: "start" }}>
-                {frozenAwaiting} official{frozenAwaiting === 1 ? "" : "s"} frozen · awaiting
-                full time
+                {frozenAwaiting} official forecast{frozenAwaiting === 1 ? "" : "s"} frozen ·
+                awaiting full time
               </span>
             )}
             <EmptyState big="0" title="graded official forecasts">
-              No official forecast has been graded yet — the first freeze lands Jul 16, 2026
-              (20:30 UTC), and grades follow the results.{" "}
+              No official forecast has been graded yet —{" "}
+              {frozenAwaiting > 0
+                ? "official forecasts are frozen; grades follow the first full-time results."
+                : nextCutoff
+                  ? `the first freeze lands ${kickoffLocal(nextCutoff.toISOString())}, and grades follow the results.`
+                  : "grades follow the first full-time results."}{" "}
               <Link to="/forecasts">See upcoming fixtures →</Link>
             </EmptyState>
           </>
@@ -63,7 +72,8 @@ export function RecordPage() {
                 <Link key={it.match_id} to={`/match/${it.match_id}`} className="card fixture-card stamped">
                   <div className="teams">
                     <span className="matchup">
-                      {it.home} <span style={{ color: "var(--ink-faint)" }}>vs</span> {it.away}
+                      {teamName(it.home)} <span style={{ color: "var(--ink-faint)" }}>vs</span>{" "}
+                      {teamName(it.away)}
                     </span>
                     <span className="when">{dateShort(it.kickoff_utc)}</span>
                   </div>

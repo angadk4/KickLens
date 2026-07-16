@@ -1,6 +1,7 @@
 // Methodology: the four guarantees as cards, the pipeline as a numbered stepper, the sealed
 // baseline ladder, a verify-it-yourself recipe, honest limitations, versions, data lineage.
 // Prose comes from the API where it exists so the site and service can't drift apart.
+import { Link } from "react-router-dom";
 import { api } from "../../api";
 import { BaselineLadder } from "../../components/charts/BaselineLadder";
 import { ScopeChip } from "../../components/ui/ScopeChip";
@@ -14,7 +15,7 @@ const GUARANTEES = [
   {
     kicker: "WRITE-ONCE",
     title: "Frozen at kickoff−3h",
-    body: "Officials are written once to an append-only ledger. Post-kickoff writes are rejected outright — an honest 'no forecast' beats a back-filled one.",
+    body: "Official forecasts are written once to an append-only ledger. Post-kickoff writes are rejected outright — an honest 'no forecast' beats a back-filled one.",
   },
   {
     kicker: "SHA-256",
@@ -161,9 +162,11 @@ export function MethodologyPage() {
                   }))}
                 />
                 <p className="blurb">
-                  Every rung had to be beaten (or matched) with pre-registered statistics before
-                  the champion was frozen — and it was frozen <em>before</em> the touch-once 2025
-                  test was run.
+                  Every baseline rung (B0–B5) had to be beaten or matched under pre-registered
+                  statistics before the champion was frozen — and it was frozen <em>before</em>{" "}
+                  the touch-once 2025 test was run. The de-vigged closing market is plotted as
+                  a stronger-information reference; it stays ahead, and no market-beating claim
+                  is made.
                 </p>
               </>
             )}
@@ -217,7 +220,10 @@ python -c "import hashlib;print(hashlib.sha256(open('forecast.json','rb').read()
 
           <Section eyebrow="Provenance" title="Data & versions">
             <div className="prose">
-              <p>{data.data}.</p>
+              <p>
+                {data.data}. The system that enforces all of this is documented on{" "}
+                <Link to="/engineering">Engineering</Link>.
+              </p>
               {data.dataset?.snapshot_hash && (
                 <p
                   className="mono"

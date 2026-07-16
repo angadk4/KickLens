@@ -64,7 +64,7 @@ export function ReliabilityDiagram({
           <Line
             dataKey="perfect"
             name="perfect calibration"
-            stroke={C.faint}
+            stroke="rgba(232, 237, 230, 0.4)"
             strokeDasharray="5 4"
             dot={false}
             isAnimationActive={false}

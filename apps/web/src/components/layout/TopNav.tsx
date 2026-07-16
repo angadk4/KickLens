@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { NavLink, Link, useLocation } from "react-router-dom";
 import { useHealth } from "./HealthContext";
 
@@ -9,6 +10,7 @@ const LINKS = [
   { to: "/calibration", label: "Calibration" },
   { to: "/ratings", label: "Ratings" },
   { to: "/methodology", label: "Methodology" },
+  { to: "/engineering", label: "Engineering" },
 ];
 
 export function TopNav() {
@@ -17,8 +19,16 @@ export function TopNav() {
   const onMatchPage = pathname.startsWith("/match/");
   const dotClass = apiDown ? "bad" : health && !health.freshness_ok ? "stale" : "";
   const dotLabel = apiDown ? "api down" : health ? (health.freshness_ok ? "live" : "stale") : "…";
+  // the nav floats (shadow) only once the page has scrolled under it
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
   return (
-    <div className="topnav">
+    <div className={`topnav${scrolled ? " scrolled" : ""}`}>
       <div className="topnav-inner">
         <Link to="/" className="wordmark">
           <img src="/favicon.svg" alt="" />

@@ -1,5 +1,5 @@
-/* Layout: masthead, the ledger gutter + red margin rule (the signature), hero,
-   footer colophon, page grids, responsive breakpoints (720 / 1024). */
+/* Layout: glass nav, the touchline gutter (the signature's quiet recurrence), the
+   center-circle hero stage, footer, page grids, responsive breakpoints (720 / 1024). */
 
 .shell {
   max-width: 1120px;
@@ -7,14 +7,21 @@
   padding: 0 var(--space-4) var(--space-8);
 }
 
-/* ---- masthead: solid paper, one quiet ink rule ---- */
+/* ---- nav: night-air glass; float shadow only after scroll ---- */
 
 .topnav {
   position: sticky;
   top: 0;
   z-index: 50;
-  background: var(--bg-0);
-  border-bottom: 1px solid var(--ink);
+  background: color-mix(in srgb, var(--bg-0) 78%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(232, 237, 230, 0.08);
+  transition: box-shadow var(--dur-med) var(--ease-out);
+}
+
+.topnav.scrolled {
+  box-shadow: var(--shadow-float);
 }
 
 .topnav-inner {
@@ -30,7 +37,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  font-weight: 800;
+  font-weight: 750;
   font-stretch: var(--stretch-display);
   text-transform: uppercase;
   letter-spacing: 0.02em;
@@ -57,6 +64,39 @@
   flex: 1;
 }
 
+.nav-links::-webkit-scrollbar {
+  display: none;
+}
+
+.nav-links a {
+  position: relative;
+  padding: var(--space-2) var(--space-3);
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+  font-weight: 550;
+  white-space: nowrap;
+  text-decoration: none;
+  transition: color var(--dur-fast) var(--ease-out);
+}
+
+.nav-links a:hover {
+  color: var(--ink);
+}
+
+.nav-links a.active {
+  color: var(--ink);
+}
+
+.nav-links a.active::after {
+  content: "";
+  position: absolute;
+  left: var(--space-3);
+  right: var(--space-3);
+  bottom: 2px;
+  height: 2px;
+  background: var(--ink);
+}
+
 @media (max-width: 719px) {
   /* nav gets its own full-width row; the right-edge fade says "more this way" —
      a label must never die mid-word */
@@ -75,39 +115,6 @@
   .health-dot {
     margin-left: auto;
   }
-}
-
-.nav-links::-webkit-scrollbar {
-  display: none;
-}
-
-.nav-links a {
-  position: relative;
-  padding: var(--space-2) var(--space-3);
-  color: var(--ink-muted);
-  font-size: var(--text-sm);
-  font-weight: 550;
-  white-space: nowrap;
-  text-decoration: none;
-  transition: color var(--dur-fast) var(--ease-out);
-}
-
-.nav-links a:hover {
-  color: var(--accent);
-}
-
-.nav-links a.active {
-  color: var(--ink);
-}
-
-.nav-links a.active::after {
-  content: "";
-  position: absolute;
-  left: var(--space-3);
-  right: var(--space-3);
-  bottom: 2px;
-  height: 2px;
-  background: var(--red);
 }
 
 .health-dot {
@@ -158,20 +165,18 @@
 }
 
 .banner.error {
-  background: rgba(179, 55, 43, 0.08);
-  border: 1px solid rgba(179, 55, 43, 0.45);
+  background: rgba(227, 121, 106, 0.08);
+  border: 1px solid rgba(227, 121, 106, 0.4);
   color: var(--danger);
 }
 
 .banner.stale {
-  background: rgba(138, 90, 0, 0.07);
-  border: 1px solid rgba(138, 90, 0, 0.4);
+  background: rgba(208, 165, 69, 0.07);
+  border: 1px solid rgba(208, 165, 69, 0.4);
   color: var(--warn);
 }
 
-/* ---- the ledger page: gutter column + continuous red margin rule (the signature).
-        The rule is drawn ONCE on the page so it never breaks into dashes; the gutter
-        carries real metadata (dates, n=, seals) like a ledger's margin column. ---- */
+/* ---- the page: gutter column beside the hash-marked touchline ---- */
 
 .page {
   position: relative;
@@ -180,16 +185,15 @@
   gap: var(--space-7);
 }
 
-/* the red margin rule — one continuous line down the whole record, every viewport */
+/* the touchline — one continuous chalk line with hash marks, drawn once per page */
 .page::before {
   content: "";
   position: absolute;
   top: 0;
   bottom: 0;
   left: 0;
-  width: 2px;
-  background: var(--red);
-  opacity: 0.85;
+  width: 1px;
+  background: rgba(232, 237, 230, 0.14);
 }
 
 .entry {
@@ -230,12 +234,28 @@
 @media (min-width: 1024px) {
   .page::before {
     left: calc(var(--gutter) + var(--gutter-gap) / 2);
+    background: rgba(232, 237, 230, 0.2);
+  }
+
+  /* hash ticks straddling the touchline */
+  .page::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: calc(var(--gutter) + var(--gutter-gap) / 2 - 3px);
+    width: 7px;
+    background: repeating-linear-gradient(
+      to bottom,
+      rgba(232, 237, 230, 0.32) 0 2px,
+      transparent 2px 56px
+    );
   }
 
   .entry {
     grid-template-columns: var(--gutter) minmax(0, 1fr);
     /* row gap, THEN column gap — a bare `gap` here would reset the column gap
-       and shove content under the red rule */
+       and shove content under the touchline */
     gap: var(--space-4) var(--gutter-gap);
     padding-left: 0;
   }
@@ -262,6 +282,7 @@
 .section-head p {
   color: var(--ink-muted);
   font-size: var(--text-sm);
+  line-height: 1.65;
   text-wrap: pretty;
   max-width: 64ch;
 }
@@ -287,14 +308,15 @@
   grid-template-columns: 1fr;
 }
 
-/* the KPI strip is ONE ruled ledger figure row, not four floating cards */
+/* the KPI strip is ONE surface with hairline dividers, not four floating cards */
 .grid-4 {
   display: grid;
   gap: 0;
   grid-template-columns: 1fr 1fr;
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
-  background: var(--bg-1);
+  background: linear-gradient(180deg, #18241d, var(--bg-1));
+  box-shadow: var(--edge-hi);
   overflow: hidden;
 }
 
@@ -329,11 +351,11 @@
   }
 }
 
-/* ---- footer: colophon between rules ---- */
+/* ---- footer ---- */
 
 .footer {
   margin-top: var(--space-8);
-  border-top: 1px solid var(--line-strong);
+  border-top: 1px solid var(--line);
   padding: var(--space-5) 0 var(--space-4);
   display: grid;
   gap: var(--space-3);
@@ -353,25 +375,26 @@
   color: var(--ink-faint);
 }
 
-/* ---- hero (Overview): the ledger opens — thesis + the next-entry panel ---- */
+/* ---- hero: the center-circle countdown. The halfway line runs the full viewport
+        width, doubles as the hero's bottom boundary, and passes through the circle's
+        center — copy above the line, the record begins below it. ---- */
 
-.hero-body {
-  display: grid;
-  gap: var(--space-6);
-  align-items: start;
-  padding: var(--space-4) 0 var(--space-2);
+.hero-entry {
+  /* reserve room for the circle's lower half, which straddles the line — the page's
+     own section gap supplies the rest of the clearance */
+  margin-bottom: calc(var(--ph-size, 300px) / 2 - 40px);
 }
 
-@media (min-width: 1024px) {
-  .hero-body {
-    grid-template-columns: 1.12fr 0.88fr;
-  }
+.hero-stage {
+  position: relative;
+  --ph-size: 300px;
 }
 
 .hero-copy {
   display: grid;
   gap: var(--space-4);
   justify-items: start;
+  padding-bottom: var(--space-6);
 }
 
 .hero-copy h1 {
@@ -384,6 +407,7 @@
 .hero-copy .sub {
   color: var(--ink-muted);
   max-width: 560px;
+  line-height: 1.65;
   text-wrap: pretty;
 }
 
@@ -393,6 +417,224 @@
   flex-wrap: wrap;
   margin-top: var(--space-2);
 }
+
+/* PitchHero contributes the line + circle directly into the stage's coordinate system */
+.pitch-hero {
+  display: contents;
+}
+
+/* the halfway line — full viewport width, at the stage's bottom edge */
+.hw-line {
+  position: absolute;
+  bottom: -0.75px;
+  left: 50%;
+  width: 100vw;
+  height: 1.5px;
+  transform: translateX(-50%);
+  background: var(--chalk-line);
+  transform-origin: left center;
+  pointer-events: none;
+}
+
+.pitch-hero:not(.drawn) .hw-line {
+  animation: hw-draw 600ms var(--ease-out) both;
+}
+
+@keyframes hw-draw {
+  from {
+    transform: translateX(-50%) scaleX(0);
+  }
+  to {
+    transform: translateX(-50%) scaleX(1);
+  }
+}
+
+/* the circle cell straddles the line: layout box ends at the stage bottom,
+   visually shifted so its CENTER sits on the line */
+.ph-cell {
+  position: relative;
+  width: var(--ph-size);
+  height: var(--ph-size);
+  margin: 0 auto;
+  transform: translateY(50%);
+}
+
+@media (min-width: 1024px) {
+  .hero-copy {
+    max-width: 58%;
+  }
+  .ph-cell {
+    position: absolute;
+    right: var(--space-5);
+    bottom: 0;
+    margin: 0;
+  }
+}
+
+.ph-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.ph-circle {
+  fill: none;
+  stroke: var(--chalk-line);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  transition: stroke var(--dur-slow) var(--ease-out);
+}
+
+.pitch-hero.expired .ph-circle {
+  stroke: rgba(232, 237, 230, 0.55);
+}
+
+.ph-spot {
+  fill: rgba(232, 237, 230, 0.5);
+}
+
+/* the one orchestrated moment: line → circle → spot → countdown, once per session */
+.pitch-hero:not(.drawn) .ph-circle {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: ph-draw 700ms var(--ease-out) 300ms both;
+}
+
+/* Only the chalk STROKES animate — the countdown is content and paints instantly
+   (visibility is never animation-gated; hard-won screenshot-QA lesson). */
+.pitch-hero:not(.drawn) .ph-spot {
+  animation: ph-spot 200ms var(--ease-out) 1000ms both;
+}
+
+@keyframes ph-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes ph-spot {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+    transform-origin: center;
+    transform-box: fill-box;
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* content straddles the line precisely: top half above, fixture below */
+.ph-top {
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  bottom: 50%;
+  padding-bottom: var(--space-4);
+  display: grid;
+  gap: var(--space-2);
+  justify-items: center;
+  text-align: center;
+}
+
+.ph-bottom {
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  top: 50%;
+  padding-top: var(--space-3);
+  display: grid;
+  gap: 2px;
+  justify-items: center;
+  text-align: center;
+}
+
+.fp-head {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.pitch-hero.expired .fp-head {
+  color: var(--gold); /* the freeze IS the sealing act — gold earned here only */
+}
+
+.countdown {
+  display: grid;
+  grid-template-columns: repeat(4, auto);
+  gap: var(--space-3);
+}
+
+.countdown .unit {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+}
+
+.countdown .unit.zero .value,
+.countdown .unit.zero .label {
+  color: var(--ink-faint); /* leading zeros step back via color, never opacity */
+}
+
+.countdown .value {
+  font-family: var(--font-mono);
+  font-size: clamp(1.35rem, 2.6vw, 2rem);
+  font-weight: 600;
+  line-height: 1;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.countdown .label {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--ink-faint);
+}
+
+.countdown-caption {
+  color: var(--ink-muted);
+  font-size: var(--text-sm);
+  margin: 0;
+  max-width: 26ch;
+}
+
+.fc-match {
+  display: grid;
+  gap: 2px;
+  font-size: var(--text-sm);
+}
+
+.fc-match .who {
+  font-weight: 600;
+}
+
+.fc-match .when {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+}
+
+@media (max-width: 1023px) {
+  .hero-stage {
+    --ph-size: 240px;
+  }
+  .hero-entry {
+    margin-bottom: calc(240px / 2 - 32px);
+  }
+  /* narrower content chord so the label wraps INSIDE the chalk circle */
+  .ph-top {
+    left: 18%;
+    right: 18%;
+  }
+}
+
+/* ---- buttons: chalk is the interactive voice ---- */
 
 .btn {
   display: inline-flex;
@@ -415,100 +657,20 @@
 
 .btn.primary {
   background: var(--ink);
-  color: var(--bg-1);
+  color: var(--bg-0);
   border: 1px solid var(--ink);
 }
 
 .btn.primary:hover {
-  background: var(--accent-strong);
-  border-color: var(--accent-strong);
+  background: #fff;
+  border-color: #fff;
 }
 
 .btn.ghost {
-  border: 1px solid var(--ink);
+  border: 1px solid rgba(232, 237, 230, 0.4);
   color: var(--ink);
 }
 
 .btn.ghost:hover {
-  color: var(--accent-strong);
-  border-color: var(--accent-strong);
-}
-
-/* the next-entry panel: countdown to the next official freeze */
-
-.freeze-panel {
-  background: var(--bg-1);
-  border: 1px solid var(--line-strong);
-  border-top: 3px solid var(--red);
-  border-radius: var(--r-lg);
-  box-shadow: var(--shadow-stamped);
-  padding: var(--space-5);
-  display: grid;
-  gap: var(--space-4);
-}
-
-.freeze-panel .fp-head {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--ink-muted);
-}
-
-.countdown {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: var(--space-2);
-}
-
-.countdown .unit {
-  display: grid;
-  justify-items: center;
-  gap: var(--space-1);
-  border-bottom: 1px solid var(--line);
-  padding: var(--space-2) var(--space-1) var(--space-3);
-}
-
-.countdown .unit.zero .value,
-.countdown .unit.zero .label {
-  color: var(--ink-faint); /* leading zeros step back via color, never opacity */
-}
-
-.countdown .value {
-  font-family: var(--font-mono);
-  font-size: clamp(1.7rem, 3.2vw, 2.5rem);
-  font-weight: 600;
-  line-height: 1;
-  color: var(--ink);
-  font-variant-numeric: tabular-nums;
-}
-
-.countdown .label {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--ink-faint);
-}
-
-.countdown-caption {
-  color: var(--ink-muted);
-  font-size: var(--text-sm);
-  margin: 0;
-}
-
-.fc-match {
-  display: grid;
-  gap: var(--space-1);
-  font-size: var(--text-sm);
-}
-
-.fc-match .who {
-  font-weight: 600;
-}
-
-.fc-match .when {
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  color: var(--ink-faint);
+  border-color: var(--ink);
 }

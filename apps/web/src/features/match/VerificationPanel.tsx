@@ -55,11 +55,11 @@ function Forecast({ f, repo }: { f: VerifiedForecast; repo: string | null }) {
       {f.canonical_json && (
         <div>
           <p className="blurb" style={{ marginBottom: "var(--space-2)" }}>
-            The canonical document below SHA-256-hashes to the stored value — try it yourself:
+            The canonical document below SHA-256-hashes to the stored value. Save it as{" "}
+            <code>forecast.json</code> (bytes exactly as shown), then:
           </p>
           <pre className="codeblock">{f.canonical_json}</pre>
-          <pre className="codeblock">{`# python
-import hashlib; hashlib.sha256(open('forecast.json','rb').read()).hexdigest()`}</pre>
+          <pre className="codeblock">{`python -c "import hashlib;print(hashlib.sha256(open('forecast.json','rb').read()).hexdigest())"`}</pre>
         </div>
       )}
 

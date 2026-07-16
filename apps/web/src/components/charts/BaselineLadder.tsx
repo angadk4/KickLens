@@ -12,8 +12,8 @@ export type LadderRow = {
 };
 
 const ROW_H = 40;
-const LABEL_W = 150;
-const VALUE_W = 64;
+const LABEL_W = 118;
+const VALUE_W = 56;
 const PAD_TOP = 8;
 const AXIS_H = 28;
 
@@ -45,12 +45,12 @@ export function BaselineLadder({ rows }: { rows: LadderRow[] }) {
 
   return (
     <figure className="chart-figure">
-      {/* min-width + own scroll container: labels never scale below legibility on
-          narrow viewports, and the figure scrolls instead of the page */}
-      <div style={{ overflowX: "auto" }}>
+      {/* min-width + scroll-shadowed container: labels never scale below legibility
+          on narrow viewports, and the figure scrolls with a visible affordance */}
+      <div className="table-scroll">
       <svg
         viewBox={`0 0 ${W} ${H}`}
-        style={{ width: "100%", minWidth: 560, height: "auto", display: "block" }}
+        style={{ width: "100%", minWidth: 500, height: "auto", display: "block" }}
         role="img"
         aria-label={`Log loss ladder: ${rows.map((r) => `${r.name} ${nats(r.log_loss)}`).join(", ")}`}
       >

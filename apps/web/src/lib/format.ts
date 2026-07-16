@@ -58,6 +58,15 @@ export function compactInt(n: number): string {
   return n.toLocaleString();
 }
 
+/** Display-name normalization: raw provider strings never leak to the screen. */
+const TEAM_NAMES: Record<string, string> = {
+  "Atlanta Utd": "Atlanta United",
+};
+
+export function teamName(t: string): string {
+  return TEAM_NAMES[t] ?? t;
+}
+
 /** The T-3h cutoff for a kickoff ISO string. */
 export function cutoffOf(kickoffIso: string): Date {
   return new Date(new Date(kickoffIso).getTime() - 3 * 3600 * 1000);

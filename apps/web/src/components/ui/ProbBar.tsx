@@ -5,7 +5,8 @@
 import { useEffect, useRef, useState } from "react";
 import { pct } from "../../lib/format";
 
-const MIN_LABEL_PX = 62; // ≈ "D 26.0%" at 11px mono + breathing room
+const FULL_LABEL_PX = 62; // ≈ "D 26.0%" at 11px mono + breathing room
+const PCT_LABEL_PX = 36; // ≈ "26%" — colors + fixed H|D|A order carry the outcome
 
 export function ProbBar({
   pHome,
@@ -34,7 +35,14 @@ export function ProbBar({
     { key: "draw", label: "D", p: pDraw },
     { key: "away", label: "A", p: pAway },
   ] as const;
-  const inBar = width > 0 && segs.every((s) => s.p * width >= MIN_LABEL_PX);
+  // three tiers: full "H 46.5%" → bare "47%" → legend row. One system per bar,
+  // never a silently clipped sliver.
+  const tier =
+    width > 0 && segs.every((s) => s.p * width >= FULL_LABEL_PX)
+      ? "full"
+      : width > 0 && segs.every((s) => s.p * width >= PCT_LABEL_PX)
+        ? "pct"
+        : "legend";
   return (
     <div className="probbar-wrap">
       <div
@@ -49,11 +57,14 @@ export function ProbBar({
             className={`seg ${s.key}`}
             style={{ flexGrow: Math.max(s.p, 0.001), flexBasis: 0 }}
           >
-            <span className="seg-label">{inBar && `${s.label} ${pct(s.p)}`}</span>
+            <span className="seg-label">
+              {tier === "full" && `${s.label} ${pct(s.p)}`}
+              {tier === "pct" && `${Math.round(s.p * 100)}%`}
+            </span>
           </div>
         ))}
       </div>
-      {!inBar && (
+      {tier === "legend" && (
         <div className="probbar-legend" aria-hidden>
           {segs.map((s) => (
             <span key={s.key}>

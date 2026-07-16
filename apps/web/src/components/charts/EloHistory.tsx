@@ -46,8 +46,8 @@ export function EloHistory({
           <XAxis
             dataKey="date"
             {...axisProps}
-            minTickGap={48}
-            tickFormatter={(d: string) => d.slice(5)}
+            minTickGap={56}
+            tickFormatter={(d: string) => `${d.slice(5)} '${d.slice(2, 4)}`}
           />
           <YAxis domain={[yLo, yHi]} ticks={yTicks} {...axisProps} />
           <Tooltip content={<ChartTooltip format={(v) => v.toFixed(1)} />} />

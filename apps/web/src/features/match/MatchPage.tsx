@@ -6,7 +6,7 @@ import { Badge } from "../../components/ui/Badge";
 import { ProbBar } from "../../components/ui/ProbBar";
 import { Section } from "../../components/ui/Section";
 import { EmptyState, ErrorState, Skeleton } from "../../components/ui/states";
-import { kickoffLocal, kickoffUTC, nats } from "../../lib/format";
+import { kickoffLocal, kickoffUTC, nats, teamName } from "../../lib/format";
 import { useApi } from "../../lib/useApi";
 import { VerificationPanel } from "./VerificationPanel";
 
@@ -46,7 +46,7 @@ export function MatchPage() {
     <div className="page">
       <Section
         eyebrow={`match #${m.match_id} · season ${m.season}${m.neutral_site ? " · neutral site" : ""}`}
-        title={`${m.home} vs ${m.away}`}
+        title={`${teamName(m.home)} vs ${teamName(m.away)}`}
         description={
           <>
             <time dateTime={m.kickoff_utc ?? undefined} title={kickoffUTC(m.kickoff_utc)}>

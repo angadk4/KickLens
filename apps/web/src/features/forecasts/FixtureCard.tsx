@@ -5,7 +5,7 @@ import type { UpcomingMatch } from "../../api";
 import { Badge } from "../../components/ui/Badge";
 import { HashBadge } from "../../components/ui/HashBadge";
 import { ProbBar } from "../../components/ui/ProbBar";
-import { cutoffOf, kickoffLocal, timeLocal } from "../../lib/format";
+import { cutoffOf, kickoffLocal, teamName, timeLocal } from "../../lib/format";
 
 export function FixtureCard({ m, timeOnly = false }: { m: UpcomingMatch; timeOnly?: boolean }) {
   const f = m.forecast;
@@ -17,7 +17,7 @@ export function FixtureCard({ m, timeOnly = false }: { m: UpcomingMatch; timeOnl
     <Link to={`/match/${m.match_id}`} className={`card fixture-card ${state}`}>
       <div className="teams">
         <span className="matchup">
-          {m.home} <span className="vs">vs</span> {m.away}
+          {teamName(m.home)} <span className="vs">vs</span> {teamName(m.away)}
         </span>
         <span className="when">
           {timeOnly ? timeLocal(m.kickoff_utc) : kickoffLocal(m.kickoff_utc)}

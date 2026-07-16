@@ -13,6 +13,7 @@ import "./styles/layout.css";
 import "./styles/components.css";
 import App from "./App";
 import { CalibrationPage } from "./features/calibration/CalibrationPage";
+import { EngineeringPage } from "./features/engineering/EngineeringPage";
 import { ForecastsPage } from "./features/forecasts/ForecastsPage";
 import { HomePage } from "./features/home/HomePage";
 import { MatchPage } from "./features/match/MatchPage";
@@ -35,6 +36,7 @@ const router = createBrowserRouter([
       { path: "calibration", element: <CalibrationPage /> },
       { path: "ratings", element: <RatingsPage /> },
       { path: "methodology", element: <MethodologyPage /> },
+      { path: "engineering", element: <EngineeringPage /> },
       { path: "*", element: <NotFound /> },
     ],
   },

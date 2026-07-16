@@ -51,17 +51,19 @@ function asOfShort(iso: string | undefined): string {
   return `${d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })} · ${d.toISOString().slice(11, 16)} UTC`;
 }
 
-/** Plain-English readings of the numbers — generated, never hand-waved. */
+/** Plain-English readings of the numbers — generated, never hand-waved.
+    Deltas are computed from DISPLAY precision so a reader subtracting the shown
+    figures gets exactly the shown Δ. */
 function verdicts(scope: Scope, m: MetricsPayload): { cls: string; text: string; num: string }[] {
   const out: { cls: string; text: string; num: string }[] = [];
   const b3 = scope === "dev" ? m.incumbent_b3_log_loss : m.b3_log_loss;
   if (typeof m.log_loss === "number" && typeof b3 === "number") {
-    const d = m.log_loss - b3;
+    const d = Number(nats(m.log_loss)) - Number(nats(b3));
     out.push({
       cls: Math.abs(d) < 0.005 ? "neutral" : d < 0 ? "good" : "behind",
       text:
         Math.abs(d) < 0.005
-          ? "statistically tied with the Elo baseline"
+          ? "within the pre-registered 0.005-nat practical band of the Elo baseline"
           : d < 0
             ? "ahead of the Elo baseline"
             : "behind the Elo baseline",
@@ -69,11 +71,14 @@ function verdicts(scope: Scope, m: MetricsPayload): { cls: string; text: string;
     });
   }
   if (typeof m.log_loss === "number" && typeof m.market_log_loss === "number") {
-    const d = m.log_loss - m.market_log_loss;
+    const d = Number(nats(m.log_loss)) - Number(nats(m.market_log_loss));
     out.push({
-      cls: "behind",
-      text: "closing market ahead (it sees 3 more hours)",
-      num: `Δ +${d.toFixed(4)}`,
+      cls: d >= 0 ? "behind" : "good",
+      text:
+        d >= 0
+          ? "closing market ahead (it sees 3 more hours)"
+          : "ahead of the closing market",
+      num: `Δ ${d >= 0 ? "+" : ""}${d.toFixed(4)}`,
     });
   }
   if (typeof m.ece === "number") {

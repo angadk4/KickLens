@@ -5,7 +5,7 @@ import { api } from "../../api";
 import { EloHistory } from "../../components/charts/EloHistory";
 import { Section } from "../../components/ui/Section";
 import { EmptyState, ErrorState, Skeleton } from "../../components/ui/states";
-import { compactInt, dateShort } from "../../lib/format";
+import { compactInt, dateShort, teamName } from "../../lib/format";
 import { useApi } from "../../lib/useApi";
 
 function FormStr({ form }: { form: string }) {
@@ -70,7 +70,7 @@ export function RatingsPage() {
                     <th className="num">Δ last 5</th>
                     <th>Form</th>
                     <th className="num">Played</th>
-                    <th>Last match</th>
+                    <th className="hide-sm">Last match</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -86,7 +86,7 @@ export function RatingsPage() {
                     >
                       <td className="num">{t.rank}</td>
                       <td>
-                        {t.team}
+                        {teamName(t.team)}
                         {t.provisional && (
                           <span className="chip" style={{ marginLeft: 8 }}>
                             provisional
@@ -108,7 +108,7 @@ export function RatingsPage() {
                         <FormStr form={t.form} />
                       </td>
                       <td className="num">{t.played_season}</td>
-                      <td className="num">{dateShort(t.last_match_utc)}</td>
+                      <td className="num hide-sm">{dateShort(t.last_match_utc)}</td>
                     </tr>
                   ))}
                 </tbody>

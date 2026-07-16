@@ -1,51 +1,58 @@
-/* KickLens "Match Ledger" design tokens — the single source of truth.
-   Light-only by identity: the product is a write-once record book, and records are paper.
-   Palette: green-tinted ledger paper, green-black ink, the red margin rule, pitch green
-   reserved for interaction. Contrast pairs validated (3-judge a11y pass) on --bg-1. */
+/* KickLens "Floodlit Pitch" design tokens — the single source of truth.
+   Dark by identity: the pitch at night under lights. Green is the GROUND (green-black
+   surfaces), never a figure — interaction is chalk, officialness is gold, data keeps its
+   own triad. Contrast pairs adversarially validated (3-judge pass) on --bg-1. */
 
 :root {
-  color-scheme: light;
+  color-scheme: dark;
 
-  /* Surfaces — ledger paper ladder (page → card → inset) */
-  --bg-0: #e8eddf;
-  --bg-1: #fafbf5;
-  --bg-2: #e2e8d5;
-  --line: #cbd3bf;
-  --line-strong: #a2ad94;
+  /* Surfaces — night-pitch ladder (page → card → elevated). Deltas are subtle by
+     design (soft), so 1px borders are mandatory on cards. */
+  --bg-0: #0f1813;
+  --bg-1: #16211b;
+  --bg-2: #1d2a23;
+  --line: #2b3a31;
+  --line-strong: #3d5045;
 
-  /* Ink (contrast measured on --bg-1) */
-  --ink: #1b2420; /* 15.6:1 */
-  --ink-muted: #48544d; /* 7.6:1 */
-  --ink-faint: #6c7a70; /* 4.6:1 — captions only, never body copy */
+  /* Ink = chalk (contrast measured on --bg-1) */
+  --ink: #e8ede6; /* 13.9:1 */
+  --ink-muted: #a7b3aa; /* 7.6:1 */
+  --ink-faint: #7d8c7b; /* 4.7:1 — captions on bg-0/bg-1 only; use muted on bg-2 */
 
-  /* Roles: green = interactive, ink = permanent record, red = margin rule + corrections */
-  --accent: #1e6b3c; /* links, active nav, buttons, focus */
-  --accent-strong: #14522c;
-  --red: #b3372b; /* the margin rule; VOID stamps; errors */
+  /* Roles: chalk = interactive, gold = officialness (seals/anchors — never links),
+     green = semantics only (success/live) */
+  --accent: #e8ede6;
+  --gold: #c9a86a; /* 7.3:1 — FROZEN seals, merkle/anchor artifacts, ::selection */
+  --success: #66c28f;
+  --warn: #d0a545;
+  --danger: #e3796a;
 
-  /* Outcomes — fixed H|D|A order everywhere; identity never rides hue alone */
-  --home: #2456a8; /* white text: 7.1:1 */
-  --draw: #6b766e; /* white text: 4.7:1 — neutral but clearly inked */
-  --away: #a8481c; /* white text: 5.2:1 */
+  /* Outcomes — fixed H|D|A order everywhere; in-bar labels are INK #0e1512 @600
+     (white fails on all three fills) */
+  --home: #5b9bd9;
+  --draw: #93a39a;
+  --away: #d98a5b;
 
-  /* Evidence scopes (T-171) — never shown without their text label;
-     darkened to hold 4.5:1 even over their 8% chip tint */
-  --scope-dev: #5f3dbe;
-  --scope-test: #7a5600;
-  --scope-backtest: #556270;
-  --scope-live: #1b6e3f;
+  /* Evidence scopes (T-171) — never shown without their text label.
+     The story is the palette's: gold = sealed (test), green = live,
+     chalk neutrals = historical (dev/backtest). No hue outside the system. */
+  --scope-dev: #b9c4bb;
+  --scope-test: #c9a86a;
+  --scope-backtest: #8b98ac;
+  --scope-live: #66c28f;
 
-  /* Status — always icon + label, never color alone */
-  --success: #1e6b3c;
-  --warn: #8a5a00;
-  --danger: #b3372b;
+  /* Pitch art — the only chalk-line vocabulary: hero plan, touchline gutter,
+     empty-state arc, 404 spot. Never dashed, never textured. */
+  --chalk-line: rgba(232, 237, 230, 0.35);
 
-  /* Elevation is SEMANTIC: only frozen/official entries get the print plate.
-     Shadow inks from the rule tones — never black. */
-  --shadow-stamped: 3px 3px 0 color-mix(in srgb, var(--line-strong) 55%, transparent);
-  --shadow-float: 0 2px 10px rgba(27, 36, 32, 0.14); /* tooltips actually float */
+  /* Elevation: the "machined edge" is SEMANTIC (officials only); floats are the
+     only drop shadows — layered, colored from the bg family, never black */
+  --edge-hi: inset 0 1px 0 rgba(232, 237, 230, 0.05);
+  --shadow-float:
+    0 1px 2px rgba(4, 8, 6, 0.5),
+    0 8px 24px rgba(4, 8, 6, 0.35);
 
-  /* Type — Archivo (expanded caps: wordmark, page titles, matchups ONLY)
+  /* Type — Archivo (expanded caps: wordmark, hero, matchups ONLY)
      + IBM Plex Mono (every number, hash, timestamp) */
   --font-display: "Archivo Variable", system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
@@ -59,7 +66,7 @@
   --text-3xl: 2.25rem;
   --text-hero: clamp(1.9rem, 3.8vw, 2.8rem);
 
-  /* Spacing (4px scale) + radius (near-square: printed matter, not bubbles) */
+  /* Spacing (4px scale) + radius (scales with element size: chip → tooltip → card) */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -68,16 +75,17 @@
   --space-6: 32px;
   --space-7: 48px;
   --space-8: 64px;
-  --r-sm: 2px;
-  --r-md: 3px;
-  --r-lg: 4px;
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 16px;
   --r-full: 999px;
 
-  /* Ledger geometry — the gutter column + red margin rule */
+  /* Touchline geometry — the gutter column beside the hash-marked touchline */
   --gutter: 132px;
   --gutter-gap: 44px;
 
-  /* Motion — one moment only: the stamp landing */
+  /* Motion — one orchestrated moment (the hero chalk draw, once per session);
+     the FROZEN stamp-in is the only other animation */
   --dur-fast: 150ms;
   --dur-med: 250ms;
   --dur-slow: 500ms;
