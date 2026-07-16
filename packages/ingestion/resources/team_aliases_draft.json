@@ -307,12 +307,29 @@
       "provider_key": "1363235",
       "provider_name": "Toronto FC",
       "canonical": "Toronto FC"
+    },
+    {
+      "provider": "highlightly",
+      "provider_key": "1359831",
+      "provider_name": "FC Dallas",
+      "canonical": "FC Dallas"
+    },
+    {
+      "provider": "highlightly",
+      "provider_key": "1358980",
+      "provider_name": "San Jose Earthquakes",
+      "canonical": "San Jose Earthquakes"
+    },
+    {
+      "provider": "highlightly",
+      "provider_key": "21687668",
+      "provider_name": "San Diego",
+      "canonical": "San Diego FC"
     }
   ],
   "unresolved": [],
   "canonical_without_provider_id": [
-    "Chivas USA",
-    "San Diego FC"
+    "Chivas USA"
   ],
   "defunct": [
     "Chivas USA"
