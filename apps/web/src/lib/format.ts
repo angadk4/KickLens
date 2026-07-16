@@ -20,6 +20,7 @@ export function kickoffLocal(iso: string | null): string {
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
+    timeZoneName: "short",
   });
 }
 
@@ -31,7 +32,11 @@ export function kickoffUTC(iso: string | null): string {
 
 export function timeLocal(iso: string | null): string {
   if (!iso) return "TBD";
-  return new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  return new Date(iso).toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+    timeZoneName: "short",
+  });
 }
 
 export function dayHeading(iso: string): string {

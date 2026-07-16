@@ -65,7 +65,7 @@ export function MatchPage() {
         }
       >
         {current ? (
-          <div className="card fixture-card">
+          <div className="card fixture-card stamped">
             <div className="meta">
               <Badge kind="frozen" />
               <span className="chip">rev {current.fixture_revision}</span>
@@ -86,7 +86,7 @@ export function MatchPage() {
             )}
           </div>
         ) : m.draft ? (
-          <div className="card fixture-card">
+          <div className="card fixture-card pencilled">
             <div className="meta" style={{ border: "none", padding: 0, margin: 0 }}>
               <Badge
                 kind="draft"
@@ -94,7 +94,8 @@ export function MatchPage() {
               />
               {m.kickoff_utc && (
                 <span className="chip" title="When the official forecast freezes">
-                  ❄ {kickoffLocal(new Date(new Date(m.kickoff_utc).getTime() - 3 * 3600 * 1000).toISOString())}
+                  freezes{" "}
+                  {kickoffLocal(new Date(new Date(m.kickoff_utc).getTime() - 3 * 3600 * 1000).toISOString())}
                 </span>
               )}
             </div>

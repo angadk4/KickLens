@@ -1,5 +1,5 @@
-// Overview: split hero (copy + gradient freeze-card countdown), scope-chipped headline
-// stats, next fixtures, and the freeze→anchor→grade story. Countdown is pure client-side.
+// Overview: the ledger opens — thesis + next-freeze countdown panel, scope-chipped
+// headline stats, next fixtures, the freeze→anchor→grade story. Countdown is client-side.
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { api, type UpcomingMatch } from "../../api";
@@ -25,35 +25,33 @@ function Hero({ upcoming }: { upcoming: ApiState<UpcomingMatch[]> }) {
   const cd = useCountdown(next?.cutoff ?? null);
 
   return (
-    <div className="hero">
-      <div className="hero-copy">
-        <span className="eyebrow">MLS 1X2 · tamper-evident · read-only</span>
-        <h1>
-          Probabilistic MLS forecasts with a <span className="grad-text">verifiable</span>{" "}
-          public track record.
-        </h1>
-        <p className="sub">
-          Every official forecast freezes 3 hours before kickoff, is SHA-256 hashed and
-          anchored to a public git repository, then graded automatically against the result.
-          Honest by construction — including about what the model can't do.
-        </p>
-        <div className="hero-ctas">
-          <Link to="/forecasts" className="btn primary">
-            View forecasts →
-          </Link>
-          <Link to="/methodology" className="btn ghost">
-            How it's verified
-          </Link>
-        </div>
+    <div className="entry">
+      <div className="entry-marker">
+        MLS 2026
+        <span className="em-meta">the match ledger</span>
+        <span className="em-meta">read-only</span>
       </div>
+      <div className="entry-body hero-body">
+        <div className="hero-copy">
+          <h1>Every official forecast goes on the record. None come off.</h1>
+          <p className="sub">
+            Each one freezes 3 hours before kickoff, is SHA-256 hashed and anchored to a
+            public GitHub repository, then graded automatically against the result. Honest by
+            construction — even about what the model can't do.
+          </p>
+          <div className="hero-ctas">
+            <Link to="/forecasts" className="btn primary">
+              See upcoming forecasts
+            </Link>
+            <Link to="/methodology" className="btn ghost">
+              How verification works
+            </Link>
+          </div>
+        </div>
 
-      {next && !cd.expired && (
-        <div className="freeze-card">
-          <div className="freeze-card-inner">
-            <div className="fc-head">
-              <span>next official freeze</span>
-              <span className="cursor">▮</span>
-            </div>
+        {next && !cd.expired && (
+          <div className="freeze-panel">
+            <div className="fp-head">next official freeze in</div>
             <div className="countdown" aria-live="off">
               {(() => {
                 const units = [
@@ -90,21 +88,16 @@ function Hero({ upcoming }: { upcoming: ApiState<UpcomingMatch[]> }) {
               </span>
             </div>
           </div>
-        </div>
-      )}
-      {next && cd.expired && (
-        <div className="freeze-card">
-          <div className="freeze-card-inner">
-            <div className="fc-head">
-              <span>freezing now</span>
-              <span className="cursor">▮</span>
-            </div>
+        )}
+        {next && cd.expired && (
+          <div className="freeze-panel">
+            <div className="fp-head">freezing now</div>
             <p className="countdown-caption">
               An official forecast is being frozen and anchored about now.
             </p>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
@@ -126,9 +119,10 @@ export function HomePage() {
       <Hero upcoming={upcoming} />
 
       <Section
-        eyebrow="Headline evidence"
+        eyebrow="Evidence"
+        meta={["4 scopes", "never merged"]}
         title="The numbers, with their receipts"
-        description="Four separate evidence scopes — development, the sealed one-shot test,
+        description="Four separate evidence scopes — development, the sealed touch-once test,
         labelled backtests, and the live record. They are never merged, and every figure
         carries its sample size."
       >
@@ -156,7 +150,7 @@ export function HomePage() {
               format={(v) => v.toFixed(4)}
               scope="test"
               n={testM.n ?? null}
-              sub="best of all 8 evaluated models"
+              sub="one sealed run · champion frozen before it"
             />
           ) : (
             <Skeleton height={130} />
@@ -168,7 +162,7 @@ export function HomePage() {
               format={nats}
               scope="dev"
               n={devM.n ?? null}
-              sub="2018–2024 walk-forward, leak-free"
+              sub="2018–2024 walk-forward, leak-tested"
             />
           ) : (
             <Skeleton height={130} />
@@ -179,21 +173,26 @@ export function HomePage() {
               value={liveN}
               scope="live"
               n={liveN}
-              sub="starts at zero — honestly"
+              sub="accrues in real time, never back-filled"
             />
           ) : (
             <Skeleton height={130} />
           )}
         </div>
+        <p className="blurb" style={{ fontSize: "var(--text-xs)" }}>
+          Log loss — lower is better. Guessing ⅓/⅓/⅓ every match scores 1.0986; every
+          hundredth below that is real signal.
+        </p>
       </Section>
 
       <Section
         eyebrow="Next up"
+        meta={["7-day window"]}
         title="Upcoming fixtures"
         description={
           <>
-            Drafts are preliminary until each fixture's cutoff.{" "}
-            <Link to="/forecasts">All forecasts →</Link>
+            Dashed cards are pencilled in — preliminary until each fixture's cutoff. Stamped
+            cards are frozen officials. <Link to="/forecasts">All forecasts →</Link>
           </>
         }
       >
@@ -214,7 +213,8 @@ export function HomePage() {
 
       <Section
         eyebrow="How it works"
-        title="Freeze → Anchor → Grade"
+        meta={["fully automated"]}
+        title="Freeze, anchor, grade"
         description="The pipeline that makes the record tamper-evident."
       >
         <div className="steps">
@@ -227,7 +227,7 @@ export function HomePage() {
             </p>
           </div>
           <div className="step">
-            <span className="n">02 · at creation</span>
+            <span className="n">02 · at freeze</span>
             <h3>Anchor</h3>
             <p>
               The forecast's SHA-256 hash is committed to a public GitHub file before the match

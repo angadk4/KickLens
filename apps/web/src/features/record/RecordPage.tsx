@@ -15,10 +15,15 @@ const RESULT_LABEL = { H: "home win", D: "draw", A: "away win" } as const;
 
 export function RecordPage() {
   const { data, error, loading, retry } = useApi(() => api.completed());
+  const upcoming = useApi(() => api.upcoming());
+  // officials already frozen but not yet graded — so launch day reads "running", not "empty"
+  const frozenAwaiting =
+    upcoming.data?.filter((m) => m.forecast?.type === "official-frozen").length ?? 0;
   return (
     <div className="page">
       <Section
         eyebrow="Live record"
+        meta={["never back-filled"]}
         title="Graded official forecasts"
         description="This page IS the track record — frozen before kickoff, graded after full
         time, never back-filled."
@@ -26,21 +31,36 @@ export function RecordPage() {
         {loading && <Skeleton height={160} />}
         {error && <ErrorState retry={retry} />}
         {data && data.total_graded === 0 && (
-          <EmptyState big="0" title="graded official forecasts">
-            The first officials haven't kicked off yet — forecasts start freezing Jul 16, 2026
-            (20:30 UTC) and grades follow the results.{" "}
-            <Link to="/forecasts">See upcoming fixtures →</Link>
-          </EmptyState>
+          <>
+            {frozenAwaiting > 0 && (
+              <span className="chip" style={{ justifySelf: "start" }}>
+                {frozenAwaiting} official{frozenAwaiting === 1 ? "" : "s"} frozen · awaiting
+                full time
+              </span>
+            )}
+            <EmptyState big="0" title="graded official forecasts">
+              No official forecast has been graded yet — the first freeze lands Jul 16, 2026
+              (20:30 UTC), and grades follow the results.{" "}
+              <Link to="/forecasts">See upcoming fixtures →</Link>
+            </EmptyState>
+          </>
         )}
         {data && data.total_graded > 0 && (
           <>
-            <div style={{ display: "flex", gap: "var(--space-3)", alignItems: "center" }}>
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "var(--space-3)",
+                alignItems: "center",
+              }}
+            >
               <ScopeChip scope="live" n={data.total_graded} />
               <span className="chip">newest first</span>
             </div>
             <div className="grid-2">
               {data.items.map((it) => (
-                <Link key={it.match_id} to={`/match/${it.match_id}`} className="card fixture-card">
+                <Link key={it.match_id} to={`/match/${it.match_id}`} className="card fixture-card stamped">
                   <div className="teams">
                     <span className="matchup">
                       {it.home} <span style={{ color: "var(--ink-faint)" }}>vs</span> {it.away}

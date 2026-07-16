@@ -1,4 +1,4 @@
-/* Base: reset, page canvas, typography defaults, focus, scrollbar, reduced motion. */
+/* Base: reset, paper canvas, typography defaults, focus, scrollbar, reduced motion. */
 
 *,
 *::before,
@@ -13,9 +13,7 @@ html {
 body {
   margin: 0;
   min-height: 100vh;
-  background:
-    radial-gradient(60% 40% at 50% 0%, rgba(134, 59, 255, 0.1), transparent 70%),
-    var(--bg-0);
+  background: var(--bg-0);
   color: var(--ink);
   font-family: var(--font-display);
   font-size: var(--text-base);
@@ -28,9 +26,43 @@ h2,
 h3,
 h4 {
   margin: 0;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  line-height: 1.2;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+/* Display voice: expanded caps — rationed to the wordmark, page titles, and team
+   matchups (the athletic gesture stays a gesture, not wallpaper). */
+h1,
+.display {
+  text-transform: uppercase;
+  font-stretch: var(--stretch-display);
+  letter-spacing: 0.01em;
+}
+
+h3,
+h4 {
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+/* Every mono context gets slashed zeros + tabular figures — probabilities and
+   hashes align in columns, the way ledger figures do. */
+code,
+.mono,
+.chip,
+.badge,
+.eyebrow,
+.entry-marker,
+.hashbadge,
+.codeblock,
+.kv dd,
+.tl-time,
+.countdown .value,
+.stat-tile .value,
+.data-table th,
+.data-table .num {
+  font-feature-settings: "zero" on;
+  font-variant-numeric: tabular-nums;
 }
 
 p {
@@ -39,11 +71,14 @@ p {
 
 a {
   color: var(--accent);
-  text-decoration: none;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  text-decoration-color: color-mix(in srgb, var(--accent) 45%, transparent);
 }
 
 a:hover {
-  text-decoration: underline;
+  text-decoration-color: var(--accent);
 }
 
 button {
@@ -61,7 +96,7 @@ code,
 }
 
 ::selection {
-  background: rgba(134, 59, 255, 0.35);
+  background: rgba(30, 107, 60, 0.22);
 }
 
 :focus-visible {

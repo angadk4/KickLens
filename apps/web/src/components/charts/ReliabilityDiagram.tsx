@@ -12,7 +12,7 @@ import {
 } from "recharts";
 import type { ConfidenceBucket } from "../../api";
 import { ChartTooltip } from "./ChartTooltip";
-import { C, axisProps, gridProps } from "./theme";
+import { C, CURSOR_FILL, axisProps, gridProps } from "./theme";
 
 /** bucket key "0.4-0.5" → midpoint 0.45 (upper bucket "0.6-1.01" clamps sensibly). */
 function mid(bucket: string): number {
@@ -51,7 +51,7 @@ export function ReliabilityDiagram({
             tickFormatter={(v: number) => `${Math.round(v * 100)}%`}
           />
           <Tooltip
-            cursor={{ fill: "rgba(157,123,255,0.06)" }}
+            cursor={{ fill: CURSOR_FILL }}
             content={<ChartTooltip format={(v) => `${(v * 100).toFixed(1)}%`} />}
           />
           <Bar
@@ -72,9 +72,9 @@ export function ReliabilityDiagram({
           <Line
             dataKey="observed"
             name="observed top-pick rate"
-            stroke={C.accent}
+            stroke={C.model}
             strokeWidth={2}
-            dot={{ r: 4, fill: C.accent, stroke: C.bg1, strokeWidth: 2 }}
+            dot={{ r: 4, fill: C.model, stroke: C.bg1, strokeWidth: 2 }}
             isAnimationActive={false}
           />
         </ComposedChart>

@@ -24,6 +24,7 @@ export function ForecastsPage() {
     <div className="page">
       <Section
         eyebrow="Upcoming"
+        meta={["freeze = kickoff−3h"]}
         title="Forecasts"
         description="Preliminary probabilities refresh until kickoff−3h; at the cutoff the
         official forecast freezes, is SHA-256 hashed, and is anchored publicly. After that it
@@ -40,6 +41,9 @@ export function ForecastsPage() {
             <span className="swatch" style={{ background: "var(--away)" }} />A away
           </span>
         </div>
+        <span className="eyebrow">
+          dashed card = pencilled in, may change · stamped card = frozen official
+        </span>
         {loading && (
           <div className="grid-2">
             <Skeleton height={150} />
@@ -55,19 +59,28 @@ export function ForecastsPage() {
             window.
           </EmptyState>
         )}
-        {data &&
-          data.length > 0 &&
-          groupByDay(data).map((g) => (
-            <div key={g.day} style={{ display: "grid", gap: "var(--space-3)" }}>
-              <span className="eyebrow">{g.day}</span>
+      </Section>
+      {/* each day is its own ledger entry: the date hangs in the margin column,
+          the way a ledger's date column works */}
+      {data &&
+        data.length > 0 &&
+        groupByDay(data).map((g) => (
+          <div key={g.day} className="entry">
+            <div className="entry-marker">
+              {g.day}
+              <span className="em-meta">
+                {g.items.length} fixture{g.items.length === 1 ? "" : "s"}
+              </span>
+            </div>
+            <div className="entry-body">
               <div className="grid-2">
                 {g.items.map((m) => (
                   <FixtureCard key={m.match_id} m={m} timeOnly />
                 ))}
               </div>
             </div>
-          ))}
-      </Section>
+          </div>
+        ))}
     </div>
   );
 }

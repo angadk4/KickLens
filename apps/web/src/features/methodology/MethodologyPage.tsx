@@ -9,49 +9,25 @@ import { ErrorState, Skeleton } from "../../components/ui/states";
 import { dateShort } from "../../lib/format";
 import { useApi } from "../../lib/useApi";
 
-// one consistent stroke-icon set (24px, 1.75 stroke) — no mixed glyph languages
-const ICONS: Record<string, React.ReactNode> = {
-  snow: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
-      <path d="M12 2v20M4 6l16 12M20 6L4 18M12 6l-3-2m3 2 3-2M12 18l-3 2m3-2 3 2M6.5 9.8 3 9m3.5.8L6 13M17.5 9.8 21 9m-3.5.8.5 3.2" />
-    </svg>
-  ),
-  hash: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
-      <path d="M9 3 7 21M17 3l-2 18M4 8h17M3 16h17" />
-    </svg>
-  ),
-  scale: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 3v18M8 21h8M12 6H6L3 12a3.5 3.5 0 0 0 6 0L6 6m12 0h-6m6 0 3 6a3.5 3.5 0 0 1-6 0l3-6" />
-    </svg>
-  ),
-  layers: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinejoin="round">
-      <path d="m12 3 9 5-9 5-9-5 9-5Z" />
-      <path d="m3 13 9 5 9-5" />
-    </svg>
-  ),
-};
-
+// the four clauses of the contract — set as ruled ledger rows with red mono kickers
 const GUARANTEES = [
   {
-    icon: "snow",
+    kicker: "WRITE-ONCE",
     title: "Frozen at kickoff−3h",
     body: "Officials are written once to an append-only ledger. Post-kickoff writes are rejected outright — an honest 'no forecast' beats a back-filled one.",
   },
   {
-    icon: "hash",
+    kicker: "SHA-256",
     title: "Hashed & publicly anchored",
-    body: "Each forecast's SHA-256 lands in a public GitHub file before the match; a daily Merkle root seals each day. The git history is the notary.",
+    body: "Each forecast's SHA-256 lands in a public GitHub file before the match; a daily Merkle root seals each day. The Git history is the notary.",
   },
   {
-    icon: "scale",
+    kicker: "AUTO-GRADED",
     title: "Graded automatically",
     body: "Results flow in and every official forecast is scored (log loss, RPS, Brier). Corrections re-grade transparently; originals are kept forever.",
   },
   {
-    icon: "layers",
+    kicker: "NEVER MERGED",
     title: "Evidence never merged",
     body: "Dev, test, backtest, and live records stay separate, each tagged with its sample size. No blending, no cherry-picking, ever.",
   },
@@ -71,17 +47,16 @@ export function MethodologyPage() {
     <div className="page">
       <Section
         eyebrow="How and why"
+        meta={["4 guarantees"]}
         title="Methodology"
-        description="Deliberately simple, aggressively honest. Everything here exists to make
-        one claim credible: these probabilities were issued before the match, by this exact
-        model, and were never touched afterwards."
+        description="Deliberately simple. Everything here exists to make one claim credible:
+        these probabilities were issued before the match, by this exact model, and were
+        never touched afterwards."
       >
         <div className="guarantees">
           {GUARANTEES.map((g) => (
             <div key={g.title} className="guarantee">
-              <span className="g-icon" aria-hidden>
-                {ICONS[g.icon]}
-              </span>
+              <span className="g-kicker">{g.kicker}</span>
               <h3>{g.title}</h3>
               <p>{g.body}</p>
             </div>
@@ -95,6 +70,7 @@ export function MethodologyPage() {
         <>
           <Section
             eyebrow="The pipeline"
+            meta={["6 steps", "no hands"]}
             title="Six steps, fully automated"
             description="From result ingestion to a sealed daily Merkle root — no human touches
             a forecast at any point."
@@ -129,6 +105,7 @@ export function MethodologyPage() {
 
           <Section
             eyebrow="The model"
+            meta={["sealed 2026-07-06"]}
             title="Simplest defensible — on purpose"
             description={`${tidy(data.model)}.`}
           >
@@ -145,7 +122,14 @@ export function MethodologyPage() {
             </div>
             {data.baselines && (
               <>
-                <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: "var(--space-2)",
+                    alignItems: "center",
+                  }}
+                >
                   <ScopeChip scope="dev" n={data.baselines.n} />
                   <span className="chip">sealed 2026-07-06 · selection evidence</span>
                 </div>
@@ -187,6 +171,7 @@ export function MethodologyPage() {
 
           <Section
             eyebrow="Trust, but verify"
+            meta={["3 steps"]}
             title="Check any forecast yourself"
             description="No trust required — three steps and a terminal."
           >

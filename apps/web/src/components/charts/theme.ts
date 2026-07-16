@@ -1,23 +1,26 @@
-// Chart constants mirroring styles/tokens.css (site is dark-only, so constants are safe).
+// Chart constants mirroring styles/tokens.css (site is light-only, so constants are safe).
+// Role keys, not hue keys: the champion series is INK — the record's own line.
 export const C = {
-  ink: "#e8e6f0",
-  muted: "#9b97ad",
-  faint: "#6e6a80",
-  line: "#262238",
-  lineStrong: "#363150",
-  bg1: "#110f1c",
-  bg2: "#181529",
-  accent: "#9d7bff",
-  accentStrong: "#863bff",
-  cyan: "#47bfff",
-  home: "#3987e5",
-  gray: "#66708a",
-  success: "#34d399",
-  warn: "#e8a13c",
-  danger: "#ef6a5f",
+  ink: "#1b2420",
+  muted: "#48544d",
+  faint: "#6c7a70",
+  line: "#dce2d2",
+  lineStrong: "#a2ad94",
+  bg1: "#fafbf5",
+  bg2: "#e2e8d5",
+  model: "#1b2420", // champion — written in ink
+  market: "#4a5d8a", // de-vig closing market — slate
+  home: "#2456a8",
+  gray: "#8a958c", // reference series / league band
+  success: "#1e6b3c",
+  warn: "#8a5a00",
+  danger: "#b3372b",
 } as const;
 
-export const MONO = '"JetBrains Mono Variable", ui-monospace, monospace';
+export const MONO = '"IBM Plex Mono", ui-monospace, monospace';
+
+/** Neutral ink wash for hover cursors — never a brand tint. */
+export const CURSOR_FILL = "rgba(27, 36, 32, 0.05)";
 
 export const axisProps = {
   stroke: C.faint,

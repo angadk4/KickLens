@@ -27,7 +27,7 @@ function niceTicks(lo: number, hi: number): number[] {
 }
 
 function color(e?: string): string {
-  return e === "model" ? C.accent : e === "market" ? C.cyan : C.gray;
+  return e === "model" ? C.model : e === "market" ? C.market : C.gray;
 }
 
 export function BaselineLadder({ rows }: { rows: LadderRow[] }) {
@@ -45,9 +45,12 @@ export function BaselineLadder({ rows }: { rows: LadderRow[] }) {
 
   return (
     <figure className="chart-figure">
+      {/* min-width + own scroll container: labels never scale below legibility on
+          narrow viewports, and the figure scrolls instead of the page */}
+      <div style={{ overflowX: "auto" }}>
       <svg
         viewBox={`0 0 ${W} ${H}`}
-        style={{ width: "100%", height: "auto" }}
+        style={{ width: "100%", minWidth: 560, height: "auto", display: "block" }}
         role="img"
         aria-label={`Log loss ladder: ${rows.map((r) => `${r.name} ${nats(r.log_loss)}`).join(", ")}`}
       >
@@ -133,6 +136,7 @@ export function BaselineLadder({ rows }: { rows: LadderRow[] }) {
           );
         })}
       </svg>
+      </div>
       <figcaption>
         Log loss — lower is better; dots mark the point estimate, whiskers the 95%
         matchweek-block-bootstrap CI where one exists.

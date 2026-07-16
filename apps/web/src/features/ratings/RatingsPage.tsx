@@ -29,11 +29,14 @@ export function RatingsPage() {
     <div className="page">
       <Section
         eyebrow="Power ratings"
+        meta={["replayed on demand", "model inputs"]}
         title={`Elo ratings${data?.season ? ` — ${data.season} season` : ""}`}
         description={
           data
-            ? `${data.method}. Replayed over ${compactInt(data.n_rated_matches)} completed
-               regular-season matches${data.as_of_utc ? `, as of ${dateShort(data.as_of_utc)}` : ""}.`
+            ? `Chronological Elo replay (K=20, home advantage 60, margin-of-victory
+               multiplier; draws move ratings) — the same engine that feeds the model's
+               Elo-difference feature. Replayed over ${compactInt(data.n_rated_matches)}
+               completed regular-season matches${data.as_of_utc ? `, as of ${dateShort(data.as_of_utc)}` : ""}.`
             : "Replay of the model's own rating engine over every completed regular-season match."
         }
       >
@@ -54,8 +57,8 @@ export function RatingsPage() {
           <>
             {selectedId !== null && <EloHistory teams={data.teams} selectedId={selectedId} />}
             <p className="blurb">
-              Click any row to switch the highlighted trajectory. "Provisional" = fewer than 10
-              career matches rated.
+              Select any row to highlight its trajectory. "Provisional" = fewer than 10 career
+              matches rated.
             </p>
             <div className="table-scroll">
               <table className="data-table">

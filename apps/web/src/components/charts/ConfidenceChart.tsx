@@ -11,7 +11,7 @@ import {
 import type { ConfidenceBucket } from "../../api";
 import { nats } from "../../lib/format";
 import { ChartTooltip } from "./ChartTooltip";
-import { C, axisProps, gridProps } from "./theme";
+import { C, CURSOR_FILL, axisProps, gridProps } from "./theme";
 
 export function ConfidenceChart({
   byConfidence,
@@ -30,7 +30,7 @@ export function ConfidenceChart({
           <XAxis dataKey="bucket" {...axisProps} label={undefined} />
           <YAxis {...axisProps} tickFormatter={(v: number) => v.toFixed(2)} />
           <Tooltip
-            cursor={{ fill: "rgba(157,123,255,0.06)" }}
+            cursor={{ fill: CURSOR_FILL }}
             content={<ChartTooltip format={nats} />}
           />
           <Bar dataKey="log_loss" name="log loss" fill={C.home} radius={[4, 4, 0, 0]} />

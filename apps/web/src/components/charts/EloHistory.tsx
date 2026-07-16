@@ -41,9 +41,14 @@ export function EloHistory({
   return (
     <figure className="chart-figure">
       <ResponsiveContainer width="100%" height={280}>
-        <LineChart data={data} margin={{ right: 12 }}>
+        <LineChart data={data} margin={{ right: 28 }}>
           <CartesianGrid {...gridProps} />
-          <XAxis dataKey="date" {...axisProps} minTickGap={48} />
+          <XAxis
+            dataKey="date"
+            {...axisProps}
+            minTickGap={48}
+            tickFormatter={(d: string) => d.slice(5)}
+          />
           <YAxis domain={[yLo, yHi]} ticks={yTicks} {...axisProps} />
           <Tooltip content={<ChartTooltip format={(v) => v.toFixed(1)} />} />
           {teams
@@ -63,7 +68,7 @@ export function EloHistory({
           <Line
             dataKey={`t${selectedId}`}
             name={selected?.team ?? "selected"}
-            stroke={C.accent}
+            stroke={C.model}
             strokeWidth={2.5}
             dot={false}
             connectNulls

@@ -11,8 +11,10 @@ export function FixtureCard({ m, timeOnly = false }: { m: UpcomingMatch; timeOnl
   const f = m.forecast;
   const cutoff = cutoffOf(m.kickoff_utc);
   const cutoffPassed = cutoff.getTime() <= Date.now();
+  const state =
+    f?.type === "official-frozen" ? "stamped" : f ? "pencilled" : "";
   return (
-    <Link to={`/match/${m.match_id}`} className="card fixture-card">
+    <Link to={`/match/${m.match_id}`} className={`card fixture-card ${state}`}>
       <div className="teams">
         <span className="matchup">
           {m.home} <span className="vs">vs</span> {m.away}
@@ -35,7 +37,13 @@ export function FixtureCard({ m, timeOnly = false }: { m: UpcomingMatch; timeOnl
             )}
             {!cutoffPassed && (
               <span className="chip" title="When the official forecast freezes">
-                ❄ {kickoffLocal(cutoff.toISOString())}
+                {/* drop the day ONLY when the freeze shares the kickoff's local day —
+                    late kickoffs freeze the previous evening */}
+                freezes{" "}
+                {timeOnly &&
+                cutoff.toDateString() === new Date(m.kickoff_utc).toDateString()
+                  ? timeLocal(cutoff.toISOString())
+                  : kickoffLocal(cutoff.toISOString())}
               </span>
             )}
             {f.forecast_hash && <HashBadge hash={f.forecast_hash} />}

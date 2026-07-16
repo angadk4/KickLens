@@ -15,7 +15,9 @@ const LABELS: Record<string, { label: string; blurb: string }> = {
   },
   test: {
     label: "Test (2025, touch-once)",
-    blurb: "Calibration on the sealed one-shot test — the best of all 8 evaluated models.",
+    blurb:
+      "Calibration on the sealed touch-once test — all 8 pre-registered models were scored " +
+      "in that single run; the champion was frozen before it.",
   },
   live: {
     label: "Live record",
@@ -92,6 +94,7 @@ export function CalibrationPage() {
     <div className="page">
       <Section
         eyebrow="Trustworthiness"
+        meta={["ECE · 0 = perfect"]}
         title="Calibration"
         description="Accuracy asks: did the top pick win? Calibration asks something harder and
         more useful: when we put a number on it, was the number right?"

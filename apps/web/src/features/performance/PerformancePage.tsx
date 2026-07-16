@@ -23,7 +23,7 @@ const SCOPES: { scope: Scope; label: string; blurb: string; emptyNote: string }[
     scope: "test",
     label: "Test (2025, touch-once)",
     blurb:
-      "The sealed one-shot test: evaluated exactly once, after selection was frozen. This " +
+      "The sealed touch-once test: evaluated exactly once, after selection was frozen. This " +
       "season can never be re-used.",
     emptyNote: "Empty until the pre-registered final run.",
   },
@@ -33,14 +33,14 @@ const SCOPES: { scope: Scope; label: string; blurb: string; emptyNote: string }[
     blurb:
       "Retrospective application of the frozen model, clearly labelled as NOT the live " +
       "record. Deliberately empty unless a labelled backtest is published.",
-    emptyNote: "No backtest evidence published — and none is pretended.",
+    emptyNote: "No labelled backtest has been published.",
   },
   {
     scope: "live",
     label: "Live record",
     blurb:
-      "Official frozen forecasts graded against real results. Starts empty — honestly. " +
-      "This is the record that matters, and it only accrues in real time.",
+      "Official frozen forecasts graded against real results. This is the record that " +
+      "matters, and it only accrues in real time.",
     emptyNote: "First graded forecasts land after the first official kickoffs.",
   },
 ];
@@ -108,65 +108,86 @@ function ScopePanel({ scope, label, blurb, emptyNote }: (typeof SCOPES)[number])
   const m = data?.metrics;
   const ladder = m ? ladderRows(scope, m) : [];
   return (
-    <section className={`scope-panel ${scope}`}>
-      <header>
-        <h2>{label}</h2>
-        <ScopeChip scope={scope} n={m?.n ?? null} />
-      </header>
-      <p className="blurb">{blurb}</p>
-      {loading && <Skeleton height={90} />}
-      {error && <ErrorState retry={retry} />}
-      {notFound && <EmptyState title="No data recorded for this scope">{emptyNote}</EmptyState>}
-      {m && (
-        <>
-          <div className="verdicts">
-            {verdicts(scope, m).map((v, i) => (
-              <span key={i} className={`verdict ${v.cls}`}>
-                <span className="v-num">{v.num}</span> {v.text}
-              </span>
-            ))}
-          </div>
-          <dl className="metric-row">
-            {(
-              [
-                ["log_loss", "log loss", nats],
-                ["rps", "rps", nats],
-                ["brier", "brier", nats],
-                ["ece", "ece", nats],
-              ] as const
-            ).map(
-              ([key, label2, fmt]) =>
-                typeof m[key] === "number" && (
-                  <div className="metric" key={key}>
-                    <dt>{label2}</dt>
-                    <dd>{fmt(m[key])}</dd>
-                  </div>
-                ),
-            )}
-            {typeof m.accuracy === "number" && (
-              <div className="metric">
-                <dt>accuracy</dt>
-                <dd>
-                  {(m.accuracy * 100).toFixed(1)}% <small>diagnostic only</small>
-                </dd>
-              </div>
-            )}
-          </dl>
-          {ladder.length > 0 && <BaselineLadder rows={ladder} />}
-          {m.by_confidence && <ConfidenceChart byConfidence={m.by_confidence} />}
-          {typeof m.market_log_loss === "number" && typeof m.log_loss === "number" && (
-            <div className="callout">
-              Closing odds embed the final 3 hours of information the T−3h cutoff can't see —
-              the market gap is shown because hiding it would be dishonest, and no "beats the
-              market" claim is made anywhere.
-            </div>
+    <div className="entry">
+      <div className="entry-marker">
+        {scope}
+        {m?.n != null && <span className="em-meta">n={m.n.toLocaleString()}</span>}
+        {data?.as_of_utc && (
+          <span className="em-meta">as of {asOfShort(data.as_of_utc)}</span>
+        )}
+      </div>
+      <div className="entry-body">
+        <section className={`scope-panel ${scope}`}>
+          <header>
+            <h2>{label}</h2>
+            <ScopeChip scope={scope} n={m?.n ?? null} />
+          </header>
+          <p className="blurb">{blurb}</p>
+          {loading && <Skeleton height={90} />}
+          {error && <ErrorState retry={retry} />}
+          {notFound && (
+            <EmptyState title="No data recorded for this scope">{emptyNote}</EmptyState>
           )}
-          <p className="chip" style={{ justifySelf: "start" }} title={data?.as_of_utc}>
-            as of {asOfShort(data?.as_of_utc)}
-          </p>
-        </>
-      )}
-    </section>
+          {m && (
+            <>
+              {verdicts(scope, m).length > 0 && (
+                <>
+                  <div className="verdicts">
+                    {verdicts(scope, m).map((v, i) => (
+                      <span key={i} className={`verdict ${v.cls}`}>
+                        <span className="v-num">{v.num}</span> {v.text}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="blurb" style={{ fontSize: "var(--text-xs)" }}>
+                    Δ = champion log loss − comparator; positive means the comparator is
+                    ahead. Lower is better.
+                  </p>
+                </>
+              )}
+              <dl className="metric-row">
+                {(
+                  [
+                    ["log_loss", "log loss", nats],
+                    ["rps", "rps", nats],
+                    ["brier", "brier", nats],
+                    ["ece", "ece", nats],
+                  ] as const
+                ).map(
+                  ([key, label2, fmt]) =>
+                    typeof m[key] === "number" && (
+                      <div className="metric" key={key}>
+                        <dt>{label2}</dt>
+                        <dd>{fmt(m[key])}</dd>
+                      </div>
+                    ),
+                )}
+                {typeof m.accuracy === "number" && (
+                  <div className="metric">
+                    <dt>accuracy</dt>
+                    <dd>
+                      {(m.accuracy * 100).toFixed(1)}%{" "}
+                      <small>diagnostic only · uniform guess = 33.3%</small>
+                    </dd>
+                  </div>
+                )}
+              </dl>
+              {ladder.length > 0 && <BaselineLadder rows={ladder} />}
+              {m.by_confidence && <ConfidenceChart byConfidence={m.by_confidence} />}
+              {scope === "test" &&
+                typeof m.market_log_loss === "number" &&
+                typeof m.log_loss === "number" && (
+                  <div className="callout">
+                    Closing odds embed the final 3 hours of information the kickoff−3h cutoff
+                    can't see — the market gap is shown in every scope where it exists, and no
+                    "beats the market" claim is made anywhere.
+                  </div>
+                )}
+            </>
+          )}
+        </section>
+      </div>
+    </div>
   );
 }
 
@@ -175,6 +196,7 @@ export function PerformancePage() {
     <div className="page">
       <Section
         eyebrow="Evidence"
+        meta={["4 scopes", "log loss decides"]}
         title="Performance"
         description="Four evidence scopes, four separate panels — never merged, never blended,
         each with its own sample size."
@@ -183,15 +205,13 @@ export function PerformancePage() {
           <strong>How to read these numbers.</strong> Log loss measures how surprised the model
           is by actual results — <em>lower is better</em>. A model that knows nothing (⅓/⅓/⅓
           every match) scores <span className="mono">1.0986</span>; every hundredth below that
-          is real, hard-won signal. It rewards honest probabilities, not lucky picks — which is
-          why it, and not accuracy, decides everything here.
-        </div>
-        <div style={{ display: "grid", gap: "var(--space-5)" }}>
-          {SCOPES.map((s) => (
-            <ScopePanel key={s.scope} {...s} />
-          ))}
+          is real, hard-won signal. It rewards well-calibrated probabilities, not lucky picks —
+          which is why it, and not accuracy, decides everything here.
         </div>
       </Section>
+      {SCOPES.map((s) => (
+        <ScopePanel key={s.scope} {...s} />
+      ))}
     </div>
   );
 }

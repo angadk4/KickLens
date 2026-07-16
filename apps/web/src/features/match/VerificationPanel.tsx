@@ -120,7 +120,7 @@ export function VerificationPanel({ v }: { v: Verification }) {
           "raw"
         )}
         ), find the line above, and confirm its commit predates kickoff (
-        {dateShort(v.kickoff_utc)}). The git history is the notary.
+        {dateShort(v.kickoff_utc)}). The Git history is the notary.
       </p>
     </div>
   );
