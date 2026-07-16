@@ -1,23 +1,25 @@
-// H/D/A probability bar v2 — fixed order, 2px gaps, CSS-driven fill animation (deterministic
-// everywhere), inline labels only when a segment is wide enough; aria carries the numbers.
+// H/D/A probability bar — fixed order, 2px gaps, always visible (no JS/animation-gated
+// visibility). Labels are adaptive: in-bar when EVERY segment is wide enough, otherwise a
+// caption row below — one encoding, never a silently clipped sliver.
 import { pct } from "../../lib/format";
+
+const MIN_LABEL_SHARE = 0.14;
 
 export function ProbBar({
   pHome,
   pDraw,
   pAway,
-  legend = false,
 }: {
   pHome: number;
   pDraw: number;
   pAway: number;
-  legend?: boolean;
 }) {
   const segs = [
     { key: "home", label: "H", p: pHome },
     { key: "draw", label: "D", p: pDraw },
     { key: "away", label: "A", p: pAway },
   ] as const;
+  const inBar = segs.every((s) => s.p >= MIN_LABEL_SHARE);
   return (
     <div className="probbar-wrap">
       <div
@@ -31,21 +33,18 @@ export function ProbBar({
             className={`seg ${s.key}`}
             style={{ flexGrow: Math.max(s.p, 0.001), flexBasis: 0 }}
           >
-            <span className="seg-label">{s.p >= 0.14 && `${s.label} ${pct(s.p)}`}</span>
+            <span className="seg-label">{inBar && `${s.label} ${pct(s.p)}`}</span>
           </div>
         ))}
       </div>
-      {legend && (
+      {!inBar && (
         <div className="probbar-legend" aria-hidden>
-          <span>
-            <span className="swatch" style={{ background: "var(--home)" }} />H home {pct(pHome)}
-          </span>
-          <span>
-            <span className="swatch" style={{ background: "var(--draw)" }} />D draw {pct(pDraw)}
-          </span>
-          <span>
-            <span className="swatch" style={{ background: "var(--away)" }} />A away {pct(pAway)}
-          </span>
+          {segs.map((s) => (
+            <span key={s.key}>
+              <span className="swatch" style={{ background: `var(--${s.key})` }} />
+              {s.label} {pct(s.p)}
+            </span>
+          ))}
         </div>
       )}
     </div>

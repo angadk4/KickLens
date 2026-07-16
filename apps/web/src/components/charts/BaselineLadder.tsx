@@ -1,17 +1,8 @@
-// Horizontal baseline-ladder chart: model emphasized in accent, references in gray,
-// optional CI whiskers, direct value labels. One ladder per scope — never merged.
-import {
-  Bar,
-  BarChart,
-  Cell,
-  ErrorBar,
-  LabelList,
-  ResponsiveContainer,
-  XAxis,
-  YAxis,
-} from "recharts";
+// Baseline ladder as a dot-and-interval plot (hand-rolled SVG). Bars on a truncated axis
+// LIE about magnitude; position encoding doesn't. Dots mark log loss, whiskers span the 95%
+// matchweek-block-bootstrap CI where it exists. One ladder per scope — never merged.
 import { nats } from "../../lib/format";
-import { C, MONO, axisProps } from "./theme";
+import { C, MONO } from "./theme";
 
 export type LadderRow = {
   name: string;
@@ -20,53 +11,131 @@ export type LadderRow = {
   emphasis?: "model" | "market" | "reference";
 };
 
+const ROW_H = 40;
+const LABEL_W = 150;
+const VALUE_W = 64;
+const PAD_TOP = 8;
+const AXIS_H = 28;
+
+function niceTicks(lo: number, hi: number): number[] {
+  const span = hi - lo;
+  const step = span > 0.12 ? 0.05 : span > 0.05 ? 0.02 : 0.01;
+  const start = Math.ceil(lo / step) * step;
+  const ticks: number[] = [];
+  for (let t = start; t <= hi + 1e-9; t += step) ticks.push(Number(t.toFixed(3)));
+  return ticks;
+}
+
+function color(e?: string): string {
+  return e === "model" ? C.accent : e === "market" ? C.cyan : C.gray;
+}
+
 export function BaselineLadder({ rows }: { rows: LadderRow[] }) {
-  const data = rows.map((r) => ({
-    ...r,
-    err: r.ci95 ? [r.log_loss - r.ci95[0], r.ci95[1] - r.log_loss] : undefined,
-  }));
-  const min = Math.min(...rows.map((r) => (r.ci95 ? r.ci95[0] : r.log_loss)));
-  const max = Math.max(...rows.map((r) => (r.ci95 ? r.ci95[1] : r.log_loss)));
-  const pad = (max - min) * 0.15 + 0.005;
+  const values = rows.flatMap((r) => (r.ci95 ? [r.ci95[0], r.ci95[1]] : [r.log_loss]));
+  const rawLo = Math.min(...values);
+  const rawHi = Math.max(...values);
+  const pad = (rawHi - rawLo) * 0.12 + 0.004;
+  const lo = rawLo - pad;
+  const hi = rawHi + pad;
+  const W = 720;
+  const plotW = W - LABEL_W - VALUE_W;
+  const H = PAD_TOP + rows.length * ROW_H + AXIS_H;
+  const x = (v: number) => LABEL_W + ((v - lo) / (hi - lo)) * plotW;
+  const ticks = niceTicks(lo, hi);
+
   return (
     <figure className="chart-figure">
-      <ResponsiveContainer width="100%" height={Math.max(180, rows.length * 44)}>
-        <BarChart data={data} layout="vertical" margin={{ left: 8, right: 64 }}>
-          <XAxis
-            type="number"
-            domain={[min - pad, max + pad]}
-            {...axisProps}
-            tickFormatter={(v: number) => v.toFixed(3)}
-          />
-          <YAxis
-            type="category"
-            dataKey="name"
-            width={168}
-            {...axisProps}
-            tick={{ fill: C.muted, fontSize: 12, fontFamily: MONO }}
-          />
-          <Bar dataKey="log_loss" barSize={20} radius={[0, 4, 4, 0]} isAnimationActive={false}>
-            {data.map((r, i) => (
-              <Cell
-                key={i}
-                fill={
-                  r.emphasis === "model" ? C.accent : r.emphasis === "market" ? C.cyan : C.gray
-                }
-                fillOpacity={r.emphasis === "reference" ? 0.55 : 1}
-              />
-            ))}
-            <LabelList
-              dataKey="log_loss"
-              position="right"
-              formatter={(v) => nats(Number(v))}
-              style={{ fill: C.muted, fontFamily: MONO, fontSize: 11 }}
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        style={{ width: "100%", height: "auto" }}
+        role="img"
+        aria-label={`Log loss ladder: ${rows.map((r) => `${r.name} ${nats(r.log_loss)}`).join(", ")}`}
+      >
+        {/* gridlines + axis ticks */}
+        {ticks.map((t) => (
+          <g key={t}>
+            <line
+              x1={x(t)}
+              x2={x(t)}
+              y1={PAD_TOP}
+              y2={PAD_TOP + rows.length * ROW_H}
+              stroke={C.line}
+              strokeWidth={1}
             />
-            <ErrorBar dataKey="err" direction="x" stroke={C.ink} width={4} strokeWidth={1} />
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
+            <text
+              x={x(t)}
+              y={H - 8}
+              textAnchor="middle"
+              fill={C.faint}
+              fontSize={11}
+              fontFamily={MONO}
+            >
+              {t.toFixed(2)}
+            </text>
+          </g>
+        ))}
+        {rows.map((r, i) => {
+          const cy = PAD_TOP + i * ROW_H + ROW_H / 2;
+          const c = color(r.emphasis);
+          return (
+            <g key={r.name}>
+              {/* row label */}
+              <text
+                x={LABEL_W - 12}
+                y={cy + 4}
+                textAnchor="end"
+                fill={r.emphasis === "model" ? C.ink : C.muted}
+                fontSize={12}
+                fontFamily={MONO}
+                fontWeight={r.emphasis === "model" ? 700 : 400}
+              >
+                {r.name}
+              </text>
+              {/* faint row guide */}
+              <line
+                x1={LABEL_W}
+                x2={W - VALUE_W}
+                y1={cy}
+                y2={cy}
+                stroke={C.line}
+                strokeWidth={1}
+                strokeDasharray="1 5"
+              />
+              {/* CI whisker */}
+              {r.ci95 && (
+                <g stroke={c} strokeWidth={1.5} opacity={0.85}>
+                  <line x1={x(r.ci95[0])} x2={x(r.ci95[1])} y1={cy} y2={cy} />
+                  <line x1={x(r.ci95[0])} x2={x(r.ci95[0])} y1={cy - 5} y2={cy + 5} />
+                  <line x1={x(r.ci95[1])} x2={x(r.ci95[1])} y1={cy - 5} y2={cy + 5} />
+                </g>
+              )}
+              {/* dot */}
+              <circle
+                cx={x(r.log_loss)}
+                cy={cy}
+                r={r.emphasis === "model" ? 6.5 : 5}
+                fill={c}
+                stroke={C.bg1}
+                strokeWidth={2}
+              />
+              {/* value */}
+              <text
+                x={W - VALUE_W + 10}
+                y={cy + 4}
+                fill={r.emphasis === "model" ? C.ink : C.muted}
+                fontSize={12}
+                fontFamily={MONO}
+                fontWeight={r.emphasis === "model" ? 700 : 400}
+              >
+                {nats(r.log_loss)}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
       <figcaption>
-        Log loss (lower is better). Whiskers: 95% matchweek-block-bootstrap CI where available.
+        Log loss — lower is better; dots mark the point estimate, whiskers the 95%
+        matchweek-block-bootstrap CI where one exists.
       </figcaption>
       <details>
         <summary>View as table</summary>
@@ -74,8 +143,8 @@ export function BaselineLadder({ rows }: { rows: LadderRow[] }) {
           <thead>
             <tr>
               <th>Model</th>
-              <th>Log loss</th>
-              <th>95% CI</th>
+              <th className="num">Log loss</th>
+              <th className="num">95% CI</th>
             </tr>
           </thead>
           <tbody>

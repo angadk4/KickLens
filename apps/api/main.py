@@ -146,9 +146,11 @@ def match_detail(match_id: int, conn: Conn, response: Response) -> dict[str, Any
     _cache(response, 60)
     row = conn.execute(
         "SELECT m.match_id, m.kickoff_utc, m.status, m.result, m.home_goals, m.away_goals,"
-        " h.canonical_name, a.canonical_name, s.year, m.neutral_site"
+        " h.canonical_name, a.canonical_name, s.year, m.neutral_site,"
+        " d.p_home, d.p_draw, d.p_away, d.generated_at_utc"
         " FROM match m JOIN season s USING (season_id)"
         " JOIN team h ON h.team_id = m.home_team_id JOIN team a ON a.team_id = m.away_team_id"
+        " LEFT JOIN draft_prediction d ON d.match_id = m.match_id"
         " WHERE m.match_id = %s",
         (match_id,),
     ).fetchone()
@@ -185,6 +187,16 @@ def match_detail(match_id: int, conn: Conn, response: Response) -> dict[str, Any
         "away": row[7],
         "season": int(row[8]),
         "neutral_site": bool(row[9]),
+        # preliminary draft (never hashed/graded) so the detail page is at least as
+        # informative as its teaser card pre-freeze
+        "draft": None
+        if row[10] is None
+        else {
+            "p_home": float(row[10]),
+            "p_draw": float(row[11]),
+            "p_away": float(row[12]),
+            "generated_utc": _iso(row[13]),
+        },
         "events": [{"type": e[0], "at": _iso(e[1]), "details": e[2]} for e in events],
         "forecasts": [
             {
@@ -285,7 +297,15 @@ def calibration(conn: Conn, response: Response) -> dict[str, Any]:
         ).fetchone()
         if row is not None:
             payload = row[0] if isinstance(row[0], dict) else json.loads(row[0])
-            out[scope] = {k: payload.get(k) for k in ("n", "ece", "by_confidence") if k in payload}
+            keys = (
+                "n",
+                "ece",
+                "by_confidence",
+                "classwise_ece_H",
+                "classwise_ece_D",
+                "classwise_ece_A",
+            )
+            out[scope] = {k: payload.get(k) for k in keys if k in payload}
     return out
 
 

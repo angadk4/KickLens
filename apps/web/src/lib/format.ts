@@ -29,6 +29,17 @@ export function kickoffUTC(iso: string | null): string {
   return `${d.toISOString().slice(0, 16).replace("T", " ")} UTC`;
 }
 
+export function timeLocal(iso: string | null): string {
+  if (!iso) return "TBD";
+  return new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+}
+
+export function dayHeading(iso: string): string {
+  return new Date(iso)
+    .toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })
+    .toUpperCase();
+}
+
 export function dateShort(iso: string | null): string {
   if (!iso) return "—";
   return new Date(iso).toLocaleDateString(undefined, {

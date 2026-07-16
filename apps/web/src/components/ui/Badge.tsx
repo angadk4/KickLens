@@ -1,5 +1,6 @@
 // Forecast-state badges: FROZEN (official, immutable) vs PRELIMINARY (draft) is a
 // first-class honesty distinction — never render probabilities without one.
+// Labels stay SHORT so meta rows never wrap; the explanation rides in `title`.
 type Kind = "frozen" | "draft" | "voided" | "none" | "ok";
 
 const LABELS: Record<Kind, string> = {
@@ -10,6 +11,18 @@ const LABELS: Record<Kind, string> = {
   ok: "✓",
 };
 
-export function Badge({ kind, label }: { kind: Kind; label?: string }) {
-  return <span className={`badge ${kind}`}>{label ?? LABELS[kind]}</span>;
+export function Badge({
+  kind,
+  label,
+  title,
+}: {
+  kind: Kind;
+  label?: string;
+  title?: string;
+}) {
+  return (
+    <span className={`badge ${kind}`} title={title}>
+      {label ?? LABELS[kind]}
+    </span>
+  );
 }

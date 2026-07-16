@@ -1,61 +1,109 @@
-// Overview: hero + next-cutoff countdown + scope-chipped headline stats + next fixtures +
-// the freeze→anchor→grade story. The countdown is pure client-side ticking.
+// Overview: split hero (copy + gradient freeze-card countdown), scope-chipped headline
+// stats, next fixtures, and the freeze→anchor→grade story. Countdown is pure client-side.
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { api, type UpcomingMatch } from "../../api";
 import { Section } from "../../components/ui/Section";
 import { StatTile } from "../../components/ui/StatTile";
 import { Skeleton } from "../../components/ui/states";
-import { cutoffOf, kickoffUTC, nats } from "../../lib/format";
+import { cutoffOf, kickoffLocal, kickoffUTC, nats } from "../../lib/format";
 import { useApi, type ApiState } from "../../lib/useApi";
 import { useCountdown } from "../../lib/useCountdown";
 import { FixtureCard } from "../forecasts/FixtureCard";
 
 function Hero({ upcoming }: { upcoming: ApiState<UpcomingMatch[]> }) {
   // next freeze = earliest future cutoff among fixtures without an official forecast
-  const target = useMemo(() => {
+  const next = useMemo(() => {
     const list = upcoming.data ?? [];
-    const future = list
+    const candidates = list
       .filter((m) => m.forecast?.type !== "official-frozen")
-      .map((m) => cutoffOf(m.kickoff_utc))
-      .filter((c) => c.getTime() > Date.now())
-      .sort((a, b) => a.getTime() - b.getTime());
-    return future[0] ?? null;
+      .map((m) => ({ m, cutoff: cutoffOf(m.kickoff_utc) }))
+      .filter((x) => x.cutoff.getTime() > Date.now())
+      .sort((a, b) => a.cutoff.getTime() - b.cutoff.getTime());
+    return candidates[0] ?? null;
   }, [upcoming.data]);
-  const cd = useCountdown(target);
+  const cd = useCountdown(next?.cutoff ?? null);
 
   return (
     <div className="hero">
-      <span className="eyebrow">MLS 1X2 · tamper-evident · read-only</span>
-      <h1>Probabilistic MLS forecasts with a public, verifiable track record.</h1>
-      <p className="sub">
-        Every official forecast freezes at kickoff−3h, is SHA-256 hashed, anchored to a public
-        git repository before the match starts, and graded automatically against the result.
-        Honest by construction — including about what the model can't do.
-      </p>
-      {target && !cd.expired && (
-        <div>
-          <div className="countdown" aria-live="off">
-            {[
-              { v: cd.d, l: "days" },
-              { v: cd.h, l: "hours" },
-              { v: cd.m, l: "min" },
-              { v: cd.s, l: "sec" },
-            ].map((u) => (
-              <span key={u.l} className="unit">
-                <span className="value">{String(u.v).padStart(2, "0")}</span>
-                <span className="label">{u.l}</span>
+      <div className="hero-copy">
+        <span className="eyebrow">MLS 1X2 · tamper-evident · read-only</span>
+        <h1>
+          Probabilistic MLS forecasts with a <span className="grad-text">verifiable</span>{" "}
+          public track record.
+        </h1>
+        <p className="sub">
+          Every official forecast freezes 3 hours before kickoff, is SHA-256 hashed and
+          anchored to a public git repository, then graded automatically against the result.
+          Honest by construction — including about what the model can't do.
+        </p>
+        <div className="hero-ctas">
+          <Link to="/forecasts" className="btn primary">
+            View forecasts →
+          </Link>
+          <Link to="/methodology" className="btn ghost">
+            How it's verified
+          </Link>
+        </div>
+      </div>
+
+      {next && !cd.expired && (
+        <div className="freeze-card">
+          <div className="freeze-card-inner">
+            <div className="fc-head">
+              <span>next official freeze</span>
+              <span className="cursor">▮</span>
+            </div>
+            <div className="countdown" aria-live="off">
+              {(() => {
+                const units = [
+                  { v: cd.d, l: "days" },
+                  { v: cd.h, l: "hrs" },
+                  { v: cd.m, l: "min" },
+                  { v: cd.s, l: "sec" },
+                ];
+                let leading = true;
+                return units.map((u) => {
+                  const zero = leading && u.v === 0;
+                  if (u.v !== 0) leading = false;
+                  return (
+                    <span key={u.l} className={`unit ${zero ? "zero" : ""}`}>
+                      <span className="value">{String(u.v).padStart(2, "0")}</span>
+                      <span className="label">{u.l}</span>
+                    </span>
+                  );
+                });
+              })()}
+            </div>
+            <div className="fc-match">
+              <span className="who">
+                {next.m.home} <span className="vs">vs</span> {next.m.away}
               </span>
-            ))}
+              <span className="when">
+                freezes{" "}
+                <time
+                  dateTime={next.cutoff.toISOString()}
+                  title={kickoffUTC(next.cutoff.toISOString())}
+                >
+                  {kickoffLocal(next.cutoff.toISOString())}
+                </time>
+              </span>
+            </div>
           </div>
-          <p className="countdown-caption">
-            until the next official forecast freezes —{" "}
-            <time dateTime={target.toISOString()}>{kickoffUTC(target.toISOString())}</time>
-          </p>
         </div>
       )}
-      {target && cd.expired && (
-        <p className="countdown-caption">An official forecast is freezing about now…</p>
+      {next && cd.expired && (
+        <div className="freeze-card">
+          <div className="freeze-card-inner">
+            <div className="fc-head">
+              <span>freezing now</span>
+              <span className="cursor">▮</span>
+            </div>
+            <p className="countdown-caption">
+              An official forecast is being frozen and anchored about now.
+            </p>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -87,15 +135,15 @@ export function HomePage() {
         <div className="grid-4">
           {testM?.log_loss !== undefined ? (
             <StatTile
-              label="Test log loss (2025, touch-once)"
+              label="Test log loss · 2025"
               value={testM.log_loss}
               format={nats}
               scope="test"
               n={testM.n ?? null}
               sub={
                 testM.log_loss_ci95
-                  ? `95% CI [${nats(testM.log_loss_ci95[0])}, ${nats(testM.log_loss_ci95[1])}]`
-                  : undefined
+                  ? `touch-once · CI [${nats(testM.log_loss_ci95[0])}, ${nats(testM.log_loss_ci95[1])}]`
+                  : "touch-once"
               }
             />
           ) : (
@@ -103,7 +151,7 @@ export function HomePage() {
           )}
           {testM?.ece !== undefined ? (
             <StatTile
-              label="Test calibration (ECE)"
+              label="Test calibration · ECE"
               value={testM.ece}
               format={(v) => v.toFixed(4)}
               scope="test"
@@ -115,12 +163,12 @@ export function HomePage() {
           )}
           {devM?.log_loss !== undefined ? (
             <StatTile
-              label="Dev log loss (walk-forward)"
+              label="Dev log loss"
               value={devM.log_loss}
               format={nats}
               scope="dev"
               n={devM.n ?? null}
-              sub="2018–2024, expanding, leak-free"
+              sub="2018–2024 walk-forward, leak-free"
             />
           ) : (
             <Skeleton height={130} />
@@ -144,8 +192,8 @@ export function HomePage() {
         title="Upcoming fixtures"
         description={
           <>
-            Drafts are preliminary until each fixture's cutoff. <Link to="/forecasts">All
-            forecasts →</Link>
+            Drafts are preliminary until each fixture's cutoff.{" "}
+            <Link to="/forecasts">All forecasts →</Link>
           </>
         }
       >
@@ -157,9 +205,9 @@ export function HomePage() {
           </div>
         ) : (
           <div className="grid-3">
-            <Skeleton height={140} />
-            <Skeleton height={140} />
-            <Skeleton height={140} />
+            <Skeleton height={160} />
+            <Skeleton height={160} />
+            <Skeleton height={160} />
           </div>
         )}
       </Section>

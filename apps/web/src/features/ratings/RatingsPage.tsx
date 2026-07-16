@@ -53,16 +53,20 @@ export function RatingsPage() {
         {data && data.teams.length > 0 && (
           <>
             {selectedId !== null && <EloHistory teams={data.teams} selectedId={selectedId} />}
+            <p className="blurb">
+              Click any row to switch the highlighted trajectory. "Provisional" = fewer than 10
+              career matches rated.
+            </p>
             <div className="table-scroll">
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>#</th>
+                    <th className="num">#</th>
                     <th>Team</th>
-                    <th>Rating</th>
-                    <th>Δ last 5</th>
+                    <th className="num">Rating</th>
+                    <th className="num">Δ last 5</th>
                     <th>Form</th>
-                    <th>Played</th>
+                    <th className="num">Played</th>
                     <th>Last match</th>
                   </tr>
                 </thead>
@@ -108,9 +112,7 @@ export function RatingsPage() {
               </table>
             </div>
             <p className="blurb">
-              Click a team to highlight its trajectory. "Provisional" = fewer than 10 career
-              matches rated. Ratings are inputs to the forecast model, not predictions
-              themselves.
+              Ratings are inputs to the forecast model, not predictions themselves.
             </p>
           </>
         )}

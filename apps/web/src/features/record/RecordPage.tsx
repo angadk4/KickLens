@@ -20,16 +20,16 @@ export function RecordPage() {
       <Section
         eyebrow="Live record"
         title="Graded official forecasts"
-        description="Every entry was frozen at kickoff−3h, publicly anchored before the match,
-        and graded automatically once the result was final. This page IS the track record."
+        description="This page IS the track record — frozen before kickoff, graded after full
+        time, never back-filled."
       >
         {loading && <Skeleton height={160} />}
         {error && <ErrorState retry={retry} />}
         {data && data.total_graded === 0 && (
           <EmptyState big="0" title="graded official forecasts">
-            The live record is empty because the first officials haven't kicked off yet — the
-            first forecasts freeze on Jul 16, 2026 (20:30 UTC) and grades follow the results.
-            Nothing here is back-filled, ever.
+            The first officials haven't kicked off yet — forecasts start freezing Jul 16, 2026
+            (20:30 UTC) and grades follow the results.{" "}
+            <Link to="/forecasts">See upcoming fixtures →</Link>
           </EmptyState>
         )}
         {data && data.total_graded > 0 && (

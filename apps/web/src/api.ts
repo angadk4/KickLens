@@ -103,6 +103,12 @@ export type MatchDetail = {
   away: string;
   season: number;
   neutral_site: boolean;
+  draft: {
+    p_home: number;
+    p_draw: number;
+    p_away: number;
+    generated_utc: string | null;
+  } | null;
   events: PredictionEvent[];
   forecasts: ForecastVersion[];
 };
@@ -174,6 +180,9 @@ export type CalibrationScope = {
   n?: number;
   ece?: number;
   by_confidence?: Record<string, ConfidenceBucket>;
+  classwise_ece_H?: number;
+  classwise_ece_D?: number;
+  classwise_ece_A?: number;
 };
 
 export type CalibrationResponse = Partial<Record<"dev" | "test" | "live", CalibrationScope>>;

@@ -33,13 +33,18 @@ export function EloHistory({
     return row;
   });
   const selected = teams.find((t) => t.team_id === selectedId);
+  // nice y-axis: multiples of 50 covering the data
+  const ratings = teams.flatMap((t) => (t.history ?? []).map((p) => p.rating));
+  const yLo = Math.floor(Math.min(...ratings, 1500) / 50) * 50;
+  const yHi = Math.ceil(Math.max(...ratings, 1500) / 50) * 50;
+  const yTicks = Array.from({ length: (yHi - yLo) / 50 + 1 }, (_, i) => yLo + i * 50);
   return (
     <figure className="chart-figure">
       <ResponsiveContainer width="100%" height={280}>
         <LineChart data={data} margin={{ right: 12 }}>
           <CartesianGrid {...gridProps} />
           <XAxis dataKey="date" {...axisProps} minTickGap={48} />
-          <YAxis domain={["auto", "auto"]} {...axisProps} />
+          <YAxis domain={[yLo, yHi]} ticks={yTicks} {...axisProps} />
           <Tooltip content={<ChartTooltip format={(v) => v.toFixed(1)} />} />
           {teams
             .filter((t) => t.team_id !== selectedId)

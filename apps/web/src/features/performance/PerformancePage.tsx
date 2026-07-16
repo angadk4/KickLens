@@ -45,20 +45,57 @@ const SCOPES: { scope: Scope; label: string; blurb: string; emptyNote: string }[
   },
 ];
 
+function asOfShort(iso: string | undefined): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return `${d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })} · ${d.toISOString().slice(11, 16)} UTC`;
+}
+
+/** Plain-English readings of the numbers — generated, never hand-waved. */
+function verdicts(scope: Scope, m: MetricsPayload): { cls: string; text: string; num: string }[] {
+  const out: { cls: string; text: string; num: string }[] = [];
+  const b3 = scope === "dev" ? m.incumbent_b3_log_loss : m.b3_log_loss;
+  if (typeof m.log_loss === "number" && typeof b3 === "number") {
+    const d = m.log_loss - b3;
+    out.push({
+      cls: Math.abs(d) < 0.005 ? "neutral" : d < 0 ? "good" : "behind",
+      text:
+        Math.abs(d) < 0.005
+          ? "statistically tied with the Elo baseline"
+          : d < 0
+            ? "ahead of the Elo baseline"
+            : "behind the Elo baseline",
+      num: `Δ ${d >= 0 ? "+" : ""}${d.toFixed(4)}`,
+    });
+  }
+  if (typeof m.log_loss === "number" && typeof m.market_log_loss === "number") {
+    const d = m.log_loss - m.market_log_loss;
+    out.push({
+      cls: "behind",
+      text: "closing market ahead (it sees 3 more hours)",
+      num: `Δ +${d.toFixed(4)}`,
+    });
+  }
+  if (typeof m.ece === "number") {
+    out.push({
+      cls: m.ece <= 0.03 ? "good" : "neutral",
+      text: "calibration error (0 = perfectly calibrated)",
+      num: `ECE ${m.ece.toFixed(4)}`,
+    });
+  }
+  return out;
+}
+
 function ladderRows(scope: Scope, m: MetricsPayload): LadderRow[] {
   const rows: LadderRow[] = [];
   const b3 = scope === "dev" ? m.incumbent_b3_log_loss : m.b3_log_loss;
   if (typeof m.market_log_loss === "number")
-    rows.push({
-      name: "closing market (de-vigged)",
-      log_loss: m.market_log_loss,
-      emphasis: "market",
-    });
+    rows.push({ name: "market (de-vig)", log_loss: m.market_log_loss, emphasis: "market" });
   if (typeof b3 === "number")
-    rows.push({ name: "B3 Elo baseline", log_loss: b3, emphasis: "reference" });
+    rows.push({ name: "Elo baseline", log_loss: b3, emphasis: "reference" });
   if (typeof m.log_loss === "number")
     rows.push({
-      name: "champion (this model)",
+      name: "champion",
       log_loss: m.log_loss,
       ci95: m.log_loss_ci95 ?? null,
       emphasis: "model",
@@ -82,6 +119,13 @@ function ScopePanel({ scope, label, blurb, emptyNote }: (typeof SCOPES)[number])
       {notFound && <EmptyState title="No data recorded for this scope">{emptyNote}</EmptyState>}
       {m && (
         <>
+          <div className="verdicts">
+            {verdicts(scope, m).map((v, i) => (
+              <span key={i} className={`verdict ${v.cls}`}>
+                <span className="v-num">{v.num}</span> {v.text}
+              </span>
+            ))}
+          </div>
           <dl className="metric-row">
             {(
               [
@@ -112,15 +156,13 @@ function ScopePanel({ scope, label, blurb, emptyNote }: (typeof SCOPES)[number])
           {m.by_confidence && <ConfidenceChart byConfidence={m.by_confidence} />}
           {typeof m.market_log_loss === "number" && typeof m.log_loss === "number" && (
             <div className="callout">
-              <strong>The market is still ahead.</strong> The de-vigged closing market scores{" "}
-              {nats(m.market_log_loss)} vs the model's {nats(m.log_loss)} on this scope (
-              {nats(m.log_loss - m.market_log_loss)} nats). Closing odds embed information from
-              the final 3 hours the T−3h cutoff can't see. Shown because hiding it would be
-              dishonest; no "beats the market" claim is made anywhere.
+              Closing odds embed the final 3 hours of information the T−3h cutoff can't see —
+              the market gap is shown because hiding it would be dishonest, and no "beats the
+              market" claim is made anywhere.
             </div>
           )}
-          <p className="chip" style={{ justifySelf: "start" }}>
-            as of {data?.as_of_utc} · scope: {scope}
+          <p className="chip" style={{ justifySelf: "start" }} title={data?.as_of_utc}>
+            as of {asOfShort(data?.as_of_utc)}
           </p>
         </>
       )}
@@ -134,10 +176,16 @@ export function PerformancePage() {
       <Section
         eyebrow="Evidence"
         title="Performance"
-        description="Log loss is the primary metric (lower is better; 1.0986 = knowing
-        nothing). Four evidence scopes, four separate panels — never merged, never blended,
+        description="Four evidence scopes, four separate panels — never merged, never blended,
         each with its own sample size."
       >
+        <div className="callout">
+          <strong>How to read these numbers.</strong> Log loss measures how surprised the model
+          is by actual results — <em>lower is better</em>. A model that knows nothing (⅓/⅓/⅓
+          every match) scores <span className="mono">1.0986</span>; every hundredth below that
+          is real, hard-won signal. It rewards honest probabilities, not lucky picks — which is
+          why it, and not accuracy, decides everything here.
+        </div>
         <div style={{ display: "grid", gap: "var(--space-5)" }}>
           {SCOPES.map((s) => (
             <ScopePanel key={s.scope} {...s} />

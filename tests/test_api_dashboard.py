@@ -190,6 +190,9 @@ if DATABASE_URL:
                     {
                         "n": 510,
                         "ece": 0.0272,
+                        "classwise_ece_H": 0.0447,
+                        "classwise_ece_D": 0.0124,
+                        "classwise_ece_A": 0.0419,
                         "by_confidence": {"0.4-0.5": {"n": 200, "log_loss": 1.1, "accuracy": 0.41}},
                     }
                 ),
@@ -336,7 +339,16 @@ if DATABASE_URL:
         assert item["log_loss"] == 0.6694 and item["correct"] is True  # legacy keys intact
 
     def test_match_detail_additive_fields(env) -> None:  # type: ignore[no-untyped-def]
+        conn = env["conn"]
+        conn.execute(
+            "INSERT INTO draft_prediction (match_id, model_version_id, p_home, p_draw, p_away,"
+            " generated_at_utc) VALUES (%s,%s,0.41,0.3,0.29,now()) ON CONFLICT DO NOTHING",
+            (env["future"], env["mv"]),
+        )
+        draft_body = env["client"].get(f"/matches/{env['future']}").json()
+        assert draft_body["draft"]["p_home"] == 0.41  # preliminary exposed on detail
         body = env["client"].get(f"/matches/{env['match_ids'][0]}").json()
+        assert body["draft"] is None  # no draft row → honest null
         assert body["neutral_site"] is False
         (f,) = body["forecasts"]
         assert f["prediction_id"] == env["pid1"]
@@ -367,4 +379,5 @@ if DATABASE_URL:
     def test_calibration_includes_test_scope_only_when_present(env) -> None:  # type: ignore[no-untyped-def]
         cal = env["client"].get("/calibration").json()
         assert cal["test"]["ece"] == 0.0272 and cal["test"]["n"] == 510
+        assert cal["test"]["classwise_ece_D"] == 0.0124  # per-outcome calibration exposed
         assert "dev" not in cal  # not seeded in this module — scopes never leak

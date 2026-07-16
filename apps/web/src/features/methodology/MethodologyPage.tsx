@@ -1,6 +1,6 @@
-// Methodology: the model story, the pipeline, the sealed baseline ladder, limitations as
-// first-class content, model versions, data sources. Prose comes from the API where it
-// exists so the site and the service can't drift apart.
+// Methodology: the four guarantees as cards, the pipeline as a numbered stepper, the sealed
+// baseline ladder, a verify-it-yourself recipe, honest limitations, versions, data lineage.
+// Prose comes from the API where it exists so the site and service can't drift apart.
 import { api } from "../../api";
 import { BaselineLadder } from "../../components/charts/BaselineLadder";
 import { ScopeChip } from "../../components/ui/ScopeChip";
@@ -8,6 +8,60 @@ import { Section } from "../../components/ui/Section";
 import { ErrorState, Skeleton } from "../../components/ui/states";
 import { dateShort } from "../../lib/format";
 import { useApi } from "../../lib/useApi";
+
+// one consistent stroke-icon set (24px, 1.75 stroke) — no mixed glyph languages
+const ICONS: Record<string, React.ReactNode> = {
+  snow: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
+      <path d="M12 2v20M4 6l16 12M20 6L4 18M12 6l-3-2m3 2 3-2M12 18l-3 2m3-2 3 2M6.5 9.8 3 9m3.5.8L6 13M17.5 9.8 21 9m-3.5.8.5 3.2" />
+    </svg>
+  ),
+  hash: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
+      <path d="M9 3 7 21M17 3l-2 18M4 8h17M3 16h17" />
+    </svg>
+  ),
+  scale: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 3v18M8 21h8M12 6H6L3 12a3.5 3.5 0 0 0 6 0L6 6m12 0h-6m6 0 3 6a3.5 3.5 0 0 1-6 0l3-6" />
+    </svg>
+  ),
+  layers: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinejoin="round">
+      <path d="m12 3 9 5-9 5-9-5 9-5Z" />
+      <path d="m3 13 9 5 9-5" />
+    </svg>
+  ),
+};
+
+const GUARANTEES = [
+  {
+    icon: "snow",
+    title: "Frozen at kickoff−3h",
+    body: "Officials are written once to an append-only ledger. Post-kickoff writes are rejected outright — an honest 'no forecast' beats a back-filled one.",
+  },
+  {
+    icon: "hash",
+    title: "Hashed & publicly anchored",
+    body: "Each forecast's SHA-256 lands in a public GitHub file before the match; a daily Merkle root seals each day. The git history is the notary.",
+  },
+  {
+    icon: "scale",
+    title: "Graded automatically",
+    body: "Results flow in and every official forecast is scored (log loss, RPS, Brier). Corrections re-grade transparently; originals are kept forever.",
+  },
+  {
+    icon: "layers",
+    title: "Evidence never merged",
+    body: "Dev, test, backtest, and live records stay separate, each tagged with its sample size. No blending, no cherry-picking, ever.",
+  },
+];
+
+/** Sentence-case + typographic dash cleanup for API-sourced prose. */
+function tidy(s: string): string {
+  const t = s.replaceAll(" - ", " — ");
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
 
 export function MethodologyPage() {
   const { data, error, loading, retry } = useApi(() => api.methodology());
@@ -18,64 +72,100 @@ export function MethodologyPage() {
       <Section
         eyebrow="How and why"
         title="Methodology"
-        description="Deliberately simple, aggressively honest. The whole system exists to make
+        description="Deliberately simple, aggressively honest. Everything here exists to make
         one claim credible: these probabilities were issued before the match, by this exact
         model, and were never touched afterwards."
       >
-        {loading && <Skeleton height={240} />}
-        {error && <ErrorState retry={retry} />}
-        {data && (
-          <div className="prose">
-            <h2>The model</h2>
-            <p>{data.model}.</p>
-            <p>
-              Feature ablations (form, rest, congestion) added no measurable signal, and a
-              LightGBM challenger scored worse out-of-fold — so the simplest defensible model
-              won. Calibration:{" "}
-              {data.calibration?.param_t
-                ? `temperature scaling with production T = ${data.calibration.param_t.toFixed(3)}`
-                : (data.calibration?.method ?? "temperature scaling")}
-              {data.calibration?.note ? `. ${data.calibration.note}` : ""}.
-            </p>
-
-            <h2>The pipeline</h2>
-            <div className="pipeline">
-              <span className="node">ingest results</span>
-              <span className="arrow">→</span>
-              <span className="node">point-in-time features</span>
-              <span className="arrow">→</span>
-              <span className="node">freeze @ T−3h</span>
-              <span className="arrow">→</span>
-              <span className="node">SHA-256 + public anchor</span>
-              <span className="arrow">→</span>
-              <span className="node">grade vs result</span>
-              <span className="arrow">→</span>
-              <span className="node">daily Merkle root</span>
+        <div className="guarantees">
+          {GUARANTEES.map((g) => (
+            <div key={g.title} className="guarantee">
+              <span className="g-icon" aria-hidden>
+                {ICONS[g.icon]}
+              </span>
+              <h3>{g.title}</h3>
+              <p>{g.body}</p>
             </div>
-            <p>{data.cutoff}.</p>
-            <p>{data.tamper_evidence}.</p>
+          ))}
+        </div>
+      </Section>
 
-            <h2>Evidence separation</h2>
-            <p>{data.evidence_separation}.</p>
+      {loading && <Skeleton height={240} />}
+      {error && <ErrorState retry={retry} />}
+      {data && (
+        <>
+          <Section
+            eyebrow="The pipeline"
+            title="Six steps, fully automated"
+            description="From result ingestion to a sealed daily Merkle root — no human touches
+            a forecast at any point."
+          >
+            <div className="stepper">
+              <div className="st">
+                <strong>Ingest</strong>
+                <span>results & fixtures, twice daily</span>
+              </div>
+              <div className="st">
+                <strong>Features</strong>
+                <span>point-in-time, leak-tested</span>
+              </div>
+              <div className="st">
+                <strong>Freeze</strong>
+                <span>official @ kickoff−3h</span>
+              </div>
+              <div className="st">
+                <strong>Anchor</strong>
+                <span>SHA-256 → public GitHub</span>
+              </div>
+              <div className="st">
+                <strong>Grade</strong>
+                <span>log loss vs the result</span>
+              </div>
+              <div className="st">
+                <strong>Seal</strong>
+                <span>daily Merkle root, 12:00 UTC</span>
+              </div>
+            </div>
+          </Section>
 
+          <Section
+            eyebrow="The model"
+            title="Simplest defensible — on purpose"
+            description={`${tidy(data.model)}.`}
+          >
+            <div className="prose">
+              <p>
+                Feature ablations (form, rest, congestion) added no measurable signal and a
+                LightGBM challenger scored worse out-of-fold — so the simplest model that
+                survived the evidence won. Probabilities are calibrated with{" "}
+                {data.calibration?.param_t
+                  ? `temperature scaling (production T = ${data.calibration.param_t.toFixed(3)})`
+                  : (data.calibration?.method ?? "temperature scaling")}
+                {data.calibration?.note ? ` — ${data.calibration.note}` : ""}.
+              </p>
+            </div>
             {data.baselines && (
               <>
-                <h2>Where the model stands</h2>
-                <p>
-                  The sealed development ladder below is the selection evidence —{" "}
-                  {data.baselines.note}
-                </p>
-                <div style={{ display: "flex", gap: "var(--space-2)" }}>
+                <div style={{ display: "flex", gap: "var(--space-2)", alignItems: "center" }}>
                   <ScopeChip scope="dev" n={data.baselines.n} />
+                  <span className="chip">sealed 2026-07-06 · selection evidence</span>
                 </div>
                 <BaselineLadder
                   rows={data.baselines.ladder.map((r) => ({
                     name:
                       r.rung === "champion"
-                        ? "champion (this model)"
+                        ? "champion"
                         : r.rung === "market-closing"
-                          ? "closing market (de-vigged)"
-                          : `${r.rung} — ${r.name}`,
+                          ? "market (de-vig)"
+                          : `${r.rung} ${
+                              {
+                                B0: "floor",
+                                B1: "home/away",
+                                B2: "expanding",
+                                B3: "Elo (incumbent)",
+                                B4: "Poisson",
+                                B5: "Dixon-Coles",
+                              }[r.rung] ?? r.name
+                            }`,
                     log_loss: r.log_loss,
                     ci95: r.ci95,
                     emphasis:
@@ -86,73 +176,106 @@ export function MethodologyPage() {
                           : "reference",
                   }))}
                 />
+                <p className="blurb">
+                  Every rung had to be beaten (or matched) with pre-registered statistics before
+                  the champion was frozen — and it was frozen <em>before</em> the touch-once 2025
+                  test was run.
+                </p>
               </>
             )}
+          </Section>
 
-            <h2>Honest limitations</h2>
+          <Section
+            eyebrow="Trust, but verify"
+            title="Check any forecast yourself"
+            description="No trust required — three steps and a terminal."
+          >
+            <div className="card verify-panel">
+              <dl className="kv">
+                <dt>1 · get the hash</dt>
+                <dd>open any match page — every official forecast shows its SHA-256</dd>
+                <dt>2 · find the anchor</dt>
+                <dd>
+                  {data.anchor_repo_html_url ? (
+                    <a href={data.anchor_repo_html_url} target="_blank" rel="noreferrer">
+                      anchors/&lt;date&gt;.jsonl in the public repo ↗
+                    </a>
+                  ) : (
+                    "anchors/<date>.jsonl in the public repo"
+                  )}{" "}
+                  — the same hash, committed before kickoff
+                </dd>
+                <dt>3 · check the clock</dt>
+                <dd>the git commit timestamp predates kickoff — that's the whole proof</dd>
+              </dl>
+              <pre className="codeblock">{`# recompute a forecast's hash from its canonical JSON (shown on each match page)
+python -c "import hashlib;print(hashlib.sha256(open('forecast.json','rb').read()).hexdigest())"`}</pre>
+            </div>
+          </Section>
+
+          <Section
+            eyebrow="What we won't claim"
+            title="Honest limitations"
+            description="Shown prominently because hiding them would defeat the point."
+          >
             <div className="limit-cards">
               {data.honesty_notes.map((note, i) => (
                 <div key={i} className="limit-card">
-                  <h3>{["Not better than Elo", "Behind the market", "Draws are hard"][i] ?? "Note"}</h3>
-                  <p>{note}</p>
+                  <h3>
+                    {["Not better than Elo", "Behind the market", "Draws are hard"][i] ?? "Note"}
+                  </h3>
+                  <p>{tidy(note)}</p>
                 </div>
               ))}
             </div>
+          </Section>
 
-            <h2>Data</h2>
-            <p>{data.data}.</p>
-            {data.dataset?.snapshot_hash && (
-              <p className="mono" style={{ fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
-                training snapshot {data.dataset.snapshot_hash} · {data.dataset.row_count} rows ·{" "}
-                {data.dataset.date_range_start} → {data.dataset.date_range_end}
-              </p>
-            )}
-
+          <Section eyebrow="Provenance" title="Data & versions">
+            <div className="prose">
+              <p>{data.data}.</p>
+              {data.dataset?.snapshot_hash && (
+                <p
+                  className="mono"
+                  style={{ fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}
+                >
+                  training snapshot {data.dataset.snapshot_hash} · {data.dataset.row_count} rows
+                  · {data.dataset.date_range_start} → {data.dataset.date_range_end}
+                </p>
+              )}
+            </div>
             {versions.data && versions.data.length > 0 && (
-              <>
-                <h2>Model versions</h2>
-                <div className="table-scroll">
-                  <table className="data-table">
-                    <thead>
-                      <tr>
-                        <th>#</th>
-                        <th>Label</th>
-                        <th>League</th>
-                        <th>Created</th>
-                        <th>Status</th>
+              <div className="table-scroll">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Label</th>
+                      <th>League</th>
+                      <th>Created</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {versions.data.map((v) => (
+                      <tr key={v.model_version_id}>
+                        <td className="num">{v.model_version_id}</td>
+                        <td className="mono">{v.label}</td>
+                        <td>{v.league}</td>
+                        <td className="num">{dateShort(v.created_utc)}</td>
+                        <td>
+                          {v.is_production
+                            ? `production (promoted ${dateShort(v.promoted_utc)})`
+                            : "challenger — never auto-promoted"}
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody>
-                      {versions.data.map((v) => (
-                        <tr key={v.model_version_id}>
-                          <td className="num">{v.model_version_id}</td>
-                          <td className="mono">{v.label}</td>
-                          <td>{v.league}</td>
-                          <td className="num">{dateShort(v.created_utc)}</td>
-                          <td>
-                            {v.is_production
-                              ? `production (promoted ${dateShort(v.promoted_utc)})`
-                              : "challenger — never auto-promoted"}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
-
-            {data.anchor_repo_html_url && (
-              <p>
-                All anchors are public:{" "}
-                <a href={data.anchor_repo_html_url} target="_blank" rel="noreferrer">
-                  {data.anchor_repo_html_url} ↗
-                </a>
-              </p>
-            )}
-          </div>
-        )}
-      </Section>
+          </Section>
+        </>
+      )}
     </div>
   );
 }

@@ -49,10 +49,13 @@ export function MatchPage() {
         title={`${m.home} vs ${m.away}`}
         description={
           <>
-            {kickoffLocal(m.kickoff_utc)} · {kickoffUTC(m.kickoff_utc)} · status: {m.status}
+            <time dateTime={m.kickoff_utc ?? undefined} title={kickoffUTC(m.kickoff_utc)}>
+              {kickoffLocal(m.kickoff_utc)}
+            </time>{" "}
+            <span className="chip">{m.status}</span>
             {m.score && (
               <>
-                {" · "}
+                {" "}
                 <strong className="mono">
                   {m.score} ({m.result ? RESULT_LABEL[m.result] : ""})
                 </strong>
@@ -69,12 +72,7 @@ export function MatchPage() {
               <span className="chip">{current.model_label}</span>
               {current.stale_inputs && <Badge kind="draft" label="issued under STALE inputs" />}
             </div>
-            <ProbBar
-              pHome={current.p_home}
-              pDraw={current.p_draw}
-              pAway={current.p_away}
-              legend
-            />
+            <ProbBar pHome={current.p_home} pDraw={current.p_draw} pAway={current.p_away} />
             {current.grade && (
               <div className="meta">
                 <span className="chip">log loss {nats(current.grade.log_loss)}</span>
@@ -87,10 +85,29 @@ export function MatchPage() {
               </div>
             )}
           </div>
+        ) : m.draft ? (
+          <div className="card fixture-card">
+            <div className="meta" style={{ border: "none", padding: 0, margin: 0 }}>
+              <Badge
+                kind="draft"
+                title="Preliminary — refreshes until kickoff−3h, then the official forecast freezes"
+              />
+              {m.kickoff_utc && (
+                <span className="chip" title="When the official forecast freezes">
+                  ❄ {kickoffLocal(new Date(new Date(m.kickoff_utc).getTime() - 3 * 3600 * 1000).toISOString())}
+                </span>
+              )}
+            </div>
+            <ProbBar pHome={m.draft.p_home} pDraw={m.draft.p_draw} pAway={m.draft.p_away} />
+            <p className="blurb">
+              Preliminary draft — the official forecast freezes at kickoff−3h, is hashed, and
+              is anchored publicly. <Link to="/methodology">How verification works →</Link>
+            </p>
+          </div>
         ) : (
-          <EmptyState title="No official forecast yet">
-            The official forecast freezes at kickoff−3h. Until then any numbers shown on the
-            forecasts page are preliminary drafts.
+          <EmptyState title="No forecast yet">
+            Drafts generate inside the 7-day window; the official forecast freezes at
+            kickoff−3h. <Link to="/forecasts">See upcoming fixtures →</Link>
           </EmptyState>
         )}
       </Section>

@@ -1,4 +1,4 @@
-import { NavLink, Link } from "react-router-dom";
+import { NavLink, Link, useLocation } from "react-router-dom";
 import { useHealth } from "./HealthContext";
 
 const LINKS = [
@@ -13,6 +13,8 @@ const LINKS = [
 
 export function TopNav() {
   const { health, apiDown } = useHealth();
+  const { pathname } = useLocation();
+  const onMatchPage = pathname.startsWith("/match/");
   const dotClass = apiDown ? "bad" : health && !health.freshness_ok ? "stale" : "";
   const dotLabel = apiDown ? "api down" : health ? (health.freshness_ok ? "live" : "stale") : "…";
   return (
@@ -28,7 +30,9 @@ export function TopNav() {
               key={l.to}
               to={l.to}
               end={l.end}
-              className={({ isActive }) => (isActive ? "active" : "")}
+              className={({ isActive }) =>
+                isActive || (l.to === "/forecasts" && onMatchPage) ? "active" : ""
+              }
             >
               {l.label}
             </NavLink>

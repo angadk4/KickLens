@@ -169,9 +169,15 @@
   color: var(--accent);
 }
 
+.section-head h2 {
+  text-wrap: balance;
+}
+
 .section-head p {
   color: var(--ink-muted);
   font-size: var(--text-sm);
+  text-wrap: pretty;
+  max-width: 62ch;
 }
 
 .grid-2 {
@@ -231,50 +237,165 @@
   color: var(--ink-faint);
 }
 
-/* ---- hero (Overview) ---- */
+/* ---- hero (Overview): clean split layout, no texture — the freeze-card is the focal point */
 
 .hero {
-  padding: var(--space-7) 0 var(--space-5);
+  padding: var(--space-7) 0 var(--space-6);
   display: grid;
-  gap: var(--space-5);
-  background-image:
-    linear-gradient(var(--line) 1px, transparent 1px),
-    linear-gradient(90deg, var(--line) 1px, transparent 1px);
-  background-size: 48px 48px;
-  background-position: center top;
+  gap: var(--space-6);
   border-bottom: 1px solid var(--line);
+  align-items: center;
+}
+
+@media (min-width: 1024px) {
+  .hero {
+    grid-template-columns: 1.15fr 0.85fr;
+  }
+}
+
+.hero-copy {
+  display: grid;
+  gap: var(--space-4);
+  justify-items: start;
 }
 
 .hero h1 {
-  font-size: var(--text-3xl);
-  max-width: 720px;
+  font-size: clamp(2rem, 4.5vw, 3rem);
+  max-width: 640px;
+  line-height: 1.12;
+}
+
+.grad-text {
+  background: linear-gradient(92deg, #c4adff 0%, var(--accent) 45%, var(--accent-cyan) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 .hero .sub {
   color: var(--ink-muted);
-  max-width: 640px;
+  max-width: 560px;
+}
+
+.hero-ctas {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-top: var(--space-2);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--r-full);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  transition:
+    transform var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+
+.btn:hover {
+  text-decoration: none;
+  transform: translateY(-1px);
+}
+
+.btn.primary {
+  background: linear-gradient(92deg, var(--accent-strong), #6d5df0);
+  color: #fff;
+  box-shadow: 0 4px 20px rgba(134, 59, 255, 0.35);
+}
+
+.btn.primary:hover {
+  box-shadow: 0 6px 28px rgba(134, 59, 255, 0.5);
+}
+
+.btn.ghost {
+  border: 1px solid var(--line-strong);
+  color: var(--ink);
+}
+
+.btn.ghost:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* the freeze-card: gradient-bordered countdown terminal */
+
+.freeze-card {
+  border-radius: var(--r-lg);
+  padding: 1px;
+  background: linear-gradient(
+    135deg,
+    rgba(134, 59, 255, 0.65),
+    rgba(71, 191, 255, 0.35) 55%,
+    rgba(134, 59, 255, 0.15)
+  );
+  box-shadow:
+    0 0 40px rgba(134, 59, 255, 0.18),
+    0 16px 40px rgba(0, 0, 0, 0.45);
+}
+
+.freeze-card-inner {
+  background: linear-gradient(180deg, #16121f 0%, var(--bg-1) 100%);
+  border-radius: calc(var(--r-lg) - 1px);
+  padding: var(--space-5);
+  display: grid;
+  gap: var(--space-4);
+}
+
+.freeze-card .fc-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.freeze-card .fc-head .cursor {
+  animation: blink 1.2s steps(1) infinite;
+  color: var(--accent-cyan);
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
 }
 
 .countdown {
-  display: flex;
-  gap: var(--space-4);
-  flex-wrap: wrap;
-  align-items: baseline;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-2);
 }
 
 .countdown .unit {
   display: grid;
   justify-items: center;
   gap: var(--space-1);
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: var(--space-3) var(--space-2);
+}
+
+.countdown .unit.zero {
+  opacity: 0.35; /* leading zeros don't get to carry the visual weight */
 }
 
 .countdown .value {
   font-family: var(--font-mono);
-  font-size: var(--text-hero);
-  font-weight: 600;
+  font-size: clamp(1.6rem, 3.2vw, 2.4rem);
+  font-weight: 700;
   line-height: 1;
   color: var(--ink);
-  text-shadow: 0 0 32px rgba(134, 59, 255, 0.35);
+  font-variant-numeric: tabular-nums;
 }
 
 .countdown .label {
@@ -288,6 +409,25 @@
 .countdown-caption {
   color: var(--ink-muted);
   font-size: var(--text-sm);
+  margin: 0;
+}
+
+.fc-match {
+  display: grid;
+  gap: var(--space-1);
+  border-top: 1px solid var(--line);
+  padding-top: var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.fc-match .who {
+  font-weight: 600;
+}
+
+.fc-match .when {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
 }
 
 @media (max-width: 720px) {
