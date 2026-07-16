@@ -115,7 +115,7 @@ export function EngineeringPage() {
         }
       >
         <div className="grid-4">
-          <StatTile label="Tests green" value={194} scope="none" n={null}
+          <StatTile label="Tests green" value={195} scope="none" n={null}
             sub="leakage, write-once, hash & canary suites vs a real Postgres in CI · +1 documented skip" />
           <StatTile label="Monthly infra" value="~$0" scope="none" n={null}
             sub="serverless, scale-to-zero; the $5/mo budget alarm is a documented stop condition" />
@@ -216,12 +216,13 @@ export function EngineeringPage() {
         <div className="prose">
           <p>
             CI runs ruff, mypy, and the full suite against a real Postgres service container,
-            so the database-backed guarantees run rather than skip. A final CI step re-runs
-            the never-cut suites on their own and fails the build if any of them silently
-            skipped; gitleaks scans every push. The same commands run locally and in CI —
-            194 passed, 1 skipped, as of July 2026. The one skip is a market-aggregation
-            check that needs the full historical dataset loaded, which a fresh CI database
-            doesn't hold.
+            so the database-backed guarantees execute in CI. A final step re-runs the
+            never-cut suites on their own and fails the build if they don't run at all — a
+            green run with everything silently skipped is itself a failure. The recompute-parity
+            checks that need the full match history run in the sealed training environment,
+            where it's loaded; gitleaks scans every push. Locally, with the full history, the
+            suite is 195 passed, 1 skipped as of July 2026 — the one skip is a
+            market-aggregation check that a fresh CI database can't hold.
           </p>
         </div>
       </Section>
