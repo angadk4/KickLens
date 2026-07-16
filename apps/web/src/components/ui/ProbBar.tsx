@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { pct } from "../../lib/format";
 
 const FULL_LABEL_PX = 62; // ≈ "D 26.0%" at 11px mono + breathing room
-const PCT_LABEL_PX = 36; // ≈ "26%" — colors + fixed H|D|A order carry the outcome
+const PCT_LABEL_PX = 48; // ≈ "D 26%" — same letter+number language as the full tier
 
 export function ProbBar({
   pHome,
@@ -59,7 +59,7 @@ export function ProbBar({
           >
             <span className="seg-label">
               {tier === "full" && `${s.label} ${pct(s.p)}`}
-              {tier === "pct" && `${Math.round(s.p * 100)}%`}
+              {tier === "pct" && `${s.label} ${Math.round(s.p * 100)}%`}
             </span>
           </div>
         ))}

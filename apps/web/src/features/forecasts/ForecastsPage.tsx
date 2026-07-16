@@ -23,6 +23,7 @@ export function ForecastsPage() {
   return (
     <div className="page">
       <Section
+        lead
         eyebrow="Upcoming"
         meta={["freeze = kickoff−3h"]}
         title="Forecasts"
@@ -61,20 +62,22 @@ export function ForecastsPage() {
           </EmptyState>
         )}
       </Section>
-      {/* each day is its own ledger entry: the date hangs in the margin column,
-          the way a ledger's date column works */}
+      {/* each day is a strap: the date breaks the rule, the count sits on it */}
       {data &&
         data.length > 0 &&
         groupByDay(data).map((g) => (
           <div key={g.day} className="entry">
-            <div className="entry-marker">
-              {g.day}
-              <span className="em-meta">
-                {g.items.length} fixture{g.items.length === 1 ? "" : "s"}
+            <header className="entry-strap">
+              <span className="strap-label">{g.day}</span>
+              <span className="strap-rule" aria-hidden />
+              <span className="strap-meta">
+                <span>
+                  {g.items.length} fixture{g.items.length === 1 ? "" : "s"}
+                </span>
               </span>
-            </div>
+            </header>
             <div className="entry-body">
-              <div className="grid-2">
+              <div className="grid-2 grid-3-wide">
                 {g.items.map((m) => (
                   <FixtureCard key={m.match_id} m={m} timeOnly />
                 ))}

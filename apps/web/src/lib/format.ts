@@ -47,7 +47,9 @@ export function dayHeading(iso: string): string {
 
 export function dateShort(iso: string | null): string {
   if (!iso) return "—";
-  return new Date(iso).toLocaleDateString(undefined, {
+  // UTC-pinned: a local-zone date under a UTC-labelled system can read a day off
+  return new Date(iso).toLocaleDateString("en-US", {
+    timeZone: "UTC",
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -67,7 +69,17 @@ export function teamName(t: string): string {
   return TEAM_NAMES[t] ?? t;
 }
 
-/** The T-3h cutoff for a kickoff ISO string. */
+/** The T-3h cutoff for a kickoff ISO string — the moment the forecast's inputs lock. */
 export function cutoffOf(kickoffIso: string): Date {
   return new Date(new Date(kickoffIso).getTime() - 3 * 3600 * 1000);
+}
+
+/** The first hourly inference run (:20 past the hour, UTC) at or after a cutoff — when the
+    official forecast is actually written, hashed, and anchored (the FROZEN record appears). */
+export function freezeRunOf(cutoff: Date): Date {
+  const d = new Date(cutoff);
+  d.setUTCSeconds(0, 0);
+  d.setUTCMinutes(20);
+  if (d.getTime() < cutoff.getTime()) d.setUTCHours(d.getUTCHours() + 1);
+  return d;
 }

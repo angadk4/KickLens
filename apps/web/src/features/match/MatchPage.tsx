@@ -45,6 +45,7 @@ export function MatchPage() {
   return (
     <div className="page">
       <Section
+        lead
         eyebrow={`match #${m.match_id} · season ${m.season}${m.neutral_site ? " · neutral site" : ""}`}
         title={`${teamName(m.home)} vs ${teamName(m.away)}`}
         description={
@@ -92,12 +93,21 @@ export function MatchPage() {
                 kind="draft"
                 title="Preliminary — refreshes until kickoff−3h, then the official forecast freezes"
               />
-              {m.kickoff_utc && (
-                <span className="chip" title="When the official forecast freezes">
-                  freezes{" "}
-                  {kickoffLocal(new Date(new Date(m.kickoff_utc).getTime() - 3 * 3600 * 1000).toISOString())}
-                </span>
-              )}
+              {m.kickoff_utc &&
+                (new Date(m.kickoff_utc).getTime() - 3 * 3600 * 1000 > Date.now() ? (
+                  <span className="chip" title="When the official forecast freezes">
+                    freezes{" "}
+                    {kickoffLocal(
+                      new Date(
+                        new Date(m.kickoff_utc).getTime() - 3 * 3600 * 1000,
+                      ).toISOString(),
+                    )}
+                  </span>
+                ) : (
+                  <span className="chip" title="Cutoff passed — the official freezes at the next hourly run">
+                    freezing at the next run
+                  </span>
+                ))}
             </div>
             <ProbBar pHome={m.draft.p_home} pDraw={m.draft.p_draw} pAway={m.draft.p_away} />
             <p className="blurb">
@@ -157,10 +167,14 @@ export function MatchPage() {
       )}
 
       <Section
-        eyebrow="Tamper evidence"
+        eyebrow="Proof"
+        meta={["SHA-256", "anchored before kickoff"]}
         title="Verify this forecast"
-        description="Recompute the hash, find the anchor line in the public repository,
-        check the commit predates kickoff. No trust required."
+        description={
+          current
+            ? "Recompute the hash — right here in your browser, or offline — find the anchor line in the public repository, and check it entered public history before kickoff. No trust required."
+            : "Once the official forecast freezes at kickoff−3h, its SHA-256 appears here — recompute it in your browser, find the anchor line in the public repository, and check it entered public history before kickoff."
+        }
       >
         {verify.loading && <Skeleton height={160} />}
         {(verify.error || verify.notFound) && (

@@ -1,6 +1,8 @@
 // Baseline ladder as a dot-and-interval plot (hand-rolled SVG). Bars on a truncated axis
 // LIE about magnitude; position encoding doesn't. Dots mark log loss, whiskers span the 95%
 // matchweek-block-bootstrap CI where it exists. One ladder per scope — never merged.
+// Rows respond to hover/keyboard focus; the sidecar line explains the hovered rung.
+import { useState } from "react";
 import { nats } from "../../lib/format";
 import { C, MONO } from "./theme";
 
@@ -12,10 +14,27 @@ export type LadderRow = {
 };
 
 const ROW_H = 40;
-const LABEL_W = 118;
+const LABEL_W = 150;
 const VALUE_W = 56;
 const PAD_TOP = 8;
 const AXIS_H = 28;
+
+/** one honest line per rung — shown in the sidecar on hover/focus */
+const RUNG_NOTES: Record<string, string> = {
+  B0: "uniform ⅓/⅓/⅓ — the know-nothing floor",
+  B1: "home/away base rates only",
+  B2: "expanding-window base rates",
+  B3: "Elo ordinal — the pre-registered fallback",
+  B4: "independent Poisson goals",
+  B5: "Dixon-Coles adjusted Poisson",
+  champion: "the production model — multinomial logistic on Elo difference",
+  market: "de-vigged closing odds — a stronger-information reference, not a model",
+};
+
+function noteFor(name: string): string {
+  const key = Object.keys(RUNG_NOTES).find((k) => name.toLowerCase().includes(k.toLowerCase()));
+  return key ? RUNG_NOTES[key] : "";
+}
 
 function niceTicks(lo: number, hi: number): number[] {
   const span = hi - lo;
@@ -30,7 +49,8 @@ function color(e?: string): string {
   return e === "model" ? C.model : e === "market" ? C.market : C.gray;
 }
 
-export function BaselineLadder({ rows }: { rows: LadderRow[] }) {
+export function BaselineLadder({ rows, n }: { rows: LadderRow[]; n?: number | null }) {
+  const [hover, setHover] = useState<number | null>(null);
   const values = rows.flatMap((r) => (r.ci95 ? [r.ci95[0], r.ci95[1]] : [r.log_loss]));
   const rawLo = Math.min(...values);
   const rawHi = Math.max(...values);
@@ -42,6 +62,9 @@ export function BaselineLadder({ rows }: { rows: LadderRow[] }) {
   const H = PAD_TOP + rows.length * ROW_H + AXIS_H;
   const x = (v: number) => LABEL_W + ((v - lo) / (hi - lo)) * plotW;
   const ticks = niceTicks(lo, hi);
+  const champion = rows.find((r) => r.emphasis === "model");
+  const h = hover !== null ? rows[hover] : null;
+  const delta = h && champion && h !== champion ? champion.log_loss - h.log_loss : null;
 
   return (
     <figure className="chart-figure">
@@ -50,7 +73,7 @@ export function BaselineLadder({ rows }: { rows: LadderRow[] }) {
       <div className="table-scroll">
       <svg
         viewBox={`0 0 ${W} ${H}`}
-        style={{ width: "100%", minWidth: 500, height: "auto", display: "block" }}
+        style={{ width: "100%", minWidth: 720, height: "auto", display: "block" }}
         role="img"
         aria-label={`Log loss ladder: ${rows.map((r) => `${r.name} ${nats(r.log_loss)}`).join(", ")}`}
       >
@@ -81,7 +104,25 @@ export function BaselineLadder({ rows }: { rows: LadderRow[] }) {
           const cy = PAD_TOP + i * ROW_H + ROW_H / 2;
           const c = color(r.emphasis);
           return (
-            <g key={r.name}>
+            <g
+              key={r.name}
+              className="lr"
+              tabIndex={0}
+              onMouseEnter={() => setHover(i)}
+              onMouseLeave={() => setHover(null)}
+              onFocus={() => setHover(i)}
+              onBlur={() => setHover(null)}
+            >
+              <title>{`${r.name}: ${nats(r.log_loss)}${r.ci95 ? ` [${nats(r.ci95[0])}, ${nats(r.ci95[1])}]` : ""}`}</title>
+              {/* hover/focus row tint */}
+              <rect
+                className="lr-bg"
+                x={0}
+                y={cy - ROW_H / 2}
+                width={W}
+                height={ROW_H}
+                fill="rgba(232, 237, 230, 0.04)"
+              />
               {/* row label */}
               <text
                 x={LABEL_W - 12}
@@ -114,6 +155,7 @@ export function BaselineLadder({ rows }: { rows: LadderRow[] }) {
               )}
               {/* dot */}
               <circle
+                className="lr-dot"
                 cx={x(r.log_loss)}
                 cy={cy}
                 r={r.emphasis === "model" ? 6.5 : 5}
@@ -137,9 +179,23 @@ export function BaselineLadder({ rows }: { rows: LadderRow[] }) {
         })}
       </svg>
       </div>
+      <p className="ladder-sidecar" aria-live="off">
+        {h
+          ? `${h.name} — ${noteFor(h.name)}${
+              h.ci95 ? ` · CI [${nats(h.ci95[0])}, ${nats(h.ci95[1])}]` : ""
+            }${
+              delta !== null
+                ? ` · champion ${delta <= 0 ? "" : "+"}${delta.toFixed(4)} vs this rung`
+                : ""
+            }`
+          : typeof window !== "undefined" && window.matchMedia("(hover: hover)").matches
+            ? "hover a rung for its definition, CI, and gap vs the champion"
+            : "the table below lists each rung's definition, CI, and value"}
+      </p>
       <figcaption>
-        Log loss — lower is better; dots mark the point estimate, whiskers the 95%
-        matchweek-block-bootstrap CI where one exists.
+        Log loss{typeof n === "number" ? ` (n=${n.toLocaleString()})` : ""} — lower is better;
+        dots mark the point estimate, whiskers the 95% matchweek-block-bootstrap CI where one
+        exists.
       </figcaption>
       <details>
         <summary>View as table</summary>

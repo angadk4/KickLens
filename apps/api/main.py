@@ -336,7 +336,12 @@ _BASELINE_LADDER: list[dict[str, Any]] = [
     {"rung": "B0", "name": "global outcome floor", "log_loss": 1.0825, "ci95": [1.0747, 1.0904]},
     {"rung": "B1", "name": "home/away rates", "log_loss": 1.0499, "ci95": [1.0363, 1.0641]},
     {"rung": "B2", "name": "expanding rates", "log_loss": 1.0498, "ci95": [1.0362, 1.0640]},
-    {"rung": "B3", "name": "Elo ordinal (incumbent)", "log_loss": 1.0345, "ci95": [1.0182, 1.0507]},
+    {
+        "rung": "B3",
+        "name": "Elo ordinal (pre-registered fallback)",
+        "log_loss": 1.0345,
+        "ci95": [1.0182, 1.0507],
+    },
     {"rung": "B4", "name": "independent Poisson", "log_loss": 1.2299, "ci95": [1.1663, 1.3011]},
     {"rung": "B5", "name": "Dixon-Coles", "log_loss": 1.0627, "ci95": [1.0396, 1.0866]},
     {"rung": "champion", "name": "logistic F1 + temperature", "log_loss": 1.0346, "ci95": None},
@@ -552,7 +557,7 @@ def match_verification(match_id: int, conn: Conn, response: Response) -> dict[st
         "season": int(match_row[4]),
         "anchor_repo": repo,
         "hash_algorithm": "SHA-256 over canonical JSON (sorted keys, compact separators) of the "
-        "frozen Contract 7 field set",
+        "frozen Contract §7 field set",
         "merkle_algorithm": "SHA-256 pairwise over sorted leaf hashes, odd leaf promoted; "
         "committed daily at 12:00 UTC for the previous UTC day",
         "forecasts": forecasts,

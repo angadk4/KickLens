@@ -28,6 +28,7 @@ export function RatingsPage() {
   return (
     <div className="page">
       <Section
+        lead
         eyebrow="Power ratings"
         meta={["replayed on demand", "model inputs"]}
         title={`Elo ratings${data?.season ? ` — ${data.season} season` : ""}`}
@@ -36,7 +37,7 @@ export function RatingsPage() {
             ? `Chronological Elo replay (K=20, home advantage 60, margin-of-victory
                multiplier; draws move ratings) — the same engine that feeds the model's
                Elo-difference feature. Replayed over ${compactInt(data.n_rated_matches)}
-               completed regular-season matches${data.as_of_utc ? `, as of ${dateShort(data.as_of_utc)}` : ""}.`
+               completed regular-season matches since 2012${data.as_of_utc ? `, as of ${dateShort(data.as_of_utc)}` : ""}.`
             : "Replay of the model's own rating engine over every completed regular-season match."
         }
       >
@@ -54,11 +55,17 @@ export function RatingsPage() {
           </EmptyState>
         )}
         {data && data.teams.length > 0 && (
-          <>
-            {selectedId !== null && <EloHistory teams={data.teams} selectedId={selectedId} />}
+          <div className="ratings-cols">
+            <div style={{ display: "grid", gap: "var(--space-3)", minWidth: 0 }}>
             <p className="blurb">
-              Select any row to highlight its trajectory. "Provisional" = fewer than 10 career
-              matches rated.
+              Select any row to highlight its trajectory
+              {typeof window !== "undefined" &&
+              window.matchMedia("(hover: hover)").matches
+                ? " — or hover any line on the chart."
+                : "."}{" "}
+              {data.teams.some((t) => t.provisional) &&
+                '"Provisional" = fewer than 10 career matches rated. '}
+              Δ last 5 includes any start-of-season regression inside the window.
             </p>
             <div className="table-scroll">
               <table className="data-table">
@@ -117,7 +124,13 @@ export function RatingsPage() {
             <p className="blurb">
               Ratings are inputs to the forecast model, not predictions themselves.
             </p>
-          </>
+            </div>
+            <div className="ratings-chart">
+              {selectedId !== null && (
+                <EloHistory teams={data.teams} selectedId={selectedId} />
+              )}
+            </div>
+          </div>
         )}
       </Section>
     </div>

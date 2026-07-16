@@ -52,11 +52,12 @@
     0 1px 2px rgba(4, 8, 6, 0.5),
     0 8px 24px rgba(4, 8, 6, 0.35);
 
-  /* Type — Archivo (expanded caps: wordmark, hero, matchups ONLY)
-     + IBM Plex Mono (every number, hash, timestamp) */
-  --font-display: "Archivo Variable", system-ui, sans-serif;
+  /* Type — Bricolage Grotesque (ink-trapped; condensed caps = the scoreboard voice,
+     rationed to wordmark/hero/section h2/matchups/verdicts) + IBM Plex Mono (every
+     number, hash, timestamp) */
+  --font-display: "Bricolage Grotesque Variable", system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
-  --stretch-display: 123%;
+  --stretch-display: 84%;
   --text-xs: 0.75rem;
   --text-sm: 0.875rem;
   --text-base: 1rem;
@@ -64,7 +65,7 @@
   --text-xl: 1.375rem;
   --text-2xl: 1.75rem;
   --text-3xl: 2.25rem;
-  --text-hero: clamp(1.9rem, 3.8vw, 2.8rem);
+  --text-hero: clamp(2.2rem, 4.6vw, 3.4rem);
 
   /* Spacing (4px scale) + radius (scales with element size: chip → tooltip → card) */
   --space-1: 4px;
@@ -80,15 +81,23 @@
   --r-lg: 16px;
   --r-full: 999px;
 
-  /* Touchline geometry — the gutter column beside the hash-marked touchline */
-  --gutter: 132px;
-  --gutter-gap: 44px;
+  /* Board geometry */
+  --shell-max: 1240px;
+  --rail-gap: 48px; /* 2-col composition gutter (board rail, proof bench, TOC) */
+  --toc-w: 220px; /* long-page sticky TOC column */
+  --ticker-h: 36px;
+  --strap-rule: var(--line); /* section-strap rule — honest neutral, never chalk */
 
-  /* Motion — one orchestrated moment (the hero chalk draw, once per session);
-     the FROZEN stamp-in is the only other animation */
+  /* Liveness — alias only, NO new hue: dots ≤10px and the literal word "live" */
+  --live: var(--success);
+
+  /* Motion — semantically load-bearing only: the hero chalk draw (once/session),
+     seal stamp-ins, the seconds roll, pulse dots, the ambient floodlight drift */
   --dur-fast: 150ms;
   --dur-med: 250ms;
   --dur-slow: 500ms;
+  --dur-tick: 240ms; /* countdown seconds roll */
+  --dur-drift: 96s; /* floodlight ambient loop */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
 }

@@ -16,8 +16,9 @@ const LABELS: Record<string, { label: string; blurb: string }> = {
   test: {
     label: "Test (2025, touch-once)",
     blurb:
-      "Calibration on the sealed touch-once test — all 8 pre-registered models were scored " +
-      "in that single run; the champion was frozen before it.",
+      "Calibration on the sealed touch-once test — all seven pre-registered models plus the " +
+      "market reference were scored in that single run; the champion was frozen before it, " +
+      "and its ECE was the best of all eight evaluated.",
   },
   live: {
     label: "Live record",
@@ -28,39 +29,44 @@ const LABELS: Record<string, { label: string; blurb: string }> = {
 function DotDemo() {
   return (
     <div className="dot-demo">
-      <div className="dd-row">
-        <span className="dd-label">we say "60% home win"</span>
-        <span className="dd-dots" aria-hidden>
-          {Array.from({ length: 10 }, (_, i) => (
-            <span key={i} className={`dd-dot ${i < 6 ? "hit" : ""}`} />
-          ))}
-        </span>
-        <span className="mono" style={{ fontSize: "var(--text-sm)" }}>
-          → home wins ~6 of those 10 times
-        </span>
+      <div className="panel-cols">
+        <div style={{ display: "grid", gap: "var(--space-3)", minWidth: 0 }}>
+          <div className="dd-row">
+            <span className="dd-label">we say "60% home win"</span>
+            <span className="dd-dots" aria-hidden>
+              {Array.from({ length: 10 }, (_, i) => (
+                <span key={i} className={`dd-dot ${i < 6 ? "hit" : ""}`} />
+              ))}
+            </span>
+            <span className="mono" style={{ fontSize: "var(--text-sm)" }}>
+              → home wins ~6 of those 10 times
+            </span>
+          </div>
+          <div className="dd-row">
+            <span className="dd-label">we say "25% draw"</span>
+            <span className="dd-dots" aria-hidden>
+              {Array.from({ length: 10 }, (_, i) => (
+                <span key={i} className={`dd-dot ${i < 2.5 ? "hit" : ""}`} />
+              ))}
+            </span>
+            <span className="mono" style={{ fontSize: "var(--text-sm)" }}>
+              → draws happen ~2–3 of those 10 times
+            </span>
+          </div>
+        </div>
+        <p>
+          That's calibration: the probability <em>means</em> what it says. ECE (expected
+          calibration error) is the average gap between what we said and what happened —{" "}
+          <strong>0 is perfect</strong>. For scale, on the dev walk-forward: the raw model
+          scored 0.032, the market 0.020, and the calibrated champion 0.011. A forecaster can
+          be calibrated and still lose matches; it cannot be trusted without it.
+        </p>
       </div>
-      <div className="dd-row">
-        <span className="dd-label">we say "25% draw"</span>
-        <span className="dd-dots" aria-hidden>
-          {Array.from({ length: 10 }, (_, i) => (
-            <span key={i} className={`dd-dot ${i < 2.5 ? "hit" : ""}`} />
-          ))}
-        </span>
-        <span className="mono" style={{ fontSize: "var(--text-sm)" }}>
-          → draws happen ~2–3 of those 10 times
-        </span>
-      </div>
-      <p>
-        That's calibration: the probability <em>means</em> what it says. ECE (expected
-        calibration error) is the average gap between what we said and what happened —{" "}
-        <strong>0 is perfect</strong>, and anything under ~0.03 on a three-way market is tight.
-        A forecaster can be calibrated and still lose matches; it cannot be trusted without it.
-      </p>
     </div>
   );
 }
 
-function ClasswiseBars({ s }: { s: CalibrationScope }) {
+function ClasswiseBars({ s, scope }: { s: CalibrationScope; scope: string }) {
   const rows = [
     { key: "home", v: s.classwise_ece_H },
     { key: "draw", v: s.classwise_ece_D },
@@ -68,17 +74,25 @@ function ClasswiseBars({ s }: { s: CalibrationScope }) {
   ].filter((r): r is { key: string; v: number } => typeof r.v === "number");
   if (!rows.length) return null;
   const max = Math.max(...rows.map((r) => r.v), 0.06);
+  const draws = rows.find((r) => r.key === "draw");
+  const drawsBest = !!draws && rows.every((r) => r.v >= draws.v);
   return (
     <div>
       <p className="blurb" style={{ marginBottom: "var(--space-2)" }}>
-        Per-outcome calibration error (draws are the market's hardest call — and our tightest):
+        Per-outcome calibration error
+        {scope === "test" && drawsBest
+          ? " — on the sealed 2025 test, draws (the hardest outcome for any model in this class) were the champion's best-calibrated outcome:"
+          : ":"}
       </p>
       <div className="classwise">
         {rows.map((r) => (
           <div key={r.key} className="cw-row">
             <span>{r.key}</span>
             <span className="cw-track">
-              <span className="cw-fill" style={{ width: `${(r.v / max) * 100}%`, display: "block" }} />
+              <span
+                className="cw-fill"
+                style={{ width: `${(r.v / max) * 100}%`, display: "block" }}
+              />
             </span>
             <span>{r.v.toFixed(4)}</span>
           </div>
@@ -93,53 +107,69 @@ export function CalibrationPage() {
   return (
     <div className="page">
       <Section
+        lead
         eyebrow="Trustworthiness"
-        meta={["ECE · 0 = perfect"]}
+        meta={["dev · test · live"]}
         title="Calibration"
         description="Accuracy asks: did the top pick win? Calibration asks something harder and
         more useful: when we put a number on it, was the number right?"
       >
         <DotDemo />
-        {loading && <Skeleton height={200} />}
-        {error && <ErrorState retry={retry} />}
-        {data &&
-          (["dev", "test", "live"] as const).map((scope) => {
-            const s: CalibrationScope | undefined = data[scope];
-            const meta = LABELS[scope];
-            return (
-              <section key={scope} className={`scope-panel ${scope}`}>
-                <header>
-                  <h2>{meta.label}</h2>
-                  <ScopeChip scope={scope} n={s?.n ?? null} />
-                </header>
-                <p className="blurb">{meta.blurb}</p>
-                {(!s || (s.n ?? 0) === 0) && (
-                  <EmptyState title="No calibration data for this scope yet">
-                    {scope === "live"
-                      ? "Fills as graded official forecasts accrue — nothing is back-filled."
-                      : "Publishes with this scope's evidence."}
-                  </EmptyState>
-                )}
-                {s && (s.n ?? 0) > 0 && (
-                  <>
-                    {typeof s.ece === "number" && (
-                      <dl className="metric-row">
-                        <div className="metric">
-                          <dt>ece</dt>
-                          <dd>
-                            {s.ece.toFixed(4)} <small>0 = perfect</small>
-                          </dd>
-                        </div>
-                      </dl>
-                    )}
-                    <ClasswiseBars s={s} />
-                    {s.by_confidence && <ReliabilityDiagram byConfidence={s.by_confidence} />}
-                  </>
-                )}
-              </section>
-            );
-          })}
       </Section>
+      {loading && <Skeleton height={200} />}
+      {error && <ErrorState retry={retry} />}
+      {data &&
+        (["dev", "test", "live"] as const).map((scope) => {
+          const s: CalibrationScope | undefined = data[scope];
+          const meta = LABELS[scope];
+          return (
+            <div key={scope} className="entry">
+              <header className="entry-strap">
+                <span className="strap-label">{scope}</span>
+                <span className="strap-rule" aria-hidden />
+                <span className="strap-meta">
+                  {s?.n != null && <span>n={s.n.toLocaleString()}</span>}
+                </span>
+              </header>
+              <div className="entry-body">
+                <section className={`scope-panel ${scope}`}>
+                  <header>
+                    <h2>{meta.label}</h2>
+                    <ScopeChip scope={scope} n={s?.n ?? null} />
+                  </header>
+                  <p className="blurb">{meta.blurb}</p>
+                  {(!s || (s.n ?? 0) === 0) && (
+                    <EmptyState title="No calibration data for this scope yet">
+                      {scope === "live"
+                        ? "Fills as graded official forecasts accrue — nothing is back-filled."
+                        : "Publishes with this scope's evidence."}
+                    </EmptyState>
+                  )}
+                  {s && (s.n ?? 0) > 0 && (
+                    <div className={s.by_confidence ? "panel-cols" : undefined}>
+                      <div style={{ display: "grid", gap: "var(--space-4)", minWidth: 0 }}>
+                        {typeof s.ece === "number" && (
+                          <dl className="metric-row">
+                            <div className="metric">
+                              <dt>ece</dt>
+                              <dd>
+                                {s.ece.toFixed(4)} <small>0 = perfect</small>
+                              </dd>
+                            </div>
+                          </dl>
+                        )}
+                        <ClasswiseBars s={s} scope={scope} />
+                      </div>
+                      {s.by_confidence && (
+                        <ReliabilityDiagram byConfidence={s.by_confidence} />
+                      )}
+                    </div>
+                  )}
+                </section>
+              </div>
+            </div>
+          );
+        })}
     </div>
   );
 }

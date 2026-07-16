@@ -11,7 +11,6 @@ import {
   YAxis,
 } from "recharts";
 import type { ConfidenceBucket } from "../../api";
-import { ChartTooltip } from "./ChartTooltip";
 import { C, CURSOR_FILL, axisProps, gridProps } from "./theme";
 
 /** bucket key "0.4-0.5" → midpoint 0.45 (upper bucket "0.6-1.01" clamps sensibly). */
@@ -52,7 +51,24 @@ export function ReliabilityDiagram({
           />
           <Tooltip
             cursor={{ fill: CURSOR_FILL }}
-            content={<ChartTooltip format={(v) => `${(v * 100).toFixed(1)}%`} />}
+            content={({ active, payload, label }) => {
+              const d = payload?.[0]?.payload as
+                | { bucket: string; predicted: number; observed: number; n: number }
+                | undefined;
+              if (!active || !d) return null;
+              const gap = d.observed - d.predicted;
+              return (
+                <div className="chart-tooltip">
+                  <strong>bucket {label}</strong>
+                  <span>n = {d.n}</span>
+                  <span>observed {(d.observed * 100).toFixed(1)}%</span>
+                  <span>
+                    {gap >= 0 ? "+" : ""}
+                    {(gap * 100).toFixed(1)} pts vs the reference
+                  </span>
+                </div>
+              );
+            }}
           />
           <Bar
             dataKey={(d: { n: number }) => d.n / maxN}
@@ -63,7 +79,7 @@ export function ReliabilityDiagram({
           />
           <Line
             dataKey="perfect"
-            name="perfect calibration"
+            name="bucket midpoint (reference)"
             stroke="rgba(232, 237, 230, 0.4)"
             strokeDasharray="5 4"
             dot={false}
@@ -80,8 +96,10 @@ export function ReliabilityDiagram({
         </ComposedChart>
       </ResponsiveContainer>
       <figcaption>
-        Predicted top-probability vs observed top-pick rate; dashed = perfectly calibrated.
-        Faint bars show each bucket's relative sample size.
+        Observed top-pick rate per confidence bucket. The dashed line marks bucket midpoints
+        as a reference, not attainable confidences — a three-way top probability can't fall
+        below ⅓, so the bottom bucket sits above its midpoint by construction. Faint bars
+        show each bucket's relative sample size.
       </figcaption>
       <details>
         <summary>View as table</summary>

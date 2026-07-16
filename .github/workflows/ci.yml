@@ -52,10 +52,15 @@ jobs:
         run: uv run pytest
 
       - name: Assert the never-cut suites executed (not silently skipped)
+        # pytest exits 0 when everything SKIPS, so a bare re-run can't catch a silent
+        # skip — grep the -rs report and fail if any skip appears in these suites.
         run: |
           uv run pytest tests/test_leakage.py tests/test_schema_core.py \
-            tests/test_schema_audit.py -q
-          echo "leakage + schema + audit suites ran against Postgres"
+            tests/test_schema_audit.py -q -rs | tee nevercut.log
+          if grep -qE "SKIPPED|[1-9][0-9]* skipped" nevercut.log; then
+            echo "::error::a never-cut suite silently skipped"; exit 1
+          fi
+          echo "leakage + schema + audit suites ran against Postgres, zero skips"
 
       - name: Secret scan (gitleaks)
         uses: gitleaks/gitleaks-action@v2

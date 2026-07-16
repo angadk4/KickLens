@@ -2,6 +2,19 @@
    tables, timelines, charts, the architecture diagram. Pencil-vs-ink survives as relief:
    provisional entries sit flat; frozen officials get the machined edge + gold seal. */
 
+/* ---- settle: one-time transform-only rise when first scrolled into view.
+        Elements are FULLY VISIBLE by default; the class only adds motion. ---- */
+
+.settled {
+  animation: settle 250ms var(--ease-out);
+}
+
+@keyframes settle {
+  from {
+    transform: translateY(4px);
+  }
+}
+
 /* ---- cards ---- */
 
 .card {
@@ -583,6 +596,107 @@ a.card.stamped:hover {
   box-shadow: var(--edge-hi);
 }
 
+/* the proof bench: evidence left, the prover rail right of the one licensed gold rule */
+@media (min-width: 1200px) {
+  .proof-bench {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 360px;
+    gap: var(--space-5) var(--rail-gap);
+    align-items: start;
+  }
+  .prover {
+    border-left: 2px solid var(--gold);
+    padding-left: var(--space-5);
+  }
+}
+
+.prover {
+  display: grid;
+  gap: var(--space-3);
+  align-content: start;
+}
+
+.prover .pv-caption {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ink-muted);
+}
+
+.prover .pv-steps {
+  display: grid;
+  gap: 0;
+  border-top: 1px solid var(--line);
+}
+
+.prover .pv-step {
+  display: grid;
+  grid-template-columns: 1.4rem 1fr;
+  gap: var(--space-1) var(--space-2);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--line);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+}
+
+.prover .pv-step.done {
+  color: var(--ink-muted);
+  animation: stamp-in var(--dur-med) var(--ease-out);
+}
+
+.prover .pv-step .pv-mark {
+  color: var(--ink-faint);
+}
+
+.prover .pv-step.done .pv-mark {
+  color: var(--success);
+}
+
+.prover .pv-hash {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  overflow-wrap: anywhere;
+  color: var(--ink-faint);
+  min-height: 2.6em; /* two hex lines — reserved so the reveal never reflows */
+}
+
+.prover .pv-hash .hit {
+  color: var(--gold);
+}
+
+.prover .pv-verdict {
+  justify-self: start;
+  font-stretch: var(--stretch-display);
+  text-transform: uppercase;
+  font-weight: 720;
+  font-size: var(--text-xl);
+  letter-spacing: 0.04em;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--r-sm);
+  animation: stamp-in 350ms var(--ease-out);
+}
+
+.prover .pv-verdict.holds {
+  color: var(--gold);
+  border: 1.5px solid var(--gold);
+}
+
+.prover .pv-verdict.mismatch {
+  color: var(--danger);
+  border: 1.5px solid var(--danger);
+}
+
+@media (max-width: 1199px) {
+  /* mobile: the interactive proof is the hook; the bytes are the appendix */
+  .proof-bench .prover {
+    order: -1;
+    border-bottom: 2px solid var(--gold);
+    padding-bottom: var(--space-4);
+  }
+}
+
 .verify-status {
   display: flex;
   align-items: center;
@@ -632,6 +746,60 @@ a.card.stamped:hover {
   margin: 0;
   display: grid;
   gap: var(--space-2);
+}
+
+/* hand-rolled ladder rows respond to hover/focus; the dot leans in */
+.chart-figure .lr {
+  cursor: default;
+  outline: none;
+}
+
+.chart-figure .lr .lr-dot {
+  transition: transform var(--dur-fast) var(--ease-out);
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.chart-figure .lr:hover .lr-dot,
+.chart-figure .lr:focus-visible .lr-dot {
+  transform: scale(1.35);
+}
+
+.chart-figure .lr .lr-bg {
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+
+.chart-figure .lr:hover .lr-bg,
+.chart-figure .lr:focus-visible .lr-bg {
+  opacity: 1;
+}
+
+/* the ladder's sidecar: one mono line explaining the hovered rung */
+.ladder-sidecar {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+  min-height: 1.6em; /* reserved — appearing text never reflows the page */
+}
+
+/* EloHistory floating hover label */
+.elo-wrap {
+  position: relative;
+}
+
+.elo-label {
+  position: absolute;
+  pointer-events: none;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--ink);
+  background: var(--bg-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  padding: 1px var(--space-2);
+  white-space: nowrap;
+  transform: translate(10px, -50%);
 }
 
 .chart-figure figcaption {
@@ -1032,6 +1200,13 @@ a.card.stamped:hover {
   min-width: 1000px;
   width: 100%;
   height: auto;
+}
+
+@media (min-width: 1200px) {
+  /* at desktop the whole system must be VISIBLE — scale, don't scroll */
+  .diagram {
+    min-width: 0;
+  }
 }
 
 .diagram .dg-box {

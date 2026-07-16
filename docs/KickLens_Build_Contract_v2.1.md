@@ -30,7 +30,7 @@
 | A17 | §23 | bootstrap "by matchweek/month" | Decide now | **Block bootstrap by matchweek, 2,000 resamples**; by-season as a robustness check |
 | A18 | §31 | drift "PSI… thresholds mostly absolute" | Decide now / Post-MVP | Basic: **investigate if PSI > 0.2** on a key feature; full drift dashboards = post-MVP |
 | A19 | §25,§26 | "FastAPI via Mangum; slim zip if no ML else container" | Decide now | **API = slim zip; jobs = one container image** (multi-handler) |
-| A20 | §33 | "DB job-lock + run IDs, or Step Functions" | Decide now | **Choreography: EventBridge crons + DB state-gating + idempotency keys + Postgres advisory locks**; no Step Functions |
+| A20 | §33 | "DB job-lock + run IDs, or Step Functions" | Decide now | **Choreography: EventBridge crons + DB state-gating + idempotency keys + Postgres advisory locks** *(mechanism amended: leased job claims — ADR-004, 2026-07-16; advisory locks are void behind PgBouncer transaction pooling)*; no Step Functions |
 | A21 | §3 | playoff exclusion (no stage column in history) | Experiment (E1) | Filtering method decided after E1 |
 | A22 | §10 | current-season free access | Experiment (E2) | Confirmed in E2; default API-Football |
 | A23 | §39 | region unspecified | Decide now | **us-east-1** |
@@ -83,7 +83,7 @@
 | Live odds | SportsGameOdds (primary, conditional E3) / Highlightly (backup) |
 | DB | Neon (Supabase emergency fallback); Lambda **outside VPC** |
 | Compute | API = Lambda **zip**; jobs = **one Lambda container**; training = **GitHub Actions** |
-| Orchestration | EventBridge crons + DB state-gating + advisory locks (no Step Functions) |
+| Orchestration | EventBridge crons + DB state-gating + advisory locks **(amended: leased job claims — ADR-004, 2026-07-16)** (no Step Functions) |
 | Secrets | SSM Parameter Store (not Secrets Manager) |
 | IaC / CI-CD | Terraform / GitHub Actions |
 | Region / envs | us-east-1; dev + prod only |
@@ -211,7 +211,7 @@ Primary: **multiclass log loss**. Supporting: RPS (ordered H>D>A), multiclass Br
 | Database | **Neon** serverless Postgres (free) | **Supabase** Postgres (public pooled). **Not RDS** |
 | DB connection | **Neon pooled (PgBouncer) endpoint, transaction mode**, psycopg; Lambda **outside any VPC** | — |
 | Scheduling | **Amazon EventBridge** cron | — |
-| Job orchestration | **Choreography** — EventBridge + DB state-gating + idempotency keys + Postgres advisory locks | — |
+| Job orchestration | **Choreography** — EventBridge + DB state-gating + idempotency keys + Postgres advisory locks **(amended: leased job claims — ADR-004, 2026-07-16)** | — |
 | Training execution | **GitHub Actions** (scheduled + manual) | — |
 | Batch inference | **AWS Lambda container image** | — |
 | API runtime | **AWS Lambda zip** (slim, no ML libs) + **API Gateway HTTP API** | — |

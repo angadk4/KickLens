@@ -1,62 +1,49 @@
-// Overview: the ledger opens — thesis + next-freeze countdown panel, scope-chipped
-// headline stats, next fixtures, the freeze→anchor→grade story. Countdown is client-side.
-import { useMemo } from "react";
+// Overview: the matchday board — hero + center-circle countdown over the halfway line,
+// the freeze ticker, a KPI strip with a live status cell, next fixtures beside the
+// pipeline rail. All liveness reads the ONE shared upcoming fetch (T-171 rules intact).
 import { Link } from "react-router-dom";
-import { api, type UpcomingMatch } from "../../api";
+import { api } from "../../api";
+import { useHealth } from "../../components/layout/HealthContext";
+import { Ticker } from "../../components/layout/Ticker";
+import { useUpcoming } from "../../components/layout/UpcomingContext";
 import { Section } from "../../components/ui/Section";
 import { StatTile } from "../../components/ui/StatTile";
 import { Skeleton } from "../../components/ui/states";
-import { cutoffOf, kickoffLocal, kickoffUTC, nats, teamName } from "../../lib/format";
-import { useApi, type ApiState } from "../../lib/useApi";
+import { freezeRunOf, kickoffLocal, kickoffUTC, nats, teamName, timeLocal } from "../../lib/format";
+import { useApi } from "../../lib/useApi";
 import { useCountdown } from "../../lib/useCountdown";
+import { useRelativeTime } from "../../lib/useRelativeTime";
 import { FixtureCard } from "../forecasts/FixtureCard";
 import { PitchHero } from "./PitchHero";
 
-function Hero({ upcoming }: { upcoming: ApiState<UpcomingMatch[]> }) {
-  // next freeze = earliest future cutoff among fixtures without an official forecast
-  const next = useMemo(() => {
-    const list = upcoming.data ?? [];
-    const candidates = list
-      .filter((m) => m.forecast?.type !== "official-frozen")
-      .map((m) => ({ m, cutoff: cutoffOf(m.kickoff_utc) }))
-      .filter((x) => x.cutoff.getTime() > Date.now())
-      .sort((a, b) => a.cutoff.getTime() - b.cutoff.getTime());
-    return candidates[0] ?? null;
-  }, [upcoming.data]);
-  const cd = useCountdown(next?.cutoff ?? null);
+function Hero() {
+  const { nextCutoff, nextMatch } = useUpcoming();
+  const cd = useCountdown(nextCutoff);
 
   return (
     <div className="entry hero-entry">
-      <div className="entry-marker">
-        MLS 2026
-        <span className="em-meta">read-only record</span>
-        <span className="em-meta">freeze = kickoff−3h</span>
-      </div>
       <div className="entry-body">
         <div className="hero-stage">
           <div className="hero-copy">
+            <p className="hero-kicker">MLS 2026 · read-only record · freeze = kickoff−3h</p>
             <h1>Every official forecast goes on the record. None come off.</h1>
             <p className="sub">
               Each one freezes 3 hours before kickoff, is SHA-256 hashed and anchored to a
-              public GitHub repository, then graded automatically against the result. Honest
-              by construction — even about what the model can't do.
+              public GitHub repository, then graded automatically against the result — and
+              the limitations are printed on the same pages as the results.
             </p>
             <div className="hero-ctas">
               <Link to="/forecasts" className="btn primary">
                 See upcoming forecasts
               </Link>
-              {/* secondary action speaks in the site's native voice: a chalk underline,
-                  not a templated ghost-button twin */}
-              <Link to="/methodology" style={{ alignSelf: "center" }}>
-                How verification works →
-              </Link>
+              <Link to="/methodology">How verification works →</Link>
             </div>
           </div>
 
           <PitchHero
-            expired={!!next && cd.expired}
+            expired={!!nextCutoff && cd.expired}
             top={
-              next ? (
+              nextCutoff ? (
                 !cd.expired ? (
                   <>
                     <div className="fp-head">next official freeze in</div>
@@ -72,9 +59,16 @@ function Hero({ upcoming }: { upcoming: ApiState<UpcomingMatch[]> }) {
                         return units.map((u) => {
                           const zero = leading && u.v === 0;
                           if (u.v !== 0) leading = false;
+                          const isSec = u.l === "sec";
                           return (
                             <span key={u.l} className={`unit ${zero ? "zero" : ""}`}>
-                              <span className="value">{String(u.v).padStart(2, "0")}</span>
+                              <span
+                                // re-keying the seconds span replays the roll — the heartbeat
+                                key={isSec ? cd.s : undefined}
+                                className={`value${isSec ? " roll" : ""}`}
+                              >
+                                {String(u.v).padStart(2, "0")}
+                              </span>
                               <span className="label">{u.l}</span>
                             </span>
                           );
@@ -84,28 +78,41 @@ function Hero({ upcoming }: { upcoming: ApiState<UpcomingMatch[]> }) {
                   </>
                 ) : (
                   <>
-                    <div className="fp-head">freezing now</div>
+                    <div className="fp-head">freeze pending</div>
+                    {nextMatch && (
+                      <div className="fc-match">
+                        <span className="who">
+                          {teamName(nextMatch.home)} <span className="vs">vs</span>{" "}
+                          {teamName(nextMatch.away)}
+                        </span>
+                      </div>
+                    )}
                     <p className="countdown-caption">
-                      An official forecast is being frozen and anchored about now.
+                      Inputs locked at kickoff−3h. The official forecast anchors at the next
+                      hourly run
+                      {nextCutoff
+                        ? `, ≈ ${timeLocal(freezeRunOf(nextCutoff).toISOString())}`
+                        : ""}
+                      .
                     </p>
                   </>
                 )
               ) : undefined
             }
             bottom={
-              next && !cd.expired ? (
+              nextMatch && nextCutoff && !cd.expired ? (
                 <div className="fc-match">
                   <span className="who">
-                    {teamName(next.m.home)} <span className="vs">vs</span>{" "}
-                    {teamName(next.m.away)}
+                    {teamName(nextMatch.home)} <span className="vs">vs</span>{" "}
+                    {teamName(nextMatch.away)}
                   </span>
                   <span className="when">
                     freezes{" "}
                     <time
-                      dateTime={next.cutoff.toISOString()}
-                      title={kickoffUTC(next.cutoff.toISOString())}
+                      dateTime={nextCutoff.toISOString()}
+                      title={kickoffUTC(nextCutoff.toISOString())}
                     >
-                      {kickoffLocal(next.cutoff.toISOString())}
+                      {kickoffLocal(nextCutoff.toISOString())}
                     </time>
                   </span>
                 </div>
@@ -118,8 +125,40 @@ function Hero({ upcoming }: { upcoming: ApiState<UpcomingMatch[]> }) {
   );
 }
 
+/** The board's status cell — honest about state (live / stale / unreachable), and it
+    never repeats the hero's next-freeze fact. */
+function StatusCell() {
+  const { health, apiDown } = useHealth();
+  const { list } = useUpcoming();
+  const ingested = useRelativeTime(health?.last_ingest);
+  const graded = useRelativeTime(health?.last_grade);
+  const state = apiDown
+    ? { label: "api unreachable", cls: "bad" }
+    : health && !health.freshness_ok
+      ? { label: "system stale", cls: "stale" }
+      : health
+        ? { label: "system live", cls: "" }
+        : { label: "…", cls: "stale" };
+  return (
+    <div className="status-cell">
+      <span className="sc-head">
+        <span className={`pulse-dot ${state.cls}`} aria-hidden /> {state.label}
+      </span>
+      <span className="sc-row" title={health?.last_ingest ?? undefined}>
+        ingested <span className="v">{apiDown ? "—" : ingested}</span>
+      </span>
+      <span className="sc-row" title={health?.last_grade ?? undefined}>
+        graded <span className="v">{health?.last_grade ? graded : "—"}</span>
+      </span>
+      <span className="sc-row">
+        window <span className="v">{list ? `${list.length} fixtures` : "—"}</span>
+      </span>
+    </div>
+  );
+}
+
 export function HomePage() {
-  const upcoming = useApi(() => api.upcoming());
+  const { list } = useUpcoming();
   const test = useApi(() => api.performance("test"));
   const dev = useApi(() => api.performance("dev"));
   const live = useApi(() => api.performance("live"));
@@ -131,8 +170,9 @@ export function HomePage() {
   const liveN = live.data?.metrics?.n ?? (live.notFound ? 0 : null);
 
   return (
-    <div className="page">
-      <Hero upcoming={upcoming} />
+    <div className="page board">
+      <Hero />
+      <Ticker />
 
       <Section
         eyebrow="Evidence"
@@ -142,7 +182,7 @@ export function HomePage() {
         labelled backtests, and the live record. They are never merged, and every figure
         carries its sample size."
       >
-        <div className="grid-4">
+        <div className="grid-kpi">
           {testM?.log_loss !== undefined ? (
             <StatTile
               label="Test log loss · 2025"
@@ -194,11 +234,12 @@ export function HomePage() {
           ) : (
             <Skeleton height={130} />
           )}
+          <StatusCell />
         </div>
         <p className="blurb" style={{ fontSize: "var(--text-xs)" }}>
-          Log loss — lower is better. Guessing ⅓/⅓/⅓ every match scores 1.0986; the full
-          baseline ladder, market included, is on{" "}
-          <Link to="/performance">Performance</Link>.
+          Log loss — lower is better. Guessing ⅓/⅓/⅓ every match scores 1.0986; on the same
+          sealed test the closing market scored 1.0317 — ahead of the model, and said so
+          plainly. The full ladder is on <Link to="/performance">Performance</Link>.
         </p>
       </Section>
 
@@ -213,58 +254,51 @@ export function HomePage() {
           </>
         }
       >
-        {upcoming.data ? (
-          <div className="grid-3">
-            {upcoming.data.slice(0, 3).map((m) => (
-              <FixtureCard key={m.match_id} m={m} />
-            ))}
-          </div>
-        ) : (
-          <div className="grid-3">
-            <Skeleton height={160} />
-            <Skeleton height={160} />
-            <Skeleton height={160} />
-          </div>
-        )}
-      </Section>
+        <div className="board-split">
+          {list ? (
+            <div className="grid-2">
+              {list.slice(0, 4).map((m) => (
+                <FixtureCard key={m.match_id} m={m} />
+              ))}
+            </div>
+          ) : (
+            <div className="grid-2">
+              <Skeleton height={160} />
+              <Skeleton height={160} />
+              <Skeleton height={160} />
+              <Skeleton height={160} />
+            </div>
+          )}
 
-      <Section
-        eyebrow="How it works"
-        meta={["fully automated"]}
-        title="Freeze, anchor, grade"
-        description="The pipeline that makes the record tamper-evident."
-      >
-        <div className="steps">
-          <div className="step">
-            <span className="n">01 · kickoff−3h</span>
-            <h3>Freeze</h3>
-            <p>
-              The model predicts from point-in-time features; the official forecast is written
-              once to an append-only ledger. Post-kickoff writes are rejected outright.
-            </p>
-          </div>
-          <div className="step">
-            <span className="n">02 · at freeze</span>
-            <h3>Anchor</h3>
-            <p>
-              The forecast's SHA-256 hash is committed to a public GitHub file before the match
-              starts; a daily Merkle root seals each day. Anyone can verify any forecast.
-            </p>
-          </div>
-          <div className="step">
-            <span className="n">03 · after full time</span>
-            <h3>Grade</h3>
-            <p>
-              Results are ingested automatically and every official forecast is scored (log
-              loss, RPS, Brier). Corrections re-grade transparently — originals are kept
-              forever.
-            </p>
-          </div>
+          <aside className="rail" aria-label="The pipeline">
+            <span className="rail-title">the pipeline</span>
+            <div className="rail-row">
+              <span className="n">01</span>
+              <div>
+                <strong>Freeze · kickoff−3h</strong>
+                <span>written once to the ledger; post-kickoff writes rejected</span>
+              </div>
+            </div>
+            <div className="rail-row">
+              <span className="n">02</span>
+              <div>
+                <strong>Anchor · at freeze</strong>
+                <span>SHA-256 → public GitHub; daily Merkle root seals each day</span>
+              </div>
+            </div>
+            <div className="rail-row">
+              <span className="n">03</span>
+              <div>
+                <strong>Grade · after full time</strong>
+                <span>log loss, RPS, Brier vs the result; originals kept forever</span>
+              </div>
+            </div>
+            <div className="rail-foot">
+              <Link to="/methodology">Methodology →</Link>
+              <Link to="/engineering">Engineering →</Link>
+            </div>
+          </aside>
         </div>
-        <p className="eyebrow" style={{ textTransform: "none", letterSpacing: "0.04em" }}>
-          This is also a systems exercise — one container image, eight schedules, a
-          write-once ledger. <Link to="/engineering">How it's engineered →</Link>
-        </p>
       </Section>
     </div>
   );

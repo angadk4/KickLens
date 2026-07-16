@@ -23,7 +23,7 @@ def recompute_live_snapshot(conn: psycopg.Connection) -> int:
     (a new snapshot row per recompute; the API serves the newest per scope)."""
     rows = conn.execute(
         "SELECT DISTINCT ON (g.prediction_id) g.log_loss, g.rps, g.brier, g.correct,"
-        " p.p_home, p.p_draw, p.p_away, m.kickoff_utc"
+        " p.p_home, p.p_draw, p.p_away, m.kickoff_utc, m.result"
         " FROM prediction_grade g JOIN prediction p USING (prediction_id)"
         " JOIN match m ON m.match_id = p.match_id"
         " ORDER BY g.prediction_id, g.result_version DESC"
@@ -31,13 +31,22 @@ def recompute_live_snapshot(conn: psycopg.Connection) -> int:
     n = len(rows)
     payload: dict[str, object] = {"n": n}
     if n:
+        from models.metrics import classwise_ece, ece
+
         lls = [float(r[0]) for r in rows]
+        probs = [(float(r[4]), float(r[5]), float(r[6])) for r in rows]
+        outcomes = [str(r[8]) for r in rows]
+        cw = classwise_ece(probs, outcomes)
         payload.update(
             {
                 "log_loss": sum(lls) / n,
                 "rps": sum(float(r[1]) for r in rows) / n,
                 "brier": sum(float(r[2]) for r in rows) / n,
                 "accuracy": sum(bool(r[3]) for r in rows) / n,
+                "ece": ece(probs, outcomes),
+                "classwise_ece_H": cw.get("H"),
+                "classwise_ece_D": cw.get("D"),
+                "classwise_ece_A": cw.get("A"),
                 "by_month": _by_month(rows),
                 "by_confidence": _by_confidence(rows),
                 "rolling_last_20": sum(lls[-20:]) / min(n, 20),
@@ -84,6 +93,11 @@ def publish_dev_snapshot(conn: psycopg.Connection) -> int:
     payload = {
         "n": 3012,
         "log_loss": 1.0346,
+        # sealed dev champion CI + secondary metrics from docs/model-card.md — additive keys;
+        # the ladder promises whiskers "where one exists", and the champion has one
+        "log_loss_ci95": [1.018, 1.051],
+        "rps": 0.2168,
+        "accuracy": 0.493,
         "ece": 0.0108,
         "champion": "logistic-F1-C0.1+temperature",
         "incumbent_b3_log_loss": 1.0345,

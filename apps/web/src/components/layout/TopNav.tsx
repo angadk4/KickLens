@@ -1,6 +1,29 @@
 import { useEffect, useState } from "react";
 import { NavLink, Link, useLocation } from "react-router-dom";
+import { useCountdown } from "../../lib/useCountdown";
 import { useHealth } from "./HealthContext";
+import { useUpcoming } from "./UpcomingContext";
+
+/** ⏱ next-freeze mini-countdown — the nav's live pulse (hidden on home: the hero owns it) */
+function NavFreeze() {
+  const { nextCutoff } = useUpcoming();
+  const cd = useCountdown(nextCutoff);
+  if (!nextCutoff) return null;
+  if (cd.expired)
+    return (
+      <Link to="/forecasts" className="nav-freeze freezing" title="Inputs locked; the official forecast anchors at the next hourly run">
+        freeze pending
+      </Link>
+    );
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const text =
+    cd.d > 0 ? `${cd.d}d ${pad(cd.h)}:${pad(cd.m)}` : `${pad(cd.h)}:${pad(cd.m)}:${pad(cd.s)}`;
+  return (
+    <Link to="/forecasts" className="nav-freeze" title="Next official freeze (kickoff−3h)">
+      next freeze {text}
+    </Link>
+  );
+}
 
 const LINKS = [
   { to: "/", label: "Overview", end: true },
@@ -48,6 +71,7 @@ export function TopNav() {
             </NavLink>
           ))}
         </nav>
+        {pathname !== "/" && <NavFreeze />}
         <span className="health-dot" title={`system status: ${dotLabel}`}>
           <span className={`dot ${dotClass}`} aria-hidden />
           {dotLabel}

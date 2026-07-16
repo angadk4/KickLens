@@ -20,7 +20,7 @@ type Node = {
 const NODES: Node[] = [
   { id: "g1", x: 30, y: 70, w: 210, h: 46, l1: "GitHub Actions — CI", l2: "ruff · mypy · 194 tests vs Postgres", title: "CI spins up a real postgres:18 service so the DB-backed guarantees run, not skip. A final step re-runs the never-cut suites and fails if they silently skipped." },
   { id: "g2", x: 30, y: 150, w: 210, h: 46, l1: "GitHub Actions — Deploy", l2: "job image → ECR · API zip · site → S3", title: "One push to main: image built and tagged with the commit SHA, all six functions repointed to it; API zip updated; site synced + CloudFront invalidated; terraform apply for drift." },
-  { id: "g3", x: 30, y: 230, w: 210, h: 46, l1: "GitHub Actions — monthly train", l2: "challenger only — never auto-promoted", title: "Runs the 1st of each month. Produces a challenger; promotion is manual behind a frozen gate (≥0.005 nats and the 95% CI excluding 0)." },
+  { id: "g3", x: 30, y: 230, w: 210, h: 46, l1: "GitHub Actions — monthly train", l2: "challenger only — never auto-promoted", title: "Runs the 1st of each month. Produces a challenger; promotion is manual behind a frozen gate (≥0.005 nats, a 95% CI excluding 0, and calibration not degraded)." },
   { id: "g4", x: 30, y: 480, w: 210, h: 52, l1: "Public anchor files", l2: "anchors/YYYY-MM-DD.jsonl + Merkle", gold: true, title: "The notary: every official forecast's SHA-256 lands here before kickoff; a daily Merkle root seals each day. The Git history proves the timing." },
   { id: "p1", x: 330, y: 16, w: 430, h: 40, l1: "Providers — football-data.co.uk · Highlightly · SportsGameOdds", title: "Fixtures, results, and closing odds. A total provider outage raises so the Errors alarm fires — silent degradation was audited out." },
   { id: "u1", x: 950, y: 16, w: 120, h: 40, l1: "Browser", title: "This site. Static React bundle; every metric arrives with its evidence scope and sample size." },
@@ -30,7 +30,7 @@ const NODES: Node[] = [
   { id: "a3", x: 830, y: 172, w: 240, h: 46, l1: "API Gateway HTTP API", l2: "GET only · 20 rps", title: "Read-only public surface, throttled at 20 rps / burst 40." },
   { id: "a4", x: 830, y: 252, w: 240, h: 46, l1: "API Lambda — 8 MB zip", l2: "FastAPI · no ML libs · Cache-Control", title: "The public API carries no ML dependencies so it cold-starts fast; response caching protects the scale-to-zero database." },
   { id: "n1", x: 830, y: 340, w: 240, h: 56, l1: "Neon Postgres", l2: "pooled (PgBouncer) · scale-to-zero", title: "Lambda runs outside any VPC — no NAT gateway. Write-once triggers on the prediction ledger; 30-way connection burst verified with 0 errors." },
-  { id: "a6", x: 330, y: 480, w: 240, h: 48, l1: "CloudWatch — 13 alarms", l2: "errors + throttles · api thr = 1", title: "Errors AND Throttles per job (a throttled job never runs, so it never errors) plus API 5xx at threshold 1." },
+  { id: "a6", x: 330, y: 480, w: 240, h: 48, l1: "CloudWatch — 13 alarms", l2: "errors + throttles · api 5xx thr=1", title: "Errors AND Throttles per job (a throttled job never runs, so it never errors) plus API 5xx at threshold 1." },
   { id: "a7", x: 620, y: 480, w: 140, h: 48, l1: "SNS → email", title: "Every alarm lands in the developer's inbox. The daily canary raising IS the alerting mechanism." },
   { id: "a8", x: 330, y: 566, w: 240, h: 40, l1: "SSM Parameter Store", l2: "secrets (SecureString)", title: "Free tier over Secrets Manager; config read at cold start, never logged." },
 ];

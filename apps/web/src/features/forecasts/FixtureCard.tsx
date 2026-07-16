@@ -35,17 +35,25 @@ export function FixtureCard({ m, timeOnly = false }: { m: UpcomingMatch; timeOnl
                 title="Preliminary — refreshes until kickoff−3h, then the official forecast freezes"
               />
             )}
-            {!cutoffPassed && (
-              <span className="chip" title="When the official forecast freezes">
-                {/* drop the day ONLY when the freeze shares the kickoff's local day —
-                    late kickoffs freeze the previous evening */}
-                freezes{" "}
-                {timeOnly &&
-                cutoff.toDateString() === new Date(m.kickoff_utc).toDateString()
-                  ? timeLocal(cutoff.toISOString())
-                  : kickoffLocal(cutoff.toISOString())}
-              </span>
-            )}
+            {f.type !== "official-frozen" &&
+              (!cutoffPassed ? (
+                <span className="chip" title="When the official forecast freezes">
+                  {/* drop the day ONLY when the freeze shares the kickoff's local day —
+                      late kickoffs freeze the previous evening */}
+                  freezes{" "}
+                  {timeOnly &&
+                  cutoff.toDateString() === new Date(m.kickoff_utc).toDateString()
+                    ? timeLocal(cutoff.toISOString())
+                    : kickoffLocal(cutoff.toISOString())}
+                </span>
+              ) : (
+                <span
+                  className="chip"
+                  title="Inputs locked; the official forecast anchors at the next hourly run"
+                >
+                  freeze pending
+                </span>
+              ))}
             {f.forecast_hash && <HashBadge hash={f.forecast_hash} />}
           </div>
         </>

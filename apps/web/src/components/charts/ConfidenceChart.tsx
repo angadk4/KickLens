@@ -10,7 +10,6 @@ import {
 } from "recharts";
 import type { ConfidenceBucket } from "../../api";
 import { nats } from "../../lib/format";
-import { ChartTooltip } from "./ChartTooltip";
 import { C, CURSOR_FILL, axisProps, gridProps } from "./theme";
 
 export function ConfidenceChart({
@@ -31,7 +30,20 @@ export function ConfidenceChart({
           <YAxis {...axisProps} tickFormatter={(v: number) => v.toFixed(2)} />
           <Tooltip
             cursor={{ fill: CURSOR_FILL }}
-            content={<ChartTooltip format={nats} />}
+            content={({ active, payload, label }) => {
+              const d = payload?.[0]?.payload as
+                | { bucket: string; n: number; log_loss: number; accuracy: number }
+                | undefined;
+              if (!active || !d) return null;
+              return (
+                <div className="chart-tooltip">
+                  <strong>bucket {label}</strong>
+                  <span>n = {d.n}</span>
+                  <span>log loss {nats(d.log_loss)}</span>
+                  <span>top pick hit {(d.accuracy * 100).toFixed(1)}%</span>
+                </div>
+              );
+            }}
           />
           <Bar dataKey="log_loss" name="log loss" fill={C.home} radius={[4, 4, 0, 0]} />
         </BarChart>

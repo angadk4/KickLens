@@ -2,8 +2,8 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { MotionConfig } from "framer-motion";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
-// wdth.css (NOT index.css): the only build carrying the width axis the display cut needs
-import "@fontsource-variable/archivo/wdth.css";
+// standard.css: the build carrying wght + wdth + opsz — the display cut needs the width axis
+import "@fontsource-variable/bricolage-grotesque/standard.css";
 import "@fontsource/ibm-plex-mono/400.css";
 import "@fontsource/ibm-plex-mono/500.css";
 import "@fontsource/ibm-plex-mono/600.css";

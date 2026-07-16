@@ -6,9 +6,21 @@ import { api } from "../../api";
 import { BaselineLadder } from "../../components/charts/BaselineLadder";
 import { ScopeChip } from "../../components/ui/ScopeChip";
 import { Section } from "../../components/ui/Section";
+import { Toc } from "../../components/ui/Toc";
 import { ErrorState, Skeleton } from "../../components/ui/states";
 import { dateShort } from "../../lib/format";
 import { useApi } from "../../lib/useApi";
+
+const REPO = "https://github.com/angadk4/KickLens";
+
+const TOC = [
+  { id: "how-and-why", label: "Guarantees" },
+  { id: "the-pipeline", label: "Pipeline" },
+  { id: "the-model", label: "The model" },
+  { id: "trust-but-verify", label: "Verify it" },
+  { id: "what-we-won-t-claim", label: "Limitations" },
+  { id: "provenance", label: "Provenance" },
+];
 
 // the four clauses of the contract — set as ruled ledger rows with red mono kickers
 const GUARANTEES = [
@@ -45,10 +57,11 @@ export function MethodologyPage() {
   const versions = useApi(() => api.modelVersions());
 
   return (
+    <div className="with-toc">
     <div className="page">
       <Section
+        lead
         eyebrow="How and why"
-        meta={["4 guarantees"]}
         title="Methodology"
         description="Deliberately simple. Everything here exists to make one claim credible:
         these probabilities were issued before the match, by this exact model, and were
@@ -71,8 +84,7 @@ export function MethodologyPage() {
         <>
           <Section
             eyebrow="The pipeline"
-            meta={["6 steps", "no hands"]}
-            title="Six steps, fully automated"
+                title="Six steps, fully automated"
             description="From result ingestion to a sealed daily Merkle root — no human touches
             a forecast at any point."
           >
@@ -114,11 +126,33 @@ export function MethodologyPage() {
               <p>
                 Feature ablations (form, rest, congestion) added no measurable signal and a
                 LightGBM challenger scored worse out-of-fold — so the simplest model that
-                survived the evidence won. Probabilities are calibrated with{" "}
+                survived the evidence won. Probabilities are calibrated with temperature
+                scaling
                 {data.calibration?.param_t
-                  ? `temperature scaling (production T = ${data.calibration.param_t.toFixed(3)})`
-                  : (data.calibration?.method ?? "temperature scaling")}
-                {data.calibration?.note ? ` — ${data.calibration.note}` : ""}.
+                  ? `: the production model's fitted T is ${data.calibration.param_t.toFixed(3)}, fitted on the trailing 20% of its training window; across the dev walk-forward the mean per-fold T was 1.157`
+                  : ""}
+                . T &gt; 1 means the raw model ran slightly overconfident, and the calibration
+                divides that excess out. Sealed evidence:{" "}
+                <a href={`${REPO}/blob/main/docs/selection.md`} target="_blank" rel="noreferrer">
+                  selection ↗
+                </a>
+                ,{" "}
+                <a href={`${REPO}/blob/main/docs/baselines.md`} target="_blank" rel="noreferrer">
+                  baselines ↗
+                </a>
+                ,{" "}
+                <a href={`${REPO}/blob/main/docs/model-card.md`} target="_blank" rel="noreferrer">
+                  model card ↗
+                </a>
+                ,{" "}
+                <a
+                  href={`${REPO}/blob/main/docs/final-test-report-2025.md`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  final-test report ↗
+                </a>
+                .
               </p>
             </div>
             {data.baselines && (
@@ -146,7 +180,7 @@ export function MethodologyPage() {
                                 B0: "floor",
                                 B1: "home/away",
                                 B2: "expanding",
-                                B3: "Elo (incumbent)",
+                                B3: "Elo (fallback)",
                                 B4: "Poisson",
                                 B5: "Dixon-Coles",
                               }[r.rung] ?? r.name
@@ -162,10 +196,13 @@ export function MethodologyPage() {
                   }))}
                 />
                 <p className="blurb">
-                  Every baseline rung (B0–B5) had to be beaten or matched under pre-registered
-                  statistics before the champion was frozen — and it was frozen <em>before</em>{" "}
-                  the touch-once 2025 test was run. The de-vigged closing market is plotted as
-                  a stronger-information reference; it stays ahead, and no market-beating claim
+                  The champion stood against the full pre-registered ladder before it was
+                  frozen: it beat B0–B2, B4 and B5, and is statistically equivalent to the
+                  best rung, B3 Elo (+0.0001 nats, 95% CI including zero) — so no
+                  better-than-Elo claim is made; the tie-break was calibration (ECE 0.011 vs
+                  0.030) and simplicity. It was frozen <em>before</em> the touch-once 2025
+                  test was run. The de-vigged closing market is plotted as a
+                  stronger-information reference; it stays ahead, and no market-beating claim
                   is made.
                 </p>
               </>
@@ -174,8 +211,7 @@ export function MethodologyPage() {
 
           <Section
             eyebrow="Trust, but verify"
-            meta={["3 steps"]}
-            title="Check any forecast yourself"
+                title="Check any forecast yourself"
             description="No trust required — three steps and a terminal."
           >
             <div className="card verify-panel">
@@ -194,10 +230,20 @@ export function MethodologyPage() {
                   — the same hash, committed before kickoff
                 </dd>
                 <dt>3 · check the clock</dt>
-                <dd>the git commit timestamp predates kickoff — that's the whole proof</dd>
+                <dd>
+                  the anchor line entered the public repository's history before kickoff, and
+                  the day was sealed by the next day's Merkle-root commit — inserting or
+                  editing a line later would rewrite public history and break the chain
+                </dd>
               </dl>
               <pre className="codeblock">{`# recompute a forecast's hash from its canonical JSON (shown on each match page)
 python -c "import hashlib;print(hashlib.sha256(open('forecast.json','rb').read()).hexdigest())"`}</pre>
+              <p className="blurb">
+                Or <Link to="/record">pick any graded match</Link> and verify one live in your
+                browser. To catch this project cheating: recompute any hash, find its line in{" "}
+                <code>anchors/</code>, and check the public history — an edit anywhere breaks
+                one of those three.
+              </p>
             </div>
           </Section>
 
@@ -207,14 +253,23 @@ python -c "import hashlib;print(hashlib.sha256(open('forecast.json','rb').read()
             description="Shown prominently because hiding them would defeat the point."
           >
             <div className="limit-cards">
-              {data.honesty_notes.map((note, i) => (
-                <div key={i} className="limit-card">
-                  <h3>
-                    {["Not better than Elo", "Behind the market", "Draws are hard"][i] ?? "Note"}
-                  </h3>
-                  <p>{tidy(note)}</p>
-                </div>
-              ))}
+              {data.honesty_notes.map((note, i) => {
+                // titles keyed to CONTENT, not array order — a reorder can't mislabel a card
+                const n = note.toLowerCase();
+                const title = n.includes("market")
+                  ? "Behind the market"
+                  : n.includes("elo")
+                    ? "Not better than Elo"
+                    : n.includes("draw")
+                      ? "Draws are hard"
+                      : "Note";
+                return (
+                  <div key={i} className="limit-card">
+                    <h3>{title}</h3>
+                    <p>{tidy(note)}</p>
+                  </div>
+                );
+              })}
             </div>
           </Section>
 
@@ -267,6 +322,8 @@ python -c "import hashlib;print(hashlib.sha256(open('forecast.json','rb').read()
           </Section>
         </>
       )}
+    </div>
+    <Toc items={TOC} />
     </div>
   );
 }

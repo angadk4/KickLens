@@ -1,6 +1,6 @@
-// Four evidence scopes as visually unmergeable panels (T-171). Each panel: scope chip + n,
-// metric tiles, baseline-ladder chart where reference data exists, by-confidence chart,
-// and the market transparency callout.
+// Four evidence scopes as visually unmergeable panels (T-171). Each panel: scope strap
+// (n · as-of), verdict chips, metrics left / charts right on wide screens, and the market
+// transparency callout on the sealed test.
 import { api, type MetricsPayload, type Scope } from "../../api";
 import { BaselineLadder, type LadderRow } from "../../components/charts/BaselineLadder";
 import { ConfidenceChart } from "../../components/charts/ConfidenceChart";
@@ -24,15 +24,17 @@ const SCOPES: { scope: Scope; label: string; blurb: string; emptyNote: string }[
     label: "Test (2025, touch-once)",
     blurb:
       "The sealed touch-once test: evaluated exactly once, after selection was frozen. This " +
-      "season can never be re-used.",
-    emptyNote: "Empty until the pre-registered final run.",
+      "season can never be re-used. 2025 ran harder for every model including the market " +
+      "(1.0317 vs 1.0149 on dev) — it had the era's weakest home advantage — and every " +
+      "relative comparison from selection replicated out-of-time.",
+    emptyNote: "The sealed 2025 snapshot failed to load.",
   },
   {
     scope: "backtest",
     label: "Backtest (labelled)",
     blurb:
-      "Retrospective application of the frozen model, clearly labelled as NOT the live " +
-      "record. Deliberately empty unless a labelled backtest is published.",
+      "Retrospective application of the frozen model, clearly labelled as separate from the " +
+      "live record. Deliberately empty unless a labelled backtest is published.",
     emptyNote: "No labelled backtest has been published.",
   },
   {
@@ -40,7 +42,8 @@ const SCOPES: { scope: Scope; label: string; blurb: string; emptyNote: string }[
     label: "Live record",
     blurb:
       "Official frozen forecasts graded against real results. This is the record that " +
-      "matters, and it only accrues in real time.",
+      "matters, and it only accrues in real time. Small live samples are extremely noisy — " +
+      "judge trends here in months, not matchdays.",
     emptyNote: "First graded forecasts land after the first official kickoffs.",
   },
 ];
@@ -48,7 +51,8 @@ const SCOPES: { scope: Scope; label: string; blurb: string; emptyNote: string }[
 function asOfShort(iso: string | undefined): string {
   if (!iso) return "—";
   const d = new Date(iso);
-  return `${d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })} · ${d.toISOString().slice(11, 16)} UTC`;
+  // both parts UTC-pinned — a locally-derived date can be a day off its UTC-labelled time
+  return `${d.toLocaleDateString("en-US", { timeZone: "UTC", month: "short", day: "numeric", year: "numeric" })} · ${d.toISOString().slice(11, 16)} UTC`;
 }
 
 /** Plain-English readings of the numbers — generated, never hand-waved.
@@ -81,13 +85,6 @@ function verdicts(scope: Scope, m: MetricsPayload): { cls: string; text: string;
       num: `Δ ${d >= 0 ? "+" : ""}${d.toFixed(4)}`,
     });
   }
-  if (typeof m.ece === "number") {
-    out.push({
-      cls: m.ece <= 0.03 ? "good" : "neutral",
-      text: "calibration error (0 = perfectly calibrated)",
-      num: `ECE ${m.ece.toFixed(4)}`,
-    });
-  }
   return out;
 }
 
@@ -97,7 +94,7 @@ function ladderRows(scope: Scope, m: MetricsPayload): LadderRow[] {
   if (typeof m.market_log_loss === "number")
     rows.push({ name: "market (de-vig)", log_loss: m.market_log_loss, emphasis: "market" });
   if (typeof b3 === "number")
-    rows.push({ name: "Elo baseline", log_loss: b3, emphasis: "reference" });
+    rows.push({ name: "B3 Elo (fallback)", log_loss: b3, emphasis: "reference" });
   if (typeof m.log_loss === "number")
     rows.push({
       name: "champion",
@@ -112,84 +109,104 @@ function ScopePanel({ scope, label, blurb, emptyNote }: (typeof SCOPES)[number])
   const { data, error, notFound, loading, retry } = useApi(() => api.performance(scope));
   const m = data?.metrics;
   const ladder = m ? ladderRows(scope, m) : [];
+  const hasCharts = ladder.length > 0 || !!m?.by_confidence;
   return (
     <div className="entry">
-      <div className="entry-marker">
-        {scope}
-        {m?.n != null && <span className="em-meta">n={m.n.toLocaleString()}</span>}
-        {data?.as_of_utc && (
-          <span className="em-meta">as of {asOfShort(data.as_of_utc)}</span>
-        )}
-      </div>
+      <header className="entry-strap">
+        <span className="strap-label">{scope}</span>
+        <span className="strap-rule" aria-hidden />
+        <span className="strap-meta">
+          {m?.n != null && (
+            <span className="no-caps">n={m.n.toLocaleString()}</span>
+          )}
+          {/* sealed evidence stamps its EVENT; only the live scope rolls forward */}
+          {scope === "dev" && <span>sealed Jul 6, 2026</span>}
+          {scope === "test" && <span>evaluated once · Jul 12, 2026</span>}
+          {scope === "live" && data?.as_of_utc && (
+            <span>as of {asOfShort(data.as_of_utc)}</span>
+          )}
+        </span>
+      </header>
       <div className="entry-body">
         <section className={`scope-panel ${scope}`}>
           <header>
             <h2>{label}</h2>
             <ScopeChip scope={scope} n={m?.n ?? null} />
           </header>
-          <p className="blurb">{blurb}</p>
           {loading && <Skeleton height={90} />}
           {error && <ErrorState retry={retry} />}
           {notFound && (
             <EmptyState title="No data recorded for this scope">{emptyNote}</EmptyState>
           )}
-          {m && (
-            <>
-              {verdicts(scope, m).length > 0 && (
+          <div className={hasCharts ? "panel-cols" : undefined}>
+            <div style={{ display: "grid", gap: "var(--space-4)", minWidth: 0 }}>
+              <p className="blurb">{blurb}</p>
+              {m && (
                 <>
-                  <div className="verdicts">
-                    {verdicts(scope, m).map((v, i) => (
-                      <span key={i} className={`verdict ${v.cls}`}>
-                        <span className="v-num">{v.num}</span> {v.text}
-                      </span>
-                    ))}
-                  </div>
-                  <p className="blurb" style={{ fontSize: "var(--text-xs)" }}>
-                    Δ = champion log loss − comparator; positive means the comparator is
-                    ahead. Lower is better.
-                  </p>
+                  {verdicts(scope, m).length > 0 && (
+                    <>
+                      <div className="verdicts">
+                        {verdicts(scope, m).map((v, i) => (
+                          <span key={i} className={`verdict ${v.cls}`}>
+                            <span className="v-num">{v.num}</span> {v.text}
+                          </span>
+                        ))}
+                      </div>
+                      <p className="blurb" style={{ fontSize: "var(--text-xs)" }}>
+                        Δ = champion log loss − comparator; positive means the comparator is
+                        ahead. Lower is better.
+                      </p>
+                    </>
+                  )}
+                  <dl className="metric-row">
+                    {(
+                      [
+                        ["log_loss", "log loss", nats],
+                        ["rps", "rps", nats],
+                        ["brier", "brier", nats],
+                        ["ece", "ece", nats],
+                      ] as const
+                    ).map(
+                      ([key, label2, fmt]) =>
+                        typeof m[key] === "number" && (
+                          <div className="metric" key={key}>
+                            <dt>{label2}</dt>
+                            <dd>{fmt(m[key])}</dd>
+                          </div>
+                        ),
+                    )}
+                    {typeof m.accuracy === "number" && (
+                      <div className="metric">
+                        <dt>accuracy</dt>
+                        <dd>
+                          {(m.accuracy * 100).toFixed(1)}%{" "}
+                          <small>
+                            diagnostic only · always-home scored{" "}
+                            {scope === "test" ? "43.7% on 2025" : "≈48.8% on dev"}
+                          </small>
+                        </dd>
+                      </div>
+                    )}
+                  </dl>
+                  {scope === "test" &&
+                    typeof m.market_log_loss === "number" &&
+                    typeof m.log_loss === "number" && (
+                      <div className="callout">
+                        Closing odds embed the final 3 hours of information the kickoff−3h
+                        cutoff can't see — the market gap is shown in every scope where it
+                        exists, and no "beats the market" claim is made anywhere.
+                      </div>
+                    )}
                 </>
               )}
-              <dl className="metric-row">
-                {(
-                  [
-                    ["log_loss", "log loss", nats],
-                    ["rps", "rps", nats],
-                    ["brier", "brier", nats],
-                    ["ece", "ece", nats],
-                  ] as const
-                ).map(
-                  ([key, label2, fmt]) =>
-                    typeof m[key] === "number" && (
-                      <div className="metric" key={key}>
-                        <dt>{label2}</dt>
-                        <dd>{fmt(m[key])}</dd>
-                      </div>
-                    ),
-                )}
-                {typeof m.accuracy === "number" && (
-                  <div className="metric">
-                    <dt>accuracy</dt>
-                    <dd>
-                      {(m.accuracy * 100).toFixed(1)}%{" "}
-                      <small>diagnostic only · uniform guess = 33.3%</small>
-                    </dd>
-                  </div>
-                )}
-              </dl>
-              {ladder.length > 0 && <BaselineLadder rows={ladder} />}
-              {m.by_confidence && <ConfidenceChart byConfidence={m.by_confidence} />}
-              {scope === "test" &&
-                typeof m.market_log_loss === "number" &&
-                typeof m.log_loss === "number" && (
-                  <div className="callout">
-                    Closing odds embed the final 3 hours of information the kickoff−3h cutoff
-                    can't see — the market gap is shown in every scope where it exists, and no
-                    "beats the market" claim is made anywhere.
-                  </div>
-                )}
-            </>
-          )}
+            </div>
+            {m && hasCharts && (
+              <div style={{ display: "grid", gap: "var(--space-4)", minWidth: 0 }}>
+                {ladder.length > 0 && <BaselineLadder rows={ladder} n={m.n ?? null} />}
+                {m.by_confidence && <ConfidenceChart byConfidence={m.by_confidence} />}
+              </div>
+            )}
+          </div>
         </section>
       </div>
     </div>
@@ -200,6 +217,7 @@ export function PerformancePage() {
   return (
     <div className="page">
       <Section
+        lead
         eyebrow="Evidence"
         meta={["4 scopes", "log loss decides"]}
         title="Performance"

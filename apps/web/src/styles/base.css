@@ -13,19 +13,55 @@ html {
 body {
   margin: 0;
   min-height: 100vh;
-  /* two asymmetric floodlight pools (banks at the pitch edges — never one hero halo)
-     over a 1–2% luminance drift; flat hexes read rough, this reads soft */
-  background:
-    radial-gradient(900px 480px at 18% -12%, rgba(245, 239, 217, 0.075), transparent 70%),
-    radial-gradient(720px 420px at 82% -16%, rgba(245, 239, 217, 0.055), transparent 70%),
-    linear-gradient(180deg, #121c16 0, var(--bg-0) 340px);
-  background-attachment: fixed;
-  background-color: var(--bg-0);
+  /* flat ground — the .floodlights layer (App.tsx) carries the atmosphere;
+     body-attached fixed gradients repaint on scroll and died for it */
+  background: var(--bg-0);
   color: var(--ink);
   font-family: var(--font-display);
   font-size: var(--text-base);
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+}
+
+/* the floodlight banks: two composited layers drifting imperceptibly per-frame,
+   unmistakably per-minute — the pitch breathes. transform-only, GPU-cheap. */
+.floodlights {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(180deg, #121c16 0, var(--bg-0) 340px);
+}
+
+.floodlights::before,
+.floodlights::after {
+  content: "";
+  position: absolute;
+  inset: -12% -12% auto;
+  height: 70vh;
+  will-change: transform;
+}
+
+.floodlights::before {
+  background: radial-gradient(900px 480px at 18% 12%, rgba(245, 239, 217, 0.075), transparent 70%);
+  animation: drift-a var(--dur-drift) var(--ease-in-out) infinite alternate;
+}
+
+.floodlights::after {
+  background: radial-gradient(720px 420px at 82% 8%, rgba(245, 239, 217, 0.055), transparent 70%);
+  animation: drift-b calc(var(--dur-drift) * 1.37) var(--ease-in-out) infinite alternate;
+}
+
+@keyframes drift-a {
+  to {
+    transform: translate3d(2.2%, 1.2%, 0);
+  }
+}
+
+@keyframes drift-b {
+  to {
+    transform: translate3d(-1.8%, 0.9%, 0);
+  }
 }
 
 h1,
@@ -91,7 +127,8 @@ code,
 .chip,
 .badge,
 .eyebrow,
-.entry-marker,
+.strap-label,
+.strap-meta,
 .hashbadge,
 .codeblock,
 .kv dd,

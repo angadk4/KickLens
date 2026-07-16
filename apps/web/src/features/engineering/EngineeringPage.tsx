@@ -4,10 +4,25 @@
 // this page renders from verified static facts plus /health and /predictions/completed.
 import { Link } from "react-router-dom";
 import { api } from "../../api";
+import { useUpcoming } from "../../components/layout/UpcomingContext";
 import { Section } from "../../components/ui/Section";
 import { StatTile } from "../../components/ui/StatTile";
+import { Toc } from "../../components/ui/Toc";
 import { useApi } from "../../lib/useApi";
 import { ArchitectureDiagram, DiagramWhys } from "./ArchitectureDiagram";
+
+const TOC = [
+  { id: "engineering", label: "At a glance" },
+  { id: "invariants", label: "Invariants" },
+  { id: "architecture", label: "Architecture" },
+  { id: "orchestration", label: "Orchestration" },
+  { id: "testing", label: "Testing" },
+  { id: "lineage", label: "Lineage" },
+  { id: "operations", label: "Operations" },
+  { id: "delivery", label: "Delivery" },
+  { id: "incidents", label: "Incidents" },
+  { id: "restraint", label: "Restraint" },
+];
 
 const REPO = "https://github.com/angadk4/KickLens";
 
@@ -20,13 +35,13 @@ const INVARIANTS = [
   },
   {
     what: "No feature may see the future",
-    how: "A point-in-time feature engine plus a never-cut leakage suite (R1–R8): bit-for-bit recompute parity over all 5,763 stored feature rows, tamper tests that flip a later result and assert earlier rows are unchanged, and a leak canary proving the detector itself works.",
+    how: "A point-in-time feature engine plus a never-cut leakage suite (R1–R8): bit-for-bit recompute parity over every stored feature row for completed regular-season matches (5,763 at the 2026-07-06 seal, growing with the live loop), tamper tests that flip a later result and assert earlier rows are unchanged, and a leak canary proving the detector itself works.",
     where: "tests/test_leakage.py",
     href: "/blob/main/tests/test_leakage.py",
   },
   {
     what: "Evidence scopes never merge",
-    how: "Dev, test, backtest, and live are separate keys end-to-end. The API rejects unknown scopes, and the UI's stat component requires a scope and sample size before it will render a number.",
+    how: "Dev, test, backtest, and live are separate keys end-to-end. The API rejects unknown scopes, and the UI's stat component declares evidence scope and sample size as required props — a metric cannot be added to the site without stating both.",
     where: "apps/api/main.py",
     href: "/blob/main/apps/api/main.py",
   },
@@ -63,7 +78,7 @@ const INCIDENTS = [
 ];
 
 const OMISSIONS = [
-  ["No Step Functions", "choreography is $0 and sufficient for independent, idempotent hourly jobs."],
+  ["No Step Functions", "choreography is sufficient for independent, idempotent hourly jobs."],
   ["No VPC, no RDS", "a VPC'd Lambda needs a NAT gateway (~$32/mo) to reach Neon; the pooled endpoint over TLS doesn't."],
   ["No staging environment", "dev + prod with Neon branch previews; the blast radius is a read-only dashboard."],
   ["No Kubernetes, no Secrets Manager, no always-on compute", "the load doesn't justify any of them."],
@@ -72,11 +87,19 @@ const OMISSIONS = [
 export function EngineeringPage() {
   const health = useApi(() => api.health());
   const latest = useApi(() => api.completed(1));
+  const { list } = useUpcoming();
+  // graded match → its proof page; else the soonest fixture (whose page carries the
+  // prover the moment its freeze lands, and the disarmed bench before that)
   const latestId = latest.data?.items?.[0]?.match_id;
+  const fallbackId = list?.[0]?.match_id;
+  const verifyTarget = latestId ?? fallbackId;
+  const verifyLabel = latestId ? "Verify a real forecast" : "Verify the next frozen forecast";
 
   return (
+    <div className="with-toc">
     <div className="page">
       <Section
+        lead
         eyebrow="Engineering"
         meta={["counts as of Jul 2026", "everything links to proof"]}
         title="How it's built"
@@ -92,8 +115,8 @@ export function EngineeringPage() {
         }
       >
         <div className="grid-4">
-          <StatTile label="Tests" value={194} scope="none" n={null}
-            sub="leakage, write-once, hash & canary suites — run vs a real Postgres in CI" />
+          <StatTile label="Tests green" value={194} scope="none" n={null}
+            sub="leakage, write-once, hash & canary suites vs a real Postgres in CI · +1 documented skip" />
           <StatTile label="Monthly infra" value="~$0" scope="none" n={null}
             sub="serverless, scale-to-zero; the $5/mo budget alarm is a documented stop condition" />
           <StatTile label="Schedules + alarms" value="8 + 13" scope="none" n={null}
@@ -105,12 +128,19 @@ export function EngineeringPage() {
 
       <Section
         eyebrow="Invariants"
-        meta={["4 rules", "each has an enforcer"]}
+        meta={["4 rules"]}
         title="Invariants first, features second"
-        description="The system is organized around four things that must stay true no matter
-        what else breaks. Each is enforced by a mechanism, not a policy: a database trigger,
-        a CI job that fails the merge, a component that won't render a number without its
-        sample size. If a rule matters, something executable owns it."
+        description={
+          <>
+            The system is organized around four things that must stay true no matter what
+            else breaks. Each is enforced by a mechanism, not a policy: a database trigger, a{" "}
+            <a href={`${REPO}/actions`} target="_blank" rel="noreferrer">
+              CI job that fails the merge ↗
+            </a>
+            , a component that cannot be instantiated without its scope and sample size. If a
+            rule matters, something executable owns it.
+          </>
+        }
       >
         <div className="fact-rows">
           {INVARIANTS.map((r) => (
@@ -129,7 +159,7 @@ export function EngineeringPage() {
 
       <Section
         eyebrow="Architecture"
-        meta={["every box exists", "in Terraform or GitHub"]}
+        meta={["15 nodes", "all in Terraform or GitHub"]}
         title="The deployed system"
         description="Serverless end to end: EventBridge crons invoke six handlers baked into
         one container image; the public API is a separate 8 MB zip with no ML libraries; the
@@ -141,19 +171,18 @@ export function EngineeringPage() {
         <p className="blurb">
           Frozen choices, one reason each: Neon over RDS (scale-to-zero fits bursty hourly
           jobs; a 30-way connection burst verified with 0 errors) · Lambda outside any VPC (a
-          VPC'd Lambda needs a ~$32/mo NAT gateway to reach Neon) · S3 + CloudFront with no
-          public bucket · SSM Parameter Store over Secrets Manager (free) · Terraform with
-          remote state · no staging environment.
+          VPC'd Lambda needs a NAT gateway to reach Neon) · S3 + CloudFront with no public
+          bucket · SSM Parameter Store over Secrets Manager (free) · Terraform with remote
+          state · no staging environment.
         </p>
       </Section>
 
       <Section
         eyebrow="Orchestration"
-        meta={["no Step Functions", "by design"]}
+        meta={["8 crons", "leased claims"]}
         title="Orchestration without an orchestrator"
         description="EventBridge crons, database state-gating, and idempotency. Each job is
-        safe to re-run or fire out of order; for a handful of independent hourly jobs this
-        is $0 and simpler than a workflow engine."
+        safe to re-run or fire out of order — simpler than a workflow engine, at no cost."
       >
         <div className="prose">
           <p>
@@ -162,7 +191,8 @@ export function EngineeringPage() {
             transaction pooling — the lock releases the moment the transaction ends, which is
             exactly when it's still needed. Production uses leased, hour-bucketed job claims
             instead: a duplicate EventBridge delivery no-ops, and a crashed run's claim
-            expires so the next run picks it up. The contract was amended, not worked around.
+            expires so the next run picks it up. The deviation is recorded, not hidden — ADR-004
+            documents it, and Contract §8 carries the annotation in place.
           </p>
           <p>
             Failure handling is loud, and publication is eventual: if an anchor push to GitHub
@@ -177,7 +207,7 @@ export function EngineeringPage() {
 
       <Section
         eyebrow="Testing"
-        meta={["suites map to", "guarantees"]}
+        meta={["194 green", "run in CI"]}
         title="Tests are the enforcement layer"
         description="Named suites own named guarantees — leakage (R1–R8), the write-once
         ledger, forecast hashing and anchoring, the canary's dead-man checks, schema audit,
@@ -187,17 +217,18 @@ export function EngineeringPage() {
           <p>
             CI runs ruff, mypy, and the full suite against a real Postgres service container,
             so the database-backed guarantees run rather than skip. A final CI step re-runs
-            the never-cut suites and fails the build if they silently skipped; gitleaks scans
-            every commit. The same commands run locally and in CI — 194 passed, 1 skipped, as
-            of July 2026. The one skip is a market-aggregation check that needs the full
-            historical dataset loaded, which a fresh CI database doesn't hold.
+            the never-cut suites on their own and fails the build if any of them silently
+            skipped; gitleaks scans every push. The same commands run locally and in CI —
+            194 passed, 1 skipped, as of July 2026. The one skip is a market-aggregation
+            check that needs the full historical dataset loaded, which a fresh CI database
+            doesn't hold.
           </p>
         </div>
       </Section>
 
       <Section
         eyebrow="Lineage"
-        meta={["recorded per forecast", "record server-verified"]}
+        meta={["6 fields per forecast"]}
         title="Every forecast records its full lineage — and the server verifies the record"
         description="Two separate claims, each scoped precisely. Lineage: every official
         forecast records the dataset snapshot hash, feature-set version, model version, code
@@ -217,8 +248,8 @@ export function EngineeringPage() {
           </p>
         </div>
         <div className="hero-ctas">
-          <Link to={latestId ? `/match/${latestId}` : "/record"} className="btn primary">
-            Verify a real forecast
+          <Link to={verifyTarget ? `/match/${verifyTarget}` : "/record"} className="btn primary">
+            {verifyLabel}
           </Link>
           <a href={`${REPO}/tree/main/anchors`} target="_blank" rel="noreferrer" className="btn ghost">
             Public anchors ↗
@@ -228,7 +259,7 @@ export function EngineeringPage() {
 
       <Section
         eyebrow="Operations"
-        meta={["the system", "tells on itself"]}
+        meta={["13 alarms", "SNS → email"]}
         title="Operating it"
         description="Eight schedules, thirteen alarms, and a canary that assumes the worst.
         Schedule state is ENABLED in code, so a terraform apply can never silently disarm
@@ -264,7 +295,7 @@ export function EngineeringPage() {
 
       <Section
         eyebrow="Delivery"
-        meta={["push = deploy", "retrain monthly"]}
+        meta={["deploy on push", "retrain monthly"]}
         title="Deploys and retraining"
         description="One push to main runs the gates and ships everything that changed."
       >
@@ -275,9 +306,9 @@ export function EngineeringPage() {
             rebuilt; the site is synced to S3 with a CloudFront invalidation; then Terraform
             applies any drift. Training runs monthly on GitHub Actions and produces a
             challenger that is never auto-promoted — promotion is manual behind a frozen gate
-            (≥0.005 nats improvement and a 95% CI excluding zero), and rollback is repointing
-            one flag. Local development is prod-shaped: Docker Compose runs the API, Postgres,
-            and the job container against Alembic migrations.
+            (≥0.005 nats improvement, a 95% CI excluding zero, and calibration not degraded),
+            and rollback is repointing one flag. Local development is prod-shaped: Docker
+            Compose runs the API, Postgres, and the job container against Alembic migrations.
           </p>
         </div>
       </Section>
@@ -306,10 +337,10 @@ export function EngineeringPage() {
 
       <Section
         eyebrow="Restraint"
-        meta={["cut on purpose"]}
+        meta={["ADR-002 · Contract §8"]}
         title="Deliberately not here"
         description="Pre-empting the 'why didn't you use X' question: each omission was a
-        decision, recorded in an ADR."
+        decision — recorded in ADR-002 or frozen in the build contract (§8)."
       >
         <div className="fact-rows">
           {OMISSIONS.map(([what, why]) => (
@@ -321,7 +352,7 @@ export function EngineeringPage() {
         </div>
         <p className="blurb">
           Post-MVP candidates (drift dashboards, isotonic calibration, a second league) are
-          listed in the build contract, not promised here. Everything above is checkable:{" "}
+          listed in the build contract, not promised here. Checkable from here:{" "}
           <Link to="/record">the record</Link> ·{" "}
           <a href={`${REPO}/tree/main/anchors`} target="_blank" rel="noreferrer">
             public anchors ↗
@@ -333,6 +364,8 @@ export function EngineeringPage() {
           .
         </p>
       </Section>
+    </div>
+    <Toc items={TOC} />
     </div>
   );
 }

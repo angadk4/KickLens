@@ -11,6 +11,29 @@ import { EmptyState, ErrorState, Skeleton } from "../../components/ui/states";
 import { cutoffOf, dateShort, kickoffLocal, nats, teamName } from "../../lib/format";
 import { useApi } from "../../lib/useApi";
 
+/** the latest daily seal, pulled up from the footer to where verifiers look for it */
+function SealChip() {
+  const merkle = useApi(() => api.merkleRoots(1));
+  const latest = merkle.data?.items?.[0];
+  if (!latest) return null;
+  return (
+    <span
+      className="chip"
+      title={latest.committed_at_utc ?? undefined}
+      style={{ color: "var(--gold)", borderColor: "color-mix(in srgb, var(--gold) 45%, transparent)" }}
+    >
+      latest seal {latest.day} ·{" "}
+      {latest.anchor_file_html_url ? (
+        <a href={latest.anchor_file_html_url} target="_blank" rel="noreferrer">
+          merkle {latest.root.slice(0, 12)}… ↗
+        </a>
+      ) : (
+        <>merkle {latest.root.slice(0, 12)}…</>
+      )}
+    </span>
+  );
+}
+
 const RESULT_LABEL = { H: "home win", D: "draw", A: "away win" } as const;
 
 export function RecordPage() {
@@ -27,11 +50,16 @@ export function RecordPage() {
   return (
     <div className="page">
       <Section
+        lead
         eyebrow="Live record"
         meta={["never back-filled"]}
         title="Graded official forecasts"
-        description="This page IS the track record — frozen before kickoff, graded after full
-        time, never back-filled."
+        description={
+          <>
+            This page <em>is</em> the track record — frozen before kickoff, graded after full
+            time, never back-filled.
+          </>
+        }
       >
         {loading && <Skeleton height={160} />}
         {error && <ErrorState retry={retry} />}
@@ -66,7 +94,15 @@ export function RecordPage() {
             >
               <ScopeChip scope="live" n={data.total_graded} />
               <span className="chip">newest first</span>
+              <span className="chip" title="ln(3) — guessing ⅓/⅓/⅓ every match">
+                1.0986 = knew-nothing baseline
+              </span>
+              <SealChip />
             </div>
+            <p className="blurb" style={{ fontSize: "var(--text-xs)" }}>
+              Small live samples are extremely noisy — judge this record in months, not
+              matchdays.
+            </p>
             <div className="grid-2">
               {data.items.map((it) => (
                 <Link key={it.match_id} to={`/match/${it.match_id}`} className="card fixture-card stamped">
