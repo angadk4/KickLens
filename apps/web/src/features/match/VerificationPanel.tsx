@@ -3,7 +3,7 @@
 // hash. canonical_json is only served when the server-side recompute already matches.
 import type { VerifiedForecast, Verification } from "../../api";
 import { Badge } from "../../components/ui/Badge";
-import { dateShort } from "../../lib/format";
+import { dateShort, voidPhrase } from "../../lib/format";
 import { HashProof } from "./HashProof";
 
 function Forecast({
@@ -15,6 +15,8 @@ function Forecast({
   repo: string | null;
   kickoffUtc: string | null;
 }) {
+  const voidReason = f.events.find((e) => e.type === "Voided")?.details?.reason;
+  const vp = voidPhrase(typeof voidReason === "string" ? voidReason : undefined);
   return (
     <div className="card verify-panel">
       <div className="verify-status">
@@ -35,7 +37,9 @@ function Forecast({
             </span>
           </>
         )}
-        {f.voided && <Badge kind="voided" label="✕ VOIDED (superseded)" />}
+        {f.voided && (
+          <Badge kind="voided" label={vp ? `✕ VOIDED · ${vp}` : "✕ VOIDED"} />
+        )}
       </div>
 
       <div className="proof-bench">

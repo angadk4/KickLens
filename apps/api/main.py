@@ -141,6 +141,54 @@ def matches_upcoming(
     return out
 
 
+@app.get("/matches/in-play")
+def matches_in_play(
+    conn: Conn, response: Response, limit: int = Query(50, le=200)
+) -> list[dict[str, Any]]:
+    """Frozen official forecasts whose match has kicked off but is not yet graded and not
+    voided — the window between /matches/upcoming (future kickoff) and /predictions/completed
+    (graded). A forecast stays here continuously from kickoff until it is actually graded, so
+    it never disappears in between. Pure live-record read (T-171: no metrics, no scope merge,
+    no odds); the current official is the newest is_official row with no Voided event."""
+    _cache(response, 60)
+    rows = conn.execute(
+        "SELECT m.match_id, m.kickoff_utc, h.canonical_name, a.canonical_name, s.year,"
+        " p.p_home, p.p_draw, p.p_away, p.forecast_hash, m.status"
+        " FROM match m JOIN season s USING (season_id)"
+        " JOIN team h ON h.team_id = m.home_team_id"
+        " JOIN team a ON a.team_id = m.away_team_id"
+        " JOIN LATERAL (SELECT pp.prediction_id, pp.p_home, pp.p_draw, pp.p_away,"
+        "     pp.forecast_hash FROM prediction pp WHERE pp.match_id = m.match_id"
+        "   AND pp.is_official AND NOT EXISTS (SELECT 1 FROM prediction_event e"
+        "     WHERE e.prediction_id = pp.prediction_id AND e.event_type='Voided')"
+        "   ORDER BY pp.forecast_creation_utc DESC LIMIT 1) p ON true"
+        " WHERE m.is_regular_season AND m.kickoff_utc <= now()"
+        "   AND m.status NOT IN ('postponed', 'cancelled', 'abandoned')"
+        "   AND NOT EXISTS (SELECT 1 FROM prediction_grade g"
+        "     WHERE g.prediction_id = p.prediction_id)"
+        " ORDER BY m.kickoff_utc DESC LIMIT %s",
+        (limit,),
+    ).fetchall()
+    return [
+        {
+            "match_id": int(r[0]),
+            "kickoff_utc": _iso(r[1]),
+            "home": r[2],
+            "away": r[3],
+            "season": int(r[4]),
+            "status": r[9],
+            "forecast": {
+                "type": "official-frozen",
+                "p_home": float(r[5]),
+                "p_draw": float(r[6]),
+                "p_away": float(r[7]),
+                "forecast_hash": r[8],
+            },
+        }
+        for r in rows
+    ]
+
+
 @app.get("/matches/{match_id}")
 def match_detail(match_id: int, conn: Conn, response: Response) -> dict[str, Any]:
     _cache(response, 60)
@@ -167,7 +215,10 @@ def match_detail(match_id: int, conn: Conn, response: Response) -> dict[str, Any
         " g.log_loss, g.rps, g.brier, g.correct,"
         " p.anchored_at_utc, r.stale_inputs, r.model_version_id, mv.version_label,"
         " EXISTS (SELECT 1 FROM prediction_event ve WHERE ve.prediction_id = p.prediction_id"
-        "   AND ve.event_type = 'Voided') AS voided"
+        "   AND ve.event_type = 'Voided') AS voided,"
+        " (SELECT vd.details->>'reason' FROM prediction_event vd"
+        "   WHERE vd.prediction_id = p.prediction_id AND vd.event_type = 'Voided'"
+        "   ORDER BY vd.prediction_event_id DESC LIMIT 1) AS void_reason"
         " FROM prediction p"
         " JOIN prediction_run r USING (prediction_run_id)"
         " JOIN model_version mv ON mv.model_version_id = r.model_version_id"
@@ -221,6 +272,7 @@ def match_detail(match_id: int, conn: Conn, response: Response) -> dict[str, Any
                 "model_version_id": int(f[14]),
                 "model_label": f[15],
                 "voided": bool(f[16]),
+                "void_reason": f[17],
             }
             for f in forecasts
         ],

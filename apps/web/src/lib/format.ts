@@ -69,6 +69,19 @@ export function teamName(t: string): string {
   return TEAM_NAMES[t] ?? t;
 }
 
+/** Human phrase for a Voided event's reason (prediction_event details.reason) so a voided
+    forecast reads honestly — "match postponed", not a generic "superseded"/"fixture changed". */
+const VOID_PHRASE: Record<string, string> = {
+  postponed: "match postponed",
+  cancelled: "match cancelled",
+  abandoned: "match abandoned",
+  "kickoff moved": "kickoff moved",
+};
+
+export function voidPhrase(reason: string | null | undefined): string {
+  return (reason && VOID_PHRASE[reason]) || "";
+}
+
 /** The T-3h cutoff for a kickoff ISO string — the moment the forecast's inputs lock. */
 export function cutoffOf(kickoffIso: string): Date {
   return new Date(new Date(kickoffIso).getTime() - 3 * 3600 * 1000);

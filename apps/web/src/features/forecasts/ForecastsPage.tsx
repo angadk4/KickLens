@@ -6,6 +6,7 @@ import { EmptyState, ErrorState, Skeleton } from "../../components/ui/states";
 import { dayHeading } from "../../lib/format";
 import { useApi } from "../../lib/useApi";
 import { FixtureCard } from "./FixtureCard";
+import { InPlaySection } from "./InPlaySection";
 
 function groupByDay(list: UpcomingMatch[]): { day: string; items: UpcomingMatch[] }[] {
   const groups = new Map<string, UpcomingMatch[]>();
@@ -62,6 +63,8 @@ export function ForecastsPage() {
           </EmptyState>
         )}
       </Section>
+      {/* forecasts already underway — chronologically between "now" and the upcoming days */}
+      <InPlaySection />
       {/* each day is a strap: the date breaks the rule, the count sits on it */}
       {data &&
         data.length > 0 &&

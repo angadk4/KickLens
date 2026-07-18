@@ -182,6 +182,105 @@ if DATABASE_URL:
                 ko2 - timedelta(hours=2, minutes=55),
             ),
         )
+
+        # in-play cases for /matches/in-play (kicked off, ungraded, non-voided official).
+        def mk_official(
+            mid: int,
+            run_id: int,
+            rev: int,
+            ph: float,
+            pd: float,
+            pa: float,
+            hashv: str,
+            when: datetime,
+        ) -> int:
+            return one(
+                "INSERT INTO prediction (match_id, prediction_run_id, fixture_revision, p_home,"
+                " p_draw, p_away, cutoff_utc, forecast_creation_utc, is_official, forecast_hash,"
+                " anchored_at_utc) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,true,%s,%s)"
+                " RETURNING prediction_id",
+                (mid, run_id, rev, ph, pd, pa, when, when, hashv, when),
+            )
+
+        def void_it(pid: int, mid: int, when: datetime, reason: str) -> None:
+            conn.execute(
+                "INSERT INTO prediction_event (prediction_id, match_id, event_type,"
+                " event_time_utc, details) VALUES (%s,%s,'Voided',%s,%s)",
+                (pid, mid, when, json.dumps({"reason": reason})),
+            )
+
+        # (a) MUST appear: kicked off (canonical 'in_play'), no result, ungraded, not voided.
+        ko_ip = datetime.now(UTC) - timedelta(hours=1)
+        m_inplay = one(
+            "INSERT INTO match (season_id, home_team_id, away_team_id, kickoff_utc, status)"
+            " VALUES (%s,%s,%s,%s,'in_play') RETURNING match_id",
+            (season, teams["A"], teams["C"], ko_ip),
+        )
+        run_ip = mk_run(m_inplay, ko_ip - timedelta(hours=3), ko_ip - timedelta(hours=4))
+        mk_official(m_inplay, run_ip, 0, 0.5, 0.25, 0.25, "inplayhash", ko_ip - timedelta(hours=3))
+
+        # (a2) MUST appear: FINAL with a result but NOT yet graded — this is the grade-row-absence
+        # decision; the rejected `result IS NULL` filter would wrongly drop it. Attaches an
+        # official, ungraded, non-voided forecast to an existing final+result match (match_ids[2],
+        # C-A result 'A'), so ratings / completed counts stay untouched.
+        ko_fin = COMPLETED[2][2]
+        run_fin = mk_run(match_ids[2], ko_fin - timedelta(hours=3), ko_fin - timedelta(hours=4))
+        mk_official(
+            match_ids[2],
+            run_fin,
+            0,
+            0.3,
+            0.3,
+            0.4,
+            "finalungradedhash",
+            ko_fin - timedelta(hours=3),
+        )
+
+        # (b) MUST NOT appear: kicked off but VOIDED (postponed) — as Chicago 6038 was.
+        ko_vd = datetime.now(UTC) - timedelta(hours=2)
+        m_voided = one(
+            "INSERT INTO match (season_id, home_team_id, away_team_id, kickoff_utc, status)"
+            " VALUES (%s,%s,%s,%s,'postponed') RETURNING match_id",
+            (season, teams["B"], teams["D"], ko_vd),
+        )
+        run_vd = mk_run(m_voided, ko_vd - timedelta(hours=3), ko_vd - timedelta(hours=4))
+        pid_voided = mk_official(
+            m_voided, run_vd, 0, 0.4, 0.3, 0.3, "voidedhash", ko_vd - timedelta(hours=3)
+        )
+        void_it(pid_voided, m_voided, ko_vd, "postponed")
+
+        # (b2) MUST NOT appear: void guard ISOLATED from the status filter — status 'in_play'
+        # (not excluded by status), single official VOIDED. Only the LATERAL void guard removes it.
+        ko_vo = datetime.now(UTC) - timedelta(minutes=90)
+        m_void_only = one(
+            "INSERT INTO match (season_id, home_team_id, away_team_id, kickoff_utc, status)"
+            " VALUES (%s,%s,%s,%s,'in_play') RETURNING match_id",
+            (season, teams["C"], teams["B"], ko_vo),
+        )
+        run_vo = mk_run(m_void_only, ko_vo - timedelta(hours=3), ko_vo - timedelta(hours=4))
+        pid_vo = mk_official(
+            m_void_only, run_vo, 0, 0.45, 0.3, 0.25, "voidonlyhash", ko_vo - timedelta(hours=3)
+        )
+        void_it(pid_vo, m_void_only, ko_vo, "kickoff moved")
+
+        # (c) MUST appear via the NEWEST NON-VOIDED official: a revised fixture — the old official
+        # is voided, a newer official frozen — the endpoint must surface the new one (rev 1), never
+        # the voided one (rev 0). Exercises the LATERAL 'newest non-voided' selection directly.
+        ko_rv = datetime.now(UTC) - timedelta(minutes=75)
+        m_revised = one(
+            "INSERT INTO match (season_id, home_team_id, away_team_id, kickoff_utc, status)"
+            " VALUES (%s,%s,%s,%s,'in_play') RETURNING match_id",
+            (season, teams["D"], teams["A"], ko_rv),
+        )
+        run_old = mk_run(m_revised, ko_rv - timedelta(hours=5), ko_rv - timedelta(hours=6))
+        pid_rv_old = mk_official(
+            m_revised, run_old, 0, 0.2, 0.3, 0.5, "revoldhash", ko_rv - timedelta(hours=5)
+        )
+        void_it(pid_rv_old, m_revised, ko_rv - timedelta(hours=4), "kickoff moved")
+        run_new = mk_run(m_revised, ko_rv - timedelta(hours=3), ko_rv - timedelta(hours=4))
+        mk_official(
+            m_revised, run_new, 1, 0.6, 0.25, 0.15, "revnewhash", ko_rv - timedelta(hours=3)
+        )
         conn.execute(
             "INSERT INTO metrics_snapshot (scope, as_of_utc, payload, created_at_utc)"
             " VALUES ('test', now(), %s, now())",
@@ -222,6 +321,11 @@ if DATABASE_URL:
                 "pid1": pid1,
                 "pid2": pid2,
                 "fields1": fields1,
+                "m_inplay": m_inplay,
+                "m_voided": m_voided,
+                "pid_voided": pid_voided,
+                "m_void_only": m_void_only,
+                "m_revised": m_revised,
             }
         app.dependency_overrides.clear()
         os.environ.pop("GITHUB_ANCHOR_REPO", None)
@@ -381,3 +485,44 @@ if DATABASE_URL:
         assert cal["test"]["ece"] == 0.0272 and cal["test"]["n"] == 510
         assert cal["test"]["classwise_ece_D"] == 0.0124  # per-outcome calibration exposed
         assert "dev" not in cal  # not seeded in this module — scopes never leak
+
+    # ---------- in-play / awaiting result ----------
+
+    def test_in_play_awaiting_result_filter(env) -> None:  # type: ignore[no-untyped-def]
+        res = env["client"].get("/matches/in-play")
+        assert res.status_code == 200
+        assert res.headers["cache-control"] == "public, max-age=60"
+        body = res.json()
+        ids = {row["match_id"] for row in body}
+        # APPEARS: live in-play, final-but-ungraded, and the revised fixture (via its new official)
+        assert env["m_inplay"] in ids
+        assert env["match_ids"][2] in ids  # status 'final' + result set but NO grade row → visible
+        assert env["m_revised"] in ids
+        # EXCLUDED: voided (postponed), voided-only on a non-excluded status, graded, and future
+        assert env["m_voided"] not in ids  # excluded by the void guard (and the status filter)
+        assert env["m_void_only"] not in ids  # status 'in_play' → ONLY the void guard removes it
+        assert env["match_ids"][0] not in ids  # graded → lives in /predictions/completed
+        assert env["future"] not in ids  # kickoff still in the future
+        # the live row carries the frozen official + canonical status, no grade/result blended in
+        live = next(r for r in body if r["match_id"] == env["m_inplay"])
+        assert live["forecast"]["type"] == "official-frozen"
+        assert (
+            live["forecast"]["p_home"] == 0.5 and live["forecast"]["forecast_hash"] == "inplayhash"
+        )
+        assert live["status"] == "in_play"
+        assert "result" not in live and "log_loss" not in live
+        # a final-but-ungraded match surfaces with status 'final' — proves grade-row-absence
+        # (not result-null), and drives the InPlaySection 'full time · awaiting grade' branch
+        fin = next(r for r in body if r["match_id"] == env["match_ids"][2])
+        assert fin["status"] == "final"
+        # the revised fixture surfaces the NEWEST NON-VOIDED official — never the voided rev 0
+        rev = next(r for r in body if r["match_id"] == env["m_revised"])
+        assert rev["forecast"]["forecast_hash"] == "revnewhash" and rev["forecast"]["p_home"] == 0.6
+
+    def test_match_detail_exposes_void_reason(env) -> None:  # type: ignore[no-untyped-def]
+        voided = env["client"].get(f"/matches/{env['m_voided']}").json()
+        (f,) = voided["forecasts"]
+        assert f["voided"] is True and f["void_reason"] == "postponed"
+        # a non-voided official carries a null reason (additive field degrades cleanly)
+        graded = env["client"].get(f"/matches/{env['match_ids'][0]}").json()
+        assert graded["forecasts"][0]["void_reason"] is None

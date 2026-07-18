@@ -60,6 +60,7 @@ if DATABASE_URL:
 
     def test_upcoming_and_completed_empty_shapes(client) -> None:  # type: ignore[no-untyped-def]
         assert client.get("/matches/upcoming").json() == []
+        assert client.get("/matches/in-play").json() == []  # no games → silent empty list
         completed = client.get("/predictions/completed").json()
         assert completed == {"total_graded": 0, "items": []}
 
@@ -110,3 +111,4 @@ if DATABASE_URL:
         assert "cache-control" not in client.get("/health").headers
         assert client.get("/leagues").headers["cache-control"] == "public, max-age=3600"
         assert client.get("/matches/upcoming").headers["cache-control"] == "public, max-age=60"
+        assert client.get("/matches/in-play").headers["cache-control"] == "public, max-age=60"

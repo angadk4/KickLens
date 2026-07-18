@@ -18,6 +18,18 @@ export type UpcomingMatch = {
   forecast?: Forecast;
 };
 
+/** A frozen official forecast whose match has kicked off but isn't graded yet — the window
+    between "upcoming" and the graded record. forecast is always present and official-frozen. */
+export type InPlayItem = {
+  match_id: number;
+  kickoff_utc: string;
+  home: string;
+  away: string;
+  season: number;
+  status: string;
+  forecast: Forecast;
+};
+
 export type CompletedItem = {
   match_id: number;
   home: string;
@@ -91,6 +103,8 @@ export type ForecastVersion = {
   model_version_id: number;
   model_label: string;
   voided: boolean;
+  /** why the forecast was voided (postponed / cancelled / abandoned / kickoff moved), or null */
+  void_reason?: string | null;
 };
 
 export type MatchDetail = {
@@ -232,6 +246,7 @@ async function get<T>(path: string): Promise<T> {
 export const api = {
   health: () => get<Health>("/health"),
   upcoming: () => get<UpcomingMatch[]>("/matches/upcoming"),
+  inPlay: () => get<InPlayItem[]>("/matches/in-play"),
   completed: (limit = 50, offset = 0) =>
     get<{ total_graded: number; items: CompletedItem[] }>(
       `/predictions/completed?limit=${limit}&offset=${offset}`,

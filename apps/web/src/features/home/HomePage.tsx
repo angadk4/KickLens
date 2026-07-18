@@ -14,6 +14,7 @@ import { useApi } from "../../lib/useApi";
 import { useCountdown } from "../../lib/useCountdown";
 import { useRelativeTime } from "../../lib/useRelativeTime";
 import { FixtureCard } from "../forecasts/FixtureCard";
+import { InPlaySection } from "../forecasts/InPlaySection";
 import { PitchHero } from "./PitchHero";
 
 function Hero() {
@@ -173,6 +174,9 @@ export function HomePage() {
     <div className="page board">
       <Hero />
       <Ticker />
+
+      {/* on a matchday, the games in play surface right under the ticker; silent otherwise */}
+      <InPlaySection />
 
       <Section
         eyebrow="Evidence"

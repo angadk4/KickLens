@@ -6,7 +6,7 @@ import { Badge } from "../../components/ui/Badge";
 import { ProbBar } from "../../components/ui/ProbBar";
 import { Section } from "../../components/ui/Section";
 import { EmptyState, ErrorState, Skeleton } from "../../components/ui/states";
-import { kickoffLocal, kickoffUTC, nats, teamName } from "../../lib/format";
+import { kickoffLocal, kickoffUTC, nats, teamName, voidPhrase } from "../../lib/format";
 import { useApi } from "../../lib/useApi";
 import { VerificationPanel } from "./VerificationPanel";
 
@@ -131,19 +131,24 @@ export function MatchPage() {
           are kept forever, never deleted."
         >
           <div className="timeline">
-            {m.forecasts.map((f) => (
-              <div key={f.prediction_id} className={`tl-item ${f.voided ? "voided" : ""}`}>
-                <span className="tl-time">
-                  frozen {f.created_utc ?? "—"} · cutoff {f.cutoff_utc ?? "—"} · rev{" "}
-                  {f.fixture_revision}
-                </span>
-                <span className="mono" style={{ fontSize: "var(--text-sm)" }}>
-                  H {(f.p_home * 100).toFixed(1)}% · D {(f.p_draw * 100).toFixed(1)}% · A{" "}
-                  {(f.p_away * 100).toFixed(1)}%{" "}
-                  {f.voided && <Badge kind="voided" label="voided (fixture changed)" />}
-                </span>
-              </div>
-            ))}
+            {m.forecasts.map((f) => {
+              const vp = voidPhrase(f.void_reason);
+              return (
+                <div key={f.prediction_id} className={`tl-item ${f.voided ? "voided" : ""}`}>
+                  <span className="tl-time">
+                    frozen {f.created_utc ?? "—"} · cutoff {f.cutoff_utc ?? "—"} · rev{" "}
+                    {f.fixture_revision}
+                  </span>
+                  <span className="mono" style={{ fontSize: "var(--text-sm)" }}>
+                    H {(f.p_home * 100).toFixed(1)}% · D {(f.p_draw * 100).toFixed(1)}% · A{" "}
+                    {(f.p_away * 100).toFixed(1)}%{" "}
+                    {f.voided && (
+                      <Badge kind="voided" label={vp ? `voided · ${vp}` : "voided"} />
+                    )}
+                  </span>
+                </div>
+              );
+            })}
           </div>
           {m.events.length > 0 && (
             <details>

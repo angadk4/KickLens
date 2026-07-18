@@ -10,6 +10,7 @@ import { Section } from "../../components/ui/Section";
 import { EmptyState, ErrorState, Skeleton } from "../../components/ui/states";
 import { cutoffOf, dateShort, kickoffLocal, nats, teamName } from "../../lib/format";
 import { useApi } from "../../lib/useApi";
+import { InPlaySection } from "../forecasts/InPlaySection";
 
 /** the latest daily seal, pulled up from the footer to where verifiers look for it */
 function SealChip() {
@@ -49,6 +50,9 @@ export function RecordPage() {
     .sort((a, b) => a.getTime() - b.getTime())[0];
   return (
     <div className="page">
+      {/* a live banner during matchdays: forecasts frozen and underway, about to join the
+          record below. Renders nothing when no game is in play, so the record stays lead-first. */}
+      <InPlaySection />
       <Section
         lead
         eyebrow="Live record"
