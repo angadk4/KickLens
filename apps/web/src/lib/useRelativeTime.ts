@@ -15,11 +15,17 @@ export function relTime(iso: string | null | undefined, now = Date.now()): strin
   return `${Math.floor(h / 24)}d ago`;
 }
 
-export function useRelativeTime(iso: string | null | undefined): string {
+/** The shared wall-clock tick: anything derived from "how long since/until" re-renders on
+    this with ZERO network — it's how phase labels age past boundaries in an open tab. */
+export function useNow(intervalMs = 60_000): number {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 60_000);
+    const id = setInterval(() => setNow(Date.now()), intervalMs);
     return () => clearInterval(id);
-  }, []);
-  return relTime(iso, now);
+  }, [intervalMs]);
+  return now;
+}
+
+export function useRelativeTime(iso: string | null | undefined): string {
+  return relTime(iso, useNow());
 }

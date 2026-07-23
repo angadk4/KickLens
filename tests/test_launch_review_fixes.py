@@ -1,6 +1,7 @@
 """Launch-review fixes (pre-arm adversarial review): leased job claims, supersession wired
 into live ingest, anchor catch-up republisher, Merkle-from-content, ingest handler
-claim/visibility. All integration tests need DATABASE_URL (the throwaway test DB)."""
+claim/visibility + results-only night-window sweep. All integration tests need DATABASE_URL
+(the throwaway test DB)."""
 
 import json
 import os
@@ -246,6 +247,73 @@ if DATABASE_URL:
         s2 = ingest_live_fixtures(conn, [_fx("803", ko + timedelta(days=1))], env["season"], 2026)
         assert s2["voided"] == 0
 
+    def test_results_only_never_voids_and_writes_finals_only(env) -> None:  # type: ignore[no-untyped-def]
+        """ADR-005 live-window safety: the night sweeps observe games MID-PLAY, where a
+        transient provider blip (kickoff wobble / momentary 'postponed') must not void a
+        frozen official. results_only ingests completed finals and nothing else."""
+        conn = env["conn"]
+        ko = KO + timedelta(days=14)
+        ingest_live_fixtures(conn, [_fx("804", ko)], env["season"], 2026)
+        row = conn.execute(
+            "SELECT match_id FROM source_fixture WHERE provider_fixture_id='804'"
+        ).fetchone()
+        assert row is not None
+        match_id = int(row[0])
+        pid, _ = _mk_official(env, match_id, ko)
+
+        # (a) a mid-window postponed blip + kickoff wobble: NO void, kickoff untouched
+        blip = _fx("804", ko + timedelta(minutes=3), status="postponed")
+        s = ingest_live_fixtures(conn, [blip], env["season"], 2026, results_only=True)
+        assert s.get("voided", 0) == 0 and s.get("skipped_nonfinal", 0) == 1
+        assert latest_official(conn, match_id) == pid  # the frozen official survives
+        krow = conn.execute(
+            "SELECT kickoff_utc FROM match WHERE match_id=%s", (match_id,)
+        ).fetchone()
+        assert krow is not None and krow[0] == ko  # cutoff basis never ripples at night
+
+        # (b) a completed final IS written: result + status, still no void, kickoff intact
+        done = LiveFixture(
+            provider="highlightly",
+            provider_fixture_id="804",
+            kickoff_utc=ko,
+            status="final",
+            home_key="111",
+            away_key="222",
+            home_goals=2,
+            away_goals=1,
+            provider_last_updated_utc=None,
+        )
+        s2 = ingest_live_fixtures(conn, [done], env["season"], 2026, results_only=True)
+        assert s2["results"] == 1 and s2.get("voided", 0) == 0
+        mrow = conn.execute(
+            "SELECT status, result, kickoff_utc FROM match WHERE match_id=%s", (match_id,)
+        ).fetchone()
+        assert mrow is not None and mrow[0] == "final" and mrow[1] == "H" and mrow[2] == ko
+        assert latest_official(conn, match_id) == pid  # gradeable at the next :35 run
+
+        # (c) the same postponed report in a FULL sweep still voids (08/20 semantics intact)
+        ingest_live_fixtures(conn, [_fx("805", ko + timedelta(days=1))], env["season"], 2026)
+        row2 = conn.execute(
+            "SELECT match_id FROM source_fixture WHERE provider_fixture_id='805'"
+        ).fetchone()
+        assert row2 is not None
+        _mk_official(env, int(row2[0]), ko + timedelta(days=1))
+        s3 = ingest_live_fixtures(
+            conn,
+            [_fx("805", ko + timedelta(days=3), status="postponed")],
+            env["season"],
+            2026,
+        )
+        assert s3["voided"] == 1 and latest_official(conn, int(row2[0])) is None
+
+        # restore the module invariant: no COMPLETED match may carry toy feature rows —
+        # the leakage suite's R1 recompute-parity audit (rightly) fails on any it finds
+        conn.execute(
+            "UPDATE match SET result=NULL, status='postponed', home_goals=NULL,"
+            " away_goals=NULL WHERE match_id=%s",
+            (match_id,),
+        )
+
     # ---------- anchor catch-up republisher ----------
 
     def test_retry_failed_anchors_republishes_then_clears(  # type: ignore[no-untyped-def]
@@ -390,3 +458,81 @@ if DATABASE_URL:
             .fetchone()
         )
         assert srow is not None and int(srow[0]) == 1
+
+    # ---------- ingest handler: results-only night-window sweep ----------
+
+    def test_ingest_results_only_sweeps_yesterday_and_today_only(  # type: ignore[no-untyped-def]
+        env, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import ingestion.live as live_mod
+
+        from jobs import handlers
+
+        monkeypatch.setenv("DATABASE_URL", DATABASE_URL or "")
+        monkeypatch.setenv("HIGHLIGHTLY_KEY", "test-key")
+
+        fixed_now = datetime(2026, 7, 13, 2, 5, tzinfo=UTC)
+
+        class _FixedDT:  # stands in for the module's `datetime` name — only .now is used
+            @classmethod
+            def now(cls, tz: Any = None) -> datetime:
+                return fixed_now
+
+        monkeypatch.setattr(handlers, "datetime", _FixedDT)
+
+        # total outage must stay visible in the NARROWED sweep too (2 days, not 9)
+        monkeypatch.setattr(live_mod, "fetch_with_failover", lambda *a, **kw: None)
+        with pytest.raises(RuntimeError, match="ALL days"):
+            handlers.ingest({"results_only": True}, None)
+
+        swept: list[str] = []
+
+        def record(adapters: Any, day: Any, year: Any, **kw: Any) -> list[Any]:
+            swept.append(day.isoformat())
+            return []
+
+        monkeypatch.setattr(live_mod, "fetch_with_failover", record)
+        out = handlers.ingest({"results_only": True}, None)
+        assert out["statusCode"] == 200 and out["failed_days"] == []
+        # exactly yesterday + today — the only days carrying just-finished finals
+        assert swept == ["2026-07-12", "2026-07-13"]
+        # the run recorded its job_run under the same hour-bucket key scheme…
+        jrow = (
+            env["conn"]
+            .execute("SELECT status FROM job_run WHERE idempotency_key = 'ingest:20260713T02'")
+            .fetchone()
+        )
+        assert jrow is not None and jrow[0] == "done"
+        # …so a duplicate delivery inside the same hour still no-ops
+        assert "skipped" in handlers.ingest({"results_only": True}, None)
+
+    def test_ingest_default_sweep_unchanged(  # type: ignore[no-untyped-def]
+        env, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import ingestion.live as live_mod
+
+        from jobs import handlers
+
+        monkeypatch.setenv("DATABASE_URL", DATABASE_URL or "")
+        monkeypatch.setenv("HIGHLIGHTLY_KEY", "test-key")
+
+        fixed_now = datetime(2026, 7, 13, 20, 0, tzinfo=UTC)
+
+        class _FixedDT:  # stands in for the module's `datetime` name — only .now is used
+            @classmethod
+            def now(cls, tz: Any = None) -> datetime:
+                return fixed_now
+
+        monkeypatch.setattr(handlers, "datetime", _FixedDT)
+
+        swept: list[str] = []
+
+        def record(adapters: Any, day: Any, year: Any, **kw: Any) -> list[Any]:
+            swept.append(day.isoformat())
+            return []
+
+        monkeypatch.setattr(live_mod, "fetch_with_failover", record)
+        out = handlers.ingest({}, None)
+        assert out["statusCode"] == 200
+        # without the flag the frozen -1..+7 horizon is untouched
+        assert swept == [f"2026-07-{d:02d}" for d in range(12, 21)]

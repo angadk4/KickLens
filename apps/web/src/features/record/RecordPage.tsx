@@ -1,5 +1,6 @@
 // The live record — graded official forecasts only. Its empty state is a designed feature:
 // the record starts at zero and nothing is ever back-filled.
+import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../../api";
 import { Badge } from "../../components/ui/Badge";
@@ -8,7 +9,8 @@ import { ProbBar } from "../../components/ui/ProbBar";
 import { ScopeChip } from "../../components/ui/ScopeChip";
 import { Section } from "../../components/ui/Section";
 import { EmptyState, ErrorState, Skeleton } from "../../components/ui/states";
-import { cutoffOf, dateShort, kickoffLocal, nats, teamName } from "../../lib/format";
+import { useUpcoming } from "../../components/layout/UpcomingContext";
+import { dateShort, kickoffLocal, nats, teamName } from "../../lib/format";
 import { useApi } from "../../lib/useApi";
 import { InPlaySection } from "../forecasts/InPlaySection";
 
@@ -39,15 +41,18 @@ const RESULT_LABEL = { H: "home win", D: "draw", A: "away win" } as const;
 
 export function RecordPage() {
   const { data, error, loading, retry } = useApi(() => api.completed());
-  const upcoming = useApi(() => api.upcoming());
-  // official forecasts already frozen but not yet graded — launch day reads "running"
+  // shared context: one fetch for upcoming + in-play, and the derived next-freeze instant
+  const { list, inPlay, nextCutoff, totalGraded } = useUpcoming();
+  // the record list is fetch-once; when the polled context sees new grades land, refetch —
+  // a card leaving the in-play band must APPEAR in the record, not just vanish from above
+  useEffect(() => {
+    if (totalGraded !== null && data && totalGraded > data.total_graded) retry();
+  }, [totalGraded, data, retry]);
+  // official forecasts already frozen but not yet graded — sealed upcoming AND kicked-off
+  // (the in-play band), so a matchday empty state counts every sealed forecast
   const frozenAwaiting =
-    upcoming.data?.filter((m) => m.forecast?.type === "official-frozen").length ?? 0;
-  // derived, never hardcoded: the next freeze instant from the schedule itself
-  const nextCutoff = (upcoming.data ?? [])
-    .map((m) => cutoffOf(m.kickoff_utc))
-    .filter((c) => c.getTime() > Date.now())
-    .sort((a, b) => a.getTime() - b.getTime())[0];
+    (list?.filter((m) => m.forecast?.type === "official-frozen").length ?? 0) +
+    (inPlay?.length ?? 0);
   return (
     <div className="page">
       {/* a live banner during matchdays: forecasts frozen and underway, about to join the
@@ -72,16 +77,18 @@ export function RecordPage() {
             {frozenAwaiting > 0 && (
               <span className="chip" style={{ justifySelf: "start" }}>
                 {frozenAwaiting} official forecast{frozenAwaiting === 1 ? "" : "s"} frozen ·
-                awaiting full time
+                awaiting results
               </span>
             )}
             <EmptyState big="0" title="graded official forecasts">
               No official forecast has been graded yet —{" "}
               {frozenAwaiting > 0
                 ? "official forecasts are frozen; grades follow the first full-time results."
-                : nextCutoff
+                : nextCutoff && nextCutoff.getTime() > Date.now()
                   ? `the first freeze lands ${kickoffLocal(nextCutoff.toISOString())}, and grades follow the results.`
-                  : "grades follow the first full-time results."}{" "}
+                  : nextCutoff
+                    ? "the first official forecast is locked and anchors at the next hourly run."
+                    : "grades follow the first full-time results."}{" "}
               <Link to="/forecasts">See upcoming fixtures →</Link>
             </EmptyState>
           </>

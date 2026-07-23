@@ -7,6 +7,14 @@ import { ConfidenceChart } from "../../components/charts/ConfidenceChart";
 import { ScopeChip } from "../../components/ui/ScopeChip";
 import { Section } from "../../components/ui/Section";
 import { EmptyState, ErrorState, Skeleton } from "../../components/ui/states";
+import {
+  ALWAYS_HOME_ACC_DEV,
+  ALWAYS_HOME_ACC_TEST,
+  DEV_SEAL_DATE,
+  MARKET_LOG_LOSS_DEV,
+  MARKET_LOG_LOSS_TEST,
+  TEST_EVAL_DATE,
+} from "../../lib/facts";
 import { nats } from "../../lib/format";
 import { useApi } from "../../lib/useApi";
 
@@ -25,8 +33,9 @@ const SCOPES: { scope: Scope; label: string; blurb: string; emptyNote: string }[
     blurb:
       "The sealed touch-once test: evaluated exactly once, after selection was frozen. This " +
       "season can never be re-used. 2025 ran harder for every model including the market " +
-      "(1.0317 vs 1.0149 on dev) — it had the era's weakest home advantage — and every " +
-      "relative comparison from selection replicated out-of-time.",
+      `(${MARKET_LOG_LOSS_TEST.toFixed(4)} vs ${MARKET_LOG_LOSS_DEV.toFixed(4)} on dev) — ` +
+      "it had the era's weakest home advantage — and every relative comparison from " +
+      "selection replicated out-of-time.",
     emptyNote: "The sealed 2025 snapshot failed to load.",
   },
   {
@@ -120,8 +129,8 @@ function ScopePanel({ scope, label, blurb, emptyNote }: (typeof SCOPES)[number])
             <span className="no-caps">n={m.n.toLocaleString()}</span>
           )}
           {/* sealed evidence stamps its EVENT; only the live scope rolls forward */}
-          {scope === "dev" && <span>sealed Jul 6, 2026</span>}
-          {scope === "test" && <span>evaluated once · Jul 12, 2026</span>}
+          {scope === "dev" && <span>sealed {DEV_SEAL_DATE}</span>}
+          {scope === "test" && <span>evaluated once · {TEST_EVAL_DATE}</span>}
           {scope === "live" && data?.as_of_utc && (
             <span>as of {asOfShort(data.as_of_utc)}</span>
           )}
@@ -182,7 +191,9 @@ function ScopePanel({ scope, label, blurb, emptyNote }: (typeof SCOPES)[number])
                           {(m.accuracy * 100).toFixed(1)}%{" "}
                           <small>
                             diagnostic only · always-home scored{" "}
-                            {scope === "test" ? "43.7% on 2025" : "≈48.8% on dev"}
+                            {scope === "test"
+                              ? `${ALWAYS_HOME_ACC_TEST} on 2025`
+                              : `${ALWAYS_HOME_ACC_DEV} on dev`}
                           </small>
                         </dd>
                       </div>

@@ -235,7 +235,7 @@ Primary: **multiclass log loss**. Supporting: RPS (ordered H>D>A), multiclass Br
 
 | Parameter | Value |
 |---|---|
-| Ingest fixtures/results | EventBridge, **08:00 and 20:00 UTC** daily |
+| Ingest fixtures/results | EventBridge, **08:00 and 20:00 UTC** daily **(amended: + hourly results-only sweeps 01:00–06:00 UTC, yesterday+today offsets — ADR-005, 2026-07-23; ~30 provider calls/day vs the 100/day cap)** |
 | Ingest odds (if E3 GO) | **Hourly**; capture odds for fixtures whose kickoff ∈ [now+2h, now+4h] |
 | Feature build | **Hourly**; build fs-v1 rows for fixtures approaching T-3h without a row |
 | Inference (official forecast) | **Hourly**; for any fixture crossing T-3h without an official forecast → finalize, freeze, hash, anchor |
@@ -341,7 +341,7 @@ stateDiagram-v2
 ### Job orchestration DAG + schedule (frozen, choreography)
 ```mermaid
 flowchart LR
-  EB[EventBridge crons] --> ING[Ingest 08:00/20:00 UTC]
+  EB[EventBridge crons] --> ING[Ingest 08:00/20:00 UTC<br/>+ results-only 01-06 UTC ADR-005]
   EB --> ODD[Odds hourly - E3 only]
   EB --> FEAT[Features hourly]
   EB --> INF[Inference hourly @ T-3h]

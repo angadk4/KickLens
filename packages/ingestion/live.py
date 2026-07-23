@@ -103,6 +103,10 @@ def _with_retries(
 
 
 def _canonical_status(raw: str) -> str:
+    if raw not in _STATUS_MAP:
+        # surface the provider's real vocabulary (delays/suspensions/etc.) instead of
+        # silently calling an unknown state "scheduled" — extend _STATUS_MAP as observed
+        print(f"live-ingest: unmapped provider status {raw!r} -> 'scheduled'")
     return _STATUS_MAP.get(raw, "scheduled")
 
 
@@ -272,12 +276,25 @@ def ingest_live_fixtures(
     season_year: int,
     *,
     now: datetime | None = None,
+    results_only: bool = False,
 ) -> dict[str, int]:
     """Upsert canonical rows: unchanged payload → no-op; changed → revision N+1 (same match).
-    Finished fixtures set the match result (live provider wins for the current season)."""
+    Finished fixtures set the match result (live provider wins for the current season).
+
+    results_only (the hourly 01-06 UTC night sweeps, ADR-005) processes ONLY completed
+    finals — result + status + the audit revision — and NEVER runs supersession/voids or
+    kickoff updates. The night window overlaps live play, where a transient provider blip
+    (kickoff-time wobble, momentary 'postponed') must not void a frozen official mid-game;
+    voids/supersession remain the 08:00/20:00 full sweeps' job, which never coincide with
+    MLS play. The narrowing is the whole safety argument — do not widen it casually."""
     now = now or datetime.now(UTC)
     stats = {"new": 0, "revisions": 0, "unchanged": 0, "results": 0, "voided": 0}
     for fx in fixtures:
+        if results_only and not (
+            fx.status == "final" and fx.home_goals is not None and fx.away_goals is not None
+        ):
+            stats["skipped_nonfinal"] = stats.get("skipped_nonfinal", 0) + 1
+            continue
         teams = resolver(conn, fx.provider)
         latest = _latest_revision(conn, fx.provider, fx.provider_fixture_id)
         if latest is None:
@@ -321,26 +338,32 @@ def ingest_live_fixtures(
                 now,
             ),
         )
-        # Contract §7 supersession (launch-review fix — was never wired): a kickoff move or
-        # a postpone/cancel/abandon AFTER an official freeze voids the old official; the new
-        # T-3h forecast is then produced by fixtures_due/finalize automatically.
-        prev = conn.execute(
-            "SELECT kickoff_utc FROM match WHERE match_id=%s", (match_id,)
-        ).fetchone()
-        kickoff_moved = prev is not None and prev[0] is not None and prev[0] != fx.kickoff_utc
-        if kickoff_moved or fx.status in ("postponed", "cancelled", "abandoned"):
-            from models.ledger import latest_official, void_official
+        if results_only:
+            # finals only: write the status, never the kickoff (a provider's post-hoc
+            # "actual kickoff" correction must not ripple into cutoffs/anchors), and
+            # never void — see the docstring's safety argument
+            conn.execute("UPDATE match SET status=%s WHERE match_id=%s", (fx.status, match_id))
+        else:
+            # Contract §7 supersession (launch-review fix — was never wired): a kickoff move
+            # or a postpone/cancel/abandon AFTER an official freeze voids the old official;
+            # the new T-3h forecast is then produced by fixtures_due/finalize automatically.
+            prev = conn.execute(
+                "SELECT kickoff_utc FROM match WHERE match_id=%s", (match_id,)
+            ).fetchone()
+            kickoff_moved = prev is not None and prev[0] is not None and prev[0] != fx.kickoff_utc
+            if kickoff_moved or fx.status in ("postponed", "cancelled", "abandoned"):
+                from models.ledger import latest_official, void_official
 
-            official = latest_official(conn, match_id)
-            if official is not None:
-                reason = "kickoff moved" if kickoff_moved else fx.status
-                void_official(conn, official, match_id, reason=reason)
-                stats["voided"] = stats.get("voided", 0) + 1
-        # kickoff moves + status flow onto the canonical match (identity unchanged)
-        conn.execute(
-            "UPDATE match SET kickoff_utc=%s, status=%s WHERE match_id=%s",
-            (fx.kickoff_utc, fx.status, match_id),
-        )
+                official = latest_official(conn, match_id)
+                if official is not None:
+                    reason = "kickoff moved" if kickoff_moved else fx.status
+                    void_official(conn, official, match_id, reason=reason)
+                    stats["voided"] = stats.get("voided", 0) + 1
+            # kickoff moves + status flow onto the canonical match (identity unchanged)
+            conn.execute(
+                "UPDATE match SET kickoff_utc=%s, status=%s WHERE match_id=%s",
+                (fx.kickoff_utc, fx.status, match_id),
+            )
         if fx.status == "final" and fx.home_goals is not None and fx.away_goals is not None:
             result = (
                 "H"

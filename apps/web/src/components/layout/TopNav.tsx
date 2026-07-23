@@ -4,10 +4,21 @@ import { useCountdown } from "../../lib/useCountdown";
 import { useHealth } from "./HealthContext";
 import { useUpcoming } from "./UpcomingContext";
 
-/** ⏱ next-freeze mini-countdown — the nav's live pulse (hidden on home: the hero owns it) */
+/** ⏱ next-freeze mini-countdown — the nav's live pulse (hidden on home: the hero owns it).
+    During a matchday the freeze may be days away while games run NOW — the live state wins. */
 function NavFreeze() {
-  const { nextCutoff } = useUpcoming();
+  const { nextCutoff, inPlay } = useUpcoming();
   const cd = useCountdown(nextCutoff);
+  if (inPlay && inPlay.length > 0)
+    return (
+      <Link
+        to="/record"
+        className="nav-freeze freezing"
+        title="Games between kickoff and the record — sealed forecasts awaiting results"
+      >
+        matchday · {inPlay.length} running
+      </Link>
+    );
   if (!nextCutoff) return null;
   if (cd.expired)
     return (

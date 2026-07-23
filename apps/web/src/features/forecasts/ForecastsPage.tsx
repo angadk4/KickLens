@@ -5,6 +5,7 @@ import { Section } from "../../components/ui/Section";
 import { EmptyState, ErrorState, Skeleton } from "../../components/ui/states";
 import { dayHeading } from "../../lib/format";
 import { useApi } from "../../lib/useApi";
+import { useNow } from "../../lib/useRelativeTime";
 import { FixtureCard } from "./FixtureCard";
 import { InPlaySection } from "./InPlaySection";
 
@@ -21,6 +22,11 @@ function groupByDay(list: UpcomingMatch[]): { day: string; items: UpcomingMatch[
 
 export function ForecastsPage() {
   const { data, error, loading, retry } = useApi(() => api.upcoming());
+  const now = useNow();
+  // the fetch is one-shot but the clock isn't: drop a fixture from the day groups the
+  // moment it kicks off, so it can't sit here as "upcoming" while the (polled) matchday
+  // band above shows the same game in play — mirrors the server's kickoff_utc > now filter
+  const upcoming = data?.filter((m) => new Date(m.kickoff_utc).getTime() > now) ?? null;
   return (
     <div className="page">
       <Section
@@ -30,7 +36,7 @@ export function ForecastsPage() {
         title="Forecasts"
         description="Preliminary probabilities refresh until kickoff−3h; at the cutoff the
         official forecast freezes, is SHA-256 hashed, and is anchored publicly. After that it
-        can never change."
+        can never change. Days group by UTC — the record's clock; card times are local."
       >
         <div className="probbar-legend" aria-hidden>
           <span>
@@ -56,7 +62,7 @@ export function ForecastsPage() {
           </div>
         )}
         {error && <ErrorState retry={retry} />}
-        {data && data.length === 0 && (
+        {upcoming && upcoming.length === 0 && (
           <EmptyState title="No upcoming fixtures with forecasts yet">
             Fixtures appear here as the schedule fills; drafts generate inside the 7-day
             window.
@@ -66,9 +72,9 @@ export function ForecastsPage() {
       {/* forecasts already underway — chronologically between "now" and the upcoming days */}
       <InPlaySection />
       {/* each day is a strap: the date breaks the rule, the count sits on it */}
-      {data &&
-        data.length > 0 &&
-        groupByDay(data).map((g) => (
+      {upcoming &&
+        upcoming.length > 0 &&
+        groupByDay(upcoming).map((g) => (
           <div key={g.day} className="entry">
             <header className="entry-strap">
               <span className="strap-label">{g.day}</span>

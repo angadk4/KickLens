@@ -6,7 +6,13 @@ import { ReliabilityDiagram } from "../../components/charts/ReliabilityDiagram";
 import { ScopeChip } from "../../components/ui/ScopeChip";
 import { Section } from "../../components/ui/Section";
 import { EmptyState, ErrorState, Skeleton } from "../../components/ui/states";
+import { ECE_DEV_CHAMPION, ECE_DEV_MARKET, ECE_DEV_RAW } from "../../lib/facts";
 import { useApi } from "../../lib/useApi";
+
+// Below this live sample size, a reliability curve spreads the forecasts one or two per
+// confidence bucket — per-bucket rates are noise, not evidence — so only the headline ECE
+// (with its scope + n chip) renders until the sample clears it. Dev/test sit far above.
+const MIN_N_CALIBRATION_DETAIL = 30;
 
 const LABELS: Record<string, { label: string; blurb: string }> = {
   dev: {
@@ -22,7 +28,9 @@ const LABELS: Record<string, { label: string; blurb: string }> = {
   },
   live: {
     label: "Live record",
-    blurb: "Appears as graded official forecasts accrue. Never merged with the scopes above.",
+    blurb:
+      "Appears as graded official forecasts accrue. Never merged with the scopes above. " +
+      "Small live samples are extremely noisy — judge trends here in months, not matchdays.",
   },
 };
 
@@ -58,8 +66,9 @@ function DotDemo() {
           That's calibration: the probability <em>means</em> what it says. ECE (expected
           calibration error) is the average gap between what we said and what happened —{" "}
           <strong>0 is perfect</strong>. For scale, on the dev walk-forward: the raw model
-          scored 0.032, the market 0.020, and the calibrated champion 0.011. A forecaster can
-          be calibrated and still lose matches; it cannot be trusted without it.
+          scored {ECE_DEV_RAW.toFixed(3)}, the market {ECE_DEV_MARKET.toFixed(3)}, and the
+          calibrated champion {ECE_DEV_CHAMPION.toFixed(3)}. A forecaster can be calibrated
+          and still lose matches; it cannot be trusted without it.
         </p>
       </div>
     </div>
@@ -122,6 +131,8 @@ export function CalibrationPage() {
         (["dev", "test", "live"] as const).map((scope) => {
           const s: CalibrationScope | undefined = data[scope];
           const meta = LABELS[scope];
+          // dev/test are never gated (large sealed n); live earns its curves at n≥30
+          const showDetail = scope !== "live" || (s?.n ?? 0) >= MIN_N_CALIBRATION_DETAIL;
           return (
             <div key={scope} className="entry">
               <header className="entry-strap">
@@ -146,7 +157,7 @@ export function CalibrationPage() {
                     </EmptyState>
                   )}
                   {s && (s.n ?? 0) > 0 && (
-                    <div className={s.by_confidence ? "panel-cols" : undefined}>
+                    <div className={showDetail && s.by_confidence ? "panel-cols" : undefined}>
                       <div style={{ display: "grid", gap: "var(--space-4)", minWidth: 0 }}>
                         {typeof s.ece === "number" && (
                           <dl className="metric-row">
@@ -158,9 +169,18 @@ export function CalibrationPage() {
                             </div>
                           </dl>
                         )}
-                        <ClasswiseBars s={s} scope={scope} />
+                        {showDetail ? (
+                          <ClasswiseBars s={s} scope={scope} />
+                        ) : (
+                          <p className="blurb">
+                            The reliability curve and per-outcome bars appear once the live
+                            sample reaches n≥{MIN_N_CALIBRATION_DETAIL} — at n={s.n ?? 0},
+                            each confidence bucket holds only a handful of forecasts, so a
+                            curve would show noise, not calibration.
+                          </p>
+                        )}
                       </div>
-                      {s.by_confidence && (
+                      {showDetail && s.by_confidence && (
                         <ReliabilityDiagram byConfidence={s.by_confidence} />
                       )}
                     </div>

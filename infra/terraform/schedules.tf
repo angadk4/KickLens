@@ -1,17 +1,22 @@
 # T-230: EventBridge schedules — the frozen operational cadence (Contract §9).
-#   ingest 08:00+20:00 UTC · feature hourly · inference hourly · grade 2h ·
-#   daily Merkle root 12:00 UTC (grade handler flag) · daily /health canary.
+#   ingest 08:00+20:00 UTC · results-only ingest hourly 01:00–06:00 UTC · feature hourly ·
+#   inference hourly · grade 2h · daily Merkle root 12:00 UTC (grade handler flag) ·
+#   daily /health canary.
 
 locals {
   schedules = {
-    ingest-morning   = { rule = "cron(0 8 * * ? *)", fn = "ingest", input = "{}" }
-    ingest-evening   = { rule = "cron(0 20 * * ? *)", fn = "ingest", input = "{}" }
-    feature-hourly   = { rule = "cron(10 * * * ? *)", fn = "feature", input = "{}" }
-    inference-hourly = { rule = "cron(20 * * * ? *)", fn = "inference", input = "{}" }
-    grade-2h         = { rule = "cron(35 */2 * * ? *)", fn = "grade", input = "{}" }
-    merkle-daily     = { rule = "cron(0 12 * * ? *)", fn = "grade", input = "{\"daily_merkle\": true}" }
-    odds-hourly      = { rule = "cron(5 * * * ? *)", fn = "odds", input = "{}" }
-    canary-daily     = { rule = "cron(0 9 * * ? *)", fn = "canary", input = "{}" }
+    ingest-morning = { rule = "cron(0 8 * * ? *)", fn = "ingest", input = "{}" }
+    ingest-evening = { rule = "cron(0 20 * * ? *)", fn = "ingest", input = "{}" }
+    # night window: MLS finals land ~01:00–05:00 UTC; hourly results-only sweeps
+    # (yesterday+today) cut finished→graded latency from up-to-13h to ~1–2h.
+    # Provider budget: 6 runs × 2 calls = 12/day extra → ~30/day total vs the 100/day cap.
+    ingest-results-night = { rule = "cron(0 1-6 * * ? *)", fn = "ingest", input = "{\"results_only\": true}" }
+    feature-hourly       = { rule = "cron(10 * * * ? *)", fn = "feature", input = "{}" }
+    inference-hourly     = { rule = "cron(20 * * * ? *)", fn = "inference", input = "{}" }
+    grade-2h             = { rule = "cron(35 */2 * * ? *)", fn = "grade", input = "{}" }
+    merkle-daily         = { rule = "cron(0 12 * * ? *)", fn = "grade", input = "{\"daily_merkle\": true}" }
+    odds-hourly          = { rule = "cron(5 * * * ? *)", fn = "odds", input = "{}" }
+    canary-daily         = { rule = "cron(0 9 * * ? *)", fn = "canary", input = "{}" }
   }
 }
 

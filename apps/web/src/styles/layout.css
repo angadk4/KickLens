@@ -500,8 +500,17 @@
 /* one pulse means something; three synchronized pulses are decoration —
    only the nav health dot animates */
 .status-cell .pulse-dot,
-.ticker-item .pulse-dot {
+.ticker-item .pulse-dot,
+.fixture-card .pulse-dot,
+.fp-head .pulse-dot {
   animation: none;
+}
+
+/* the hero head isn't a flex row — the dot needs a box to size against */
+.fp-head .pulse-dot {
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 2px;
 }
 
 .status-cell .pulse-dot.bad {
@@ -746,7 +755,10 @@
 
 .countdown {
   display: grid;
-  grid-template-columns: repeat(4, auto);
+  /* tracks follow the content: 4 units for the freeze countdown, 1-2 for the matchday
+     counts — a fixed repeat(4) left empty tracks that pushed short rows off-center */
+  grid-auto-flow: column;
+  grid-auto-columns: auto;
   gap: var(--space-3);
 }
 

@@ -40,8 +40,16 @@ export function timeLocal(iso: string | null): string {
 }
 
 export function dayHeading(iso: string): string {
+  // UTC-pinned like dateShort: day groups must agree with the record, the in-play band,
+  // and the UTC-dated public anchor files — a local-zone date reads a day off for late
+  // kickoffs and made the same fixture jump a calendar day between page sections
   return new Date(iso)
-    .toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })
+    .toLocaleDateString("en-US", {
+      timeZone: "UTC",
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    })
     .toUpperCase();
 }
 

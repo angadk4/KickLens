@@ -70,3 +70,27 @@ jobs:
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # The dashboard: typecheck+build, lint, and the matchPhase unit tests — the phase model
+  # decides when the site stops claiming a game is "in play", so its boundaries are gated
+  # here, not just locally. (Deploy builds the same app; this catches breakage pre-merge.)
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - name: Install (locked)
+        run: npm ci
+      - name: Typecheck + build
+        run: npm run build
+      - name: Lint (oxlint)
+        run: npm run lint
+      - name: Unit tests (vitest)
+        run: npm test

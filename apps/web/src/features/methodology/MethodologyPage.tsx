@@ -8,6 +8,13 @@ import { ScopeChip } from "../../components/ui/ScopeChip";
 import { Section } from "../../components/ui/Section";
 import { Toc } from "../../components/ui/Toc";
 import { ErrorState, Skeleton } from "../../components/ui/states";
+import {
+  CHAMPION_VS_B3_DELTA_NATS,
+  DEV_MEAN_FOLD_T,
+  DEV_SEAL_DATE,
+  ECE_DEV_B3,
+  ECE_DEV_CHAMPION,
+} from "../../lib/facts";
 import { dateShort } from "../../lib/format";
 import { useApi } from "../../lib/useApi";
 
@@ -91,7 +98,7 @@ export function MethodologyPage() {
             <div className="stepper">
               <div className="st">
                 <strong>Ingest</strong>
-                <span>results & fixtures, twice daily</span>
+                <span>results & fixtures — twice daily, plus hourly overnight result sweeps</span>
               </div>
               <div className="st">
                 <strong>Features</strong>
@@ -118,7 +125,7 @@ export function MethodologyPage() {
 
           <Section
             eyebrow="The model"
-            meta={["sealed 2026-07-06"]}
+            meta={[`sealed ${DEV_SEAL_DATE}`]}
             title="Simplest defensible — on purpose"
             description={`${tidy(data.model)}.`}
           >
@@ -128,8 +135,12 @@ export function MethodologyPage() {
                 LightGBM challenger scored worse out-of-fold — so the simplest model that
                 survived the evidence won. Probabilities are calibrated with temperature
                 scaling
+                {/* the API's own calibration note is authoritative when present; the
+                    literal below only covers an older API without the field */}
                 {data.calibration?.param_t
-                  ? `: the production model's fitted T is ${data.calibration.param_t.toFixed(3)}, fitted on the trailing 20% of its training window; across the dev walk-forward the mean per-fold T was 1.157`
+                  ? data.calibration.note
+                    ? `: the production model's fitted T is ${data.calibration.param_t.toFixed(3)} (${data.calibration.note})`
+                    : `: the production model's fitted T is ${data.calibration.param_t.toFixed(3)}, fitted on the trailing 20% of its training window; across the dev walk-forward the mean per-fold T was ${DEV_MEAN_FOLD_T}`
                   : ""}
                 . T &gt; 1 means the raw model ran slightly overconfident, and the calibration
                 divides that excess out. Sealed evidence:{" "}
@@ -166,7 +177,7 @@ export function MethodologyPage() {
                   }}
                 >
                   <ScopeChip scope="dev" n={data.baselines.n} />
-                  <span className="chip">sealed 2026-07-06 · selection evidence</span>
+                  <span className="chip">sealed {DEV_SEAL_DATE} · selection evidence</span>
                 </div>
                 <BaselineLadder
                   rows={data.baselines.ladder.map((r) => ({
@@ -198,9 +209,10 @@ export function MethodologyPage() {
                 <p className="blurb">
                   The champion stood against the full pre-registered ladder before it was
                   frozen: it beat B0–B2, B4 and B5, and is statistically equivalent to the
-                  best rung, B3 Elo (+0.0001 nats, 95% CI including zero) — so no
-                  better-than-Elo claim is made; the tie-break was calibration (ECE 0.011 vs
-                  0.030) and simplicity. It was frozen <em>before</em> the touch-once 2025
+                  best rung, B3 Elo ({CHAMPION_VS_B3_DELTA_NATS} nats, 95% CI including zero)
+                  — so no better-than-Elo claim is made; the tie-break was calibration (ECE{" "}
+                  {ECE_DEV_CHAMPION.toFixed(3)} vs {ECE_DEV_B3.toFixed(3)}) and simplicity.
+                  It was frozen <em>before</em> the touch-once 2025
                   test was run. The de-vigged closing market is plotted as a
                   stronger-information reference; it stays ahead, and no market-beating claim
                   is made.

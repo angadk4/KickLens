@@ -8,6 +8,16 @@ import { useUpcoming } from "../../components/layout/UpcomingContext";
 import { Section } from "../../components/ui/Section";
 import { StatTile } from "../../components/ui/StatTile";
 import { Toc } from "../../components/ui/Toc";
+import {
+  ALARM_COUNT,
+  CRON_RULES,
+  DEV_SEAL_DATE,
+  RECOMPUTE_PARITY_ROWS,
+  TESTS_ASOF,
+  TESTS_CI_PASSED,
+  TESTS_CI_SKIPPED,
+  TEST_EVAL_DATE,
+} from "../../lib/facts";
 import { useApi } from "../../lib/useApi";
 import { ArchitectureDiagram, DiagramWhys } from "./ArchitectureDiagram";
 
@@ -35,7 +45,7 @@ const INVARIANTS = [
   },
   {
     what: "No feature may see the future",
-    how: "A point-in-time feature engine plus a never-cut leakage suite (R1–R8): bit-for-bit recompute parity over every stored feature row for completed regular-season matches (5,763 at the 2026-07-06 seal, growing with the live loop), tamper tests that flip a later result and assert earlier rows are unchanged, and a leak canary proving the detector itself works.",
+    how: `A point-in-time feature engine plus a never-cut leakage suite (R1–R8): bit-for-bit recompute parity over every stored feature row for completed regular-season matches (${RECOMPUTE_PARITY_ROWS.toLocaleString()} at the ${DEV_SEAL_DATE} seal, growing with the live loop), tamper tests that flip a later result and assert earlier rows are unchanged, and a leak canary proving the detector itself works.`,
     where: "tests/test_leakage.py",
     href: "/blob/main/tests/test_leakage.py",
   },
@@ -47,7 +57,7 @@ const INVARIANTS = [
   },
   {
     what: "The 2025 test was touched exactly once",
-    how: "A triple-gated runner (signed checklist, deliberate env flag, refuses to run if output exists) evaluated the sealed season once, on Jul 12, 2026, under a public pre-training git tag. The season is spent and can never be reused.",
+    how: `A triple-gated runner (signed checklist, deliberate env flag, refuses to run if output exists) evaluated the sealed season once, on ${TEST_EVAL_DATE}, under a public pre-training git tag. The season is spent and can never be reused.`,
     where: "docs/final-test-report-2025.md",
     href: "/blob/main/docs/final-test-report-2025.md",
   },
@@ -115,11 +125,11 @@ export function EngineeringPage() {
         }
       >
         <div className="grid-4">
-          <StatTile label="Tests green" value={195} scope="none" n={null}
-            sub="leakage, write-once, hash & canary suites vs a real Postgres in CI · +1 documented skip" />
+          <StatTile label="Tests green" value={TESTS_CI_PASSED} scope="none" n={null}
+            sub={`leakage, write-once, hash & canary suites vs a real Postgres in CI · +${TESTS_CI_SKIPPED} documented skip`} />
           <StatTile label="Monthly infra" value="~$0" scope="none" n={null}
             sub="serverless, scale-to-zero; the $5/mo budget alarm is a documented stop condition" />
-          <StatTile label="Schedules + alarms" value="8 + 13" scope="none" n={null}
+          <StatTile label="Schedules + alarms" value={`${CRON_RULES} + ${ALARM_COUNT}`} scope="none" n={null}
             sub="EventBridge crons; Errors AND Throttles per job → SNS email" />
           <StatTile label="Forecast freeze" value="T−3h" scope="none" n={null}
             sub="SHA-256 anchored to public GitHub before kickoff; daily Merkle root" />
@@ -179,7 +189,7 @@ export function EngineeringPage() {
 
       <Section
         eyebrow="Orchestration"
-        meta={["8 crons", "leased claims"]}
+        meta={[`${CRON_RULES} crons`, "leased claims"]}
         title="Orchestration without an orchestrator"
         description="EventBridge crons, database state-gating, and idempotency. Each job is
         safe to re-run or fire out of order — simpler than a workflow engine, at no cost."
@@ -207,7 +217,7 @@ export function EngineeringPage() {
 
       <Section
         eyebrow="Testing"
-        meta={["194 green", "run in CI"]}
+        meta={[`${TESTS_CI_PASSED} green`, "run in CI"]}
         title="Tests are the enforcement layer"
         description="Named suites own named guarantees — leakage (R1–R8), the write-once
         ledger, forecast hashing and anchoring, the canary's dead-man checks, schema audit,
@@ -216,13 +226,15 @@ export function EngineeringPage() {
         <div className="prose">
           <p>
             CI runs ruff, mypy, and the full suite against a real Postgres service container,
-            so the database-backed guarantees execute in CI. A final step re-runs the
-            never-cut suites on their own and fails the build if they don't run at all — a
-            green run with everything silently skipped is itself a failure. The recompute-parity
-            checks that need the full match history run in the sealed training environment,
-            where it's loaded; gitleaks scans every push. Locally, with the full history, the
-            suite is 195 passed, 1 skipped as of July 2026 — the one skip is a
-            market-aggregation check that a fresh CI database can't hold.
+            so the database-backed guarantees execute in CI — the suite this deploy ships
+            with is {TESTS_CI_PASSED} passed, {TESTS_CI_SKIPPED} skipped, verified{" "}
+            {TESTS_ASOF}. A final
+            step re-runs the never-cut suites on their own and fails the build if they don't
+            run at all — a green run with everything silently skipped is itself a failure. The
+            recompute-parity checks that need the full match history run in the sealed
+            training environment, where it's loaded; gitleaks scans every push. The one
+            documented skip is data-gated: a market-aggregation check that needs the full
+            historical dataset, which a fresh CI database doesn't hold.
           </p>
         </div>
       </Section>

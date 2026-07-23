@@ -10,7 +10,8 @@ All read config from SSM (KICKLENS_ENV=cloud), all are idempotent, all honor the
 gates (leased idempotency-key claims / freshness; session advisory locks are VOID behind
 PgBouncer transaction pooling and are not used) inside the package functions they call.
 `{"dry_run": true}` returns after import+config+DB ping — used for the T-006b cold-start
-measurement without touching state.
+measurement without touching state. `{"results_only": true}` (the hourly 01-06 UTC night
+window) narrows the ingest sweep to yesterday+today so finals grade within ~1-2h.
 """
 
 from __future__ import annotations
@@ -87,17 +88,27 @@ def ingest(event: dict[str, Any], context: Any) -> dict[str, Any]:
             assert srow is not None
             season_id, year = int(srow[0]), now.year
             # yesterday (late finals), today, +7d fixture horizon; short per-day retry ladder
-            # so the whole sweep fits the 300s timeout even when every day fails
-            for offset in (-1, 0, 1, 2, 3, 4, 5, 6, 7):
+            # so the whole sweep fits the 300s timeout even when every day fails.
+            # results_only (hourly 01-06 UTC night window, ADR-005) narrows to
+            # yesterday+today — the only days carrying just-finished finals — at 2 provider
+            # calls/run, processes finals only (no voids/kickoff updates: live.py), and
+            # skips the HTTP retry ladder: the next hourly run IS the retry
+            results_only = bool(event.get("results_only"))
+            offsets: tuple[int, ...] = (-1, 0) if results_only else (-1, 0, 1, 2, 3, 4, 5, 6, 7)
+            for offset in offsets:
                 day = (now + timedelta(days=offset)).date()
-                fixtures = fetch_with_failover(adapters, day, year, retry_delays=(5.0, 25.0))
+                fixtures = fetch_with_failover(
+                    adapters, day, year, retry_delays=() if results_only else (5.0, 25.0)
+                )
                 if fixtures is None:
                     failed_days.append(day.isoformat())
                     continue  # provider down → last-known data serves; freshness gate flags
-                stats = ingest_live_fixtures(conn, fixtures, season_id, year, now=now)
+                stats = ingest_live_fixtures(
+                    conn, fixtures, season_id, year, now=now, results_only=results_only
+                )
                 for k, v in stats.items():
                     totals[k] = totals.get(k, 0) + v
-            if len(failed_days) == 9:
+            if len(failed_days) == len(offsets):
                 # a TOTAL provider outage must be visible: raising fires the Errors alarm
                 # (launch-review fix — silent None-continue hid full outages forever)
                 raise RuntimeError(f"ingest: provider down for ALL days: {failed_days}")

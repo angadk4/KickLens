@@ -1,6 +1,7 @@
 // The deployed system, drawn to scale of reality: every box exists in Terraform or
 // GitHub. Hand-rolled SVG on the site's tokens; native <title> tooltips per node;
 // horizontally scrollable on narrow viewports rather than reflowed.
+import { CRON_RULES, TESTS_CI_PASSED } from "../../lib/facts";
 
 type Node = {
   id: string;
@@ -18,13 +19,13 @@ type Node = {
 };
 
 const NODES: Node[] = [
-  { id: "g1", x: 30, y: 70, w: 210, h: 46, l1: "GitHub Actions — CI", l2: "ruff · mypy · 194 tests vs Postgres", title: "CI spins up a real postgres:18 service so the DB-backed guarantees run, not skip. A final step re-runs the never-cut suites and fails if they silently skipped." },
+  { id: "g1", x: 30, y: 70, w: 210, h: 46, l1: "GitHub Actions — CI", l2: `ruff · mypy · ${TESTS_CI_PASSED} tests vs Postgres`, title: "CI spins up a real postgres:18 service so the DB-backed guarantees run, not skip. A final step re-runs the never-cut suites and fails if they silently skipped." },
   { id: "g2", x: 30, y: 150, w: 210, h: 46, l1: "GitHub Actions — Deploy", l2: "job image → ECR · API zip · site → S3", title: "One push to main: image built and tagged with the commit SHA, all six functions repointed to it; API zip updated; site synced + CloudFront invalidated; terraform apply for drift." },
   { id: "g3", x: 30, y: 230, w: 210, h: 46, l1: "GitHub Actions — monthly train", l2: "challenger only — never auto-promoted", title: "Runs the 1st of each month. Produces a challenger; promotion is manual behind a frozen gate (≥0.005 nats, a 95% CI excluding 0, and calibration not degraded)." },
   { id: "g4", x: 30, y: 480, w: 210, h: 52, l1: "Public anchor files", l2: "anchors/YYYY-MM-DD.jsonl + Merkle", gold: true, title: "The notary: every official forecast's SHA-256 lands here before kickoff; a daily Merkle root seals each day. The Git history proves the timing." },
   { id: "p1", x: 330, y: 16, w: 430, h: 40, l1: "Providers — football-data.co.uk · Highlightly · SportsGameOdds", title: "Fixtures, results, and closing odds. A total provider outage raises so the Errors alarm fires — silent degradation was audited out." },
   { id: "u1", x: 950, y: 16, w: 120, h: 40, l1: "Browser", title: "This site. Static React bundle; every metric arrives with its evidence scope and sample size." },
-  { id: "a1", x: 330, y: 80, w: 430, h: 62, l1: "EventBridge — 8 cron rules", l2: "ingest 08/20 · feature :10 · inference :20 · grade 2h", l3: "merkle 12:00 · odds :05 · canary 09:00", title: "Schedule state is ENABLED in code, so a terraform apply can never silently disarm the live loop." },
+  { id: "a1", x: 330, y: 80, w: 430, h: 62, l1: `EventBridge — ${CRON_RULES} cron rules`, l2: "ingest 08/20 + results 01–06 · feature :10 · inference :20", l3: "grade 2h · merkle 12:00 · odds :05 · canary 09:00", title: "Schedule state is ENABLED in code, so a terraform apply can never silently disarm the live loop." },
   { id: "a2", x: 330, y: 172, w: 430, h: 130, l1: "one container image · ECR · GIT_SHA baked", labelTop: true, title: "≈1.3 GB image with the ML stack, six handlers, timeouts 120–300s. The git SHA is baked at build time — Lambda has no git binary, and lineage must never degrade to 'unknown'." },
   { id: "a5", x: 830, y: 92, w: 240, h: 46, l1: "S3 + CloudFront", l2: "static dashboard (OAC)", title: "No public bucket — CloudFront Origin Access Control only." },
   { id: "a3", x: 830, y: 172, w: 240, h: 46, l1: "API Gateway HTTP API", l2: "GET only · 20 rps", title: "Read-only public surface, throttled at 20 rps / burst 40." },

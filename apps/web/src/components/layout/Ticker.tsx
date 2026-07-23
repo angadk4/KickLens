@@ -20,7 +20,17 @@ function FreezeIn({ cutoff }: { cutoff: Date }) {
   const mins = Math.max(0, Math.floor((cutoff.getTime() - Date.now()) / 60_000));
   const h = Math.floor(mins / 60);
   // past cutoff = locked, awaiting the next hourly run's anchor — not literally "now"
-  return <>{mins <= 0 ? "freeze pending" : h > 0 ? `freezes in ${h}h ${mins % 60}m` : `freezes in ${mins}m`}</>;
+  return (
+    <>
+      {mins <= 0
+        ? "freeze pending"
+        : h >= 48
+          ? `freezes in ${Math.floor(h / 24)}d ${h % 24}h` // days read better than "68h"
+          : h > 0
+            ? `freezes in ${h}h ${mins % 60}m`
+            : `freezes in ${mins}m`}
+    </>
+  );
 }
 
 export function Ticker() {

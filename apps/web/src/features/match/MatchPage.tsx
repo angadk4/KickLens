@@ -7,7 +7,9 @@ import { ProbBar } from "../../components/ui/ProbBar";
 import { Section } from "../../components/ui/Section";
 import { EmptyState, ErrorState, Skeleton } from "../../components/ui/states";
 import { kickoffLocal, kickoffUTC, nats, teamName, voidPhrase } from "../../lib/format";
+import { matchPhase, phaseLabel } from "../../lib/matchPhase";
 import { useApi } from "../../lib/useApi";
+import { useNow } from "../../lib/useRelativeTime";
 import { VerificationPanel } from "./VerificationPanel";
 
 const RESULT_LABEL = { H: "home win", D: "draw", A: "away win" } as const;
@@ -17,6 +19,7 @@ export function MatchPage() {
   const matchId = Number(id);
   const detail = useApi(() => api.matchDetail(matchId), [matchId]);
   const verify = useApi(() => api.verification(matchId), [matchId]);
+  const now = useNow(); // phase chip ages honestly while the tab stays open
 
   if (detail.loading)
     return (
@@ -41,6 +44,24 @@ export function MatchPage() {
 
   const m = detail.data;
   const current = m.forecasts.filter((f) => !f.voided).at(-1);
+  // display phase, NOT the raw DB status: between kickoff and the results sync the DB
+  // still says 'scheduled' for a game that may have finished — the phase model infers
+  // honestly from the clock instead of asserting a stale state. A resulted match with NO
+  // gradeable forecast (historical rows; a voided-only fixture) must read plain "full
+  // time" — "awaiting grade" would promise a grade that will never come.
+  const chip =
+    m.result != null && !current
+      ? { text: "full time", title: undefined }
+      : phaseLabel(
+          matchPhase({
+            kickoff_utc: m.kickoff_utc,
+            status: m.status,
+            result: m.result,
+            graded: !!current?.grade,
+            frozen: !!current,
+            now,
+          }),
+        );
 
   return (
     <div className="page">
@@ -53,7 +74,9 @@ export function MatchPage() {
             <time dateTime={m.kickoff_utc ?? undefined} title={kickoffUTC(m.kickoff_utc)}>
               {kickoffLocal(m.kickoff_utc)}
             </time>{" "}
-            <span className="chip">{m.status}</span>
+            <span className="chip" title={chip.title}>
+              {chip.text}
+            </span>
             {m.score && (
               <>
                 {" "}

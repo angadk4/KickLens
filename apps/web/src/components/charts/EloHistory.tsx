@@ -68,6 +68,10 @@ export function EloHistory({
       <div
         ref={wrapRef}
         className="elo-wrap"
+        role="img"
+        aria-label={`Elo rating trajectories for ${teams.length} teams across ${dates.length} match dates, ${
+          selected ? teamName(selected.team) : "the selected team"
+        } highlighted — the table below lists each team's current rating and change over the window.`}
         onMouseMove={(e) => {
           if (hoverId === null || !wrapRef.current) return;
           const r = wrapRef.current.getBoundingClientRect();
@@ -135,6 +139,35 @@ export function EloHistory({
           ? "hover any line to preview, select a row to pin."
           : "select a row in the table to change the highlighted team."}
       </figcaption>
+      <details>
+        <summary>View as table</summary>
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Team</th>
+              <th className="num">Rating</th>
+              <th className="num">Δ over window</th>
+            </tr>
+          </thead>
+          <tbody>
+            {teams.map((t) => {
+              const h = t.history ?? [];
+              const first = h[0];
+              const last = h.at(-1);
+              const d = first && last && h.length > 1 ? last.rating - first.rating : null;
+              return (
+                <tr key={t.team_id}>
+                  <td>{teamName(t.team)}</td>
+                  <td className="num">{t.rating.toFixed(1)}</td>
+                  <td className="num">
+                    {d === null ? "—" : `${d >= 0 ? "+" : ""}${d.toFixed(1)}`}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </details>
     </figure>
   );
 }

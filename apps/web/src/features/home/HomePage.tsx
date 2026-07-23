@@ -9,17 +9,40 @@ import { useUpcoming } from "../../components/layout/UpcomingContext";
 import { Section } from "../../components/ui/Section";
 import { StatTile } from "../../components/ui/StatTile";
 import { Skeleton } from "../../components/ui/states";
+import { MARKET_LOG_LOSS_TEST } from "../../lib/facts";
 import { freezeRunOf, kickoffLocal, kickoffUTC, nats, teamName, timeLocal } from "../../lib/format";
+import { matchPhase } from "../../lib/matchPhase";
 import { useApi } from "../../lib/useApi";
 import { useCountdown } from "../../lib/useCountdown";
-import { useRelativeTime } from "../../lib/useRelativeTime";
+import { useNow, useRelativeTime } from "../../lib/useRelativeTime";
 import { FixtureCard } from "../forecasts/FixtureCard";
 import { InPlaySection } from "../forecasts/InPlaySection";
 import { PitchHero } from "./PitchHero";
 
 function Hero() {
-  const { nextCutoff, nextMatch } = useUpcoming();
+  const { nextCutoff, nextMatch, inPlay, list } = useUpcoming();
   const cd = useCountdown(nextCutoff);
+  const now = useNow();
+
+  // matchday takes the center spot: while games sit between kickoff and grade, a
+  // "next freeze in 2 days" countdown would be the wrong headline for a live board
+  const matchday = inPlay !== null && inPlay.length > 0;
+  const nLive = matchday
+    ? inPlay.filter(
+        (m) =>
+          matchPhase({ kickoff_utc: m.kickoff_utc, status: m.status, frozen: true, now }) ===
+          "in-play",
+      ).length
+    : 0;
+  const nAwaiting = matchday ? inPlay.length - nLive : 0;
+  // upcoming is kickoff-ordered; only bill a "next kickoff" that's actually tonight AND
+  // still in the future (a just-kicked-off game belongs to the in-play band, not here)
+  const nextKo = matchday
+    ? list?.find((m) => {
+        const delta = new Date(m.kickoff_utc).getTime() - now;
+        return delta > 0 && delta < 6 * 3600_000;
+      })
+    : undefined;
 
   return (
     <div className="entry hero-entry">
@@ -42,9 +65,32 @@ function Hero() {
           </div>
 
           <PitchHero
-            expired={!!nextCutoff && cd.expired}
+            expired={!matchday && !!nextCutoff && cd.expired}
             top={
-              nextCutoff ? (
+              matchday ? (
+                <>
+                  {/* just "matchday" — on split slates a later fixture may still be
+                      preliminary, so a blanket "forecasts sealed" claim could be false */}
+                  <div className="fp-head">
+                    <span className="pulse-dot" aria-hidden /> matchday
+                  </div>
+                  {/* reuses the countdown unit styling — the board's numeric voice */}
+                  <div className="countdown">
+                    {nLive > 0 && (
+                      <span className="unit">
+                        <span className="value">{String(nLive).padStart(2, "0")}</span>
+                        <span className="label">in play</span>
+                      </span>
+                    )}
+                    {nAwaiting > 0 && (
+                      <span className="unit">
+                        <span className="value">{String(nAwaiting).padStart(2, "0")}</span>
+                        <span className="label">awaiting</span>
+                      </span>
+                    )}
+                  </div>
+                </>
+              ) : nextCutoff ? (
                 !cd.expired ? (
                   <>
                     <div className="fp-head">next official freeze in</div>
@@ -101,7 +147,26 @@ function Hero() {
               ) : undefined
             }
             bottom={
-              nextMatch && nextCutoff && !cd.expired ? (
+              matchday ? (
+                nextKo ? (
+                  <div className="fc-match">
+                    <span className="who">
+                      {teamName(nextKo.home)} <span className="vs">vs</span>{" "}
+                      {teamName(nextKo.away)}
+                    </span>
+                    <span className="when">
+                      kicks off{" "}
+                      <time dateTime={nextKo.kickoff_utc} title={kickoffUTC(nextKo.kickoff_utc)}>
+                        {timeLocal(nextKo.kickoff_utc)}
+                      </time>
+                    </span>
+                  </div>
+                ) : (
+                  <div className="fc-match">
+                    <span className="when">results sync overnight · grading follows</span>
+                  </div>
+                )
+              ) : nextMatch && nextCutoff && !cd.expired ? (
                 <div className="fc-match">
                   <span className="who">
                     {teamName(nextMatch.home)} <span className="vs">vs</span>{" "}
@@ -130,7 +195,7 @@ function Hero() {
     never repeats the hero's next-freeze fact. */
 function StatusCell() {
   const { health, apiDown } = useHealth();
-  const { list } = useUpcoming();
+  const { list, inPlay } = useUpcoming();
   const ingested = useRelativeTime(health?.last_ingest);
   const graded = useRelativeTime(health?.last_grade);
   const state = apiDown
@@ -152,23 +217,26 @@ function StatusCell() {
         graded <span className="v">{health?.last_grade ? graded : "—"}</span>
       </span>
       <span className="sc-row">
-        window <span className="v">{list ? `${list.length} fixtures` : "—"}</span>
+        window{" "}
+        <span className="v">
+          {list ? `${list.length} upcoming` : "—"}
+          {inPlay && inPlay.length > 0 ? ` · ${inPlay.length} in play` : ""}
+        </span>
       </span>
     </div>
   );
 }
 
 export function HomePage() {
-  const { list } = useUpcoming();
+  const { list, totalGraded } = useUpcoming();
   const test = useApi(() => api.performance("test"));
   const dev = useApi(() => api.performance("dev"));
-  const live = useApi(() => api.performance("live"));
 
   const testM = test.data?.metrics;
   const devM = dev.data?.metrics;
-  // live n is known when the snapshot loads OR when 404 says none exists yet (truthfully 0);
-  // an unreachable API must NOT claim 0
-  const liveN = live.data?.metrics?.n ?? (live.notFound ? 0 : null);
+  // ONE source for the live graded count everywhere: /predictions/completed via the shared
+  // context (a live SQL count that refetches on matchday) — never the lagging snapshot n
+  const liveN = totalGraded;
 
   return (
     <div className="page board">
@@ -233,7 +301,7 @@ export function HomePage() {
               value={liveN}
               scope="live"
               n={liveN}
-              sub="accrues in real time, never back-filled"
+              sub="grades post automatically after full time · never back-filled"
             />
           ) : (
             <Skeleton height={130} />
@@ -242,8 +310,9 @@ export function HomePage() {
         </div>
         <p className="blurb" style={{ fontSize: "var(--text-xs)" }}>
           Log loss — lower is better. Guessing ⅓/⅓/⅓ every match scores 1.0986; on the same
-          sealed test the closing market scored 1.0317 — ahead of the model, and said so
-          plainly. The full ladder is on <Link to="/performance">Performance</Link>.
+          sealed test the closing market scored {MARKET_LOG_LOSS_TEST.toFixed(4)} — ahead of
+          the model, and said so plainly. The full ladder is on{" "}
+          <Link to="/performance">Performance</Link>.
         </p>
       </Section>
 
