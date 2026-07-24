@@ -221,13 +221,28 @@ def odds(event: dict[str, Any], context: Any) -> dict[str, Any]:
     rules live in the API layer; raw prices are stored for the same-cutoff comparison only."""
     if (d := _dry(event)) is not None:
         return d
+    from ingestion.live import ProviderError
     from ingestion.odds import SportsGameOddsAdapter, ingest_odds_captures
 
     settings = load_settings(dotenv_path=None)
     if not settings.sportsgameodds_key:
         return {"statusCode": 200, "skipped": "no SPORTSGAMEODDS_KEY configured"}
     now = datetime.now(UTC)
-    captures = SportsGameOddsAdapter(settings.sportsgameodds_key).captures(now)
+    try:
+        # retry_delays=() → ONE bounded attempt, no in-invocation ladder. The default
+        # 5/25/125s backoff x 30s socket timeouts can reach ~275s, which exceeds this
+        # Lambda's 120s limit — so when the provider HANGS (as SGO did from ~12:00 UTC
+        # 2026-07-23, timing out every run) the runtime kills the Lambda mid-retry before
+        # the except below can fire → a page. One attempt fails cleanly well inside the
+        # timeout; the next hourly run is the retry (same philosophy as the night ingest).
+        captures = SportsGameOddsAdapter(settings.sportsgameodds_key).captures(now, retry_delays=())
+    except ProviderError as exc:
+        # the market feed is best-effort (aggregate-only, post-MVP, BL-2): a provider
+        # outage / hang / slow response / expired key must NOT page — it touches no
+        # forecast, freeze, grade, or anchor. Logged for visibility; capture resumes on
+        # its own once the provider recovers. (A parse/DB bug still raises → alarms.)
+        print(f"odds: market provider unavailable, skipping this run: {exc}")
+        return {"statusCode": 200, "degraded": "market provider unavailable"}
     with _conn() as conn:
         stats = ingest_odds_captures(conn, captures, now=now)
     return {"statusCode": 200, "captures": len(captures), **stats}

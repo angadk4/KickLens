@@ -536,3 +536,46 @@ if DATABASE_URL:
         assert out["statusCode"] == 200
         # without the flag the frozen -1..+7 horizon is untouched
         assert swept == [f"2026-07-{d:02d}" for d in range(12, 21)]
+
+    def test_odds_provider_failure_degrades_not_pages(  # type: ignore[no-untyped-def]
+        env, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A best-effort market feed that hangs / errors must NOT trip the Errors alarm.
+        Real incident (2026-07-23): SGO began HANGING on our requests ~12:00 UTC → every odds
+        run hit the 120s Lambda timeout (not a fast 4xx) → kicklens-odds-errors paged hourly.
+        Fix: fail fast (retry_delays=() — one bounded attempt, well inside the timeout) and
+        degrade to 200 instead of raising/timing out."""
+        import ingestion.odds as odds_mod
+        from ingestion.live import ProviderError
+
+        from jobs import handlers
+
+        monkeypatch.setenv("DATABASE_URL", DATABASE_URL or "")
+        monkeypatch.setenv("SPORTSGAMEODDS_KEY", "some-key")
+
+        seen: dict[str, Any] = {}
+
+        def boom(self: Any, now: Any, **kw: Any) -> list[Any]:
+            seen.update(kw)
+            raise ProviderError("timed out")  # a hanging provider → socket timeout, not a 4xx
+
+        monkeypatch.setattr(odds_mod.SportsGameOddsAdapter, "captures", boom)
+        out = handlers.odds({}, None)
+        assert out["statusCode"] == 200 and out.get("degraded")  # degraded, not raised
+        # the handler must NOT arm the default retry ladder (30s x3 + backoff ~275s > the
+        # 120s Lambda timeout would get it killed mid-retry before the except can fire)
+        assert seen.get("retry_delays") == ()
+
+        # a genuinely-missing key still short-circuits to skipped (unchanged)
+        monkeypatch.delenv("SPORTSGAMEODDS_KEY", raising=False)
+        assert handlers.odds({}, None).get("skipped")
+
+        # a NON-provider bug (e.g. our parsing/DB) must still raise → alarms as before
+        monkeypatch.setenv("SPORTSGAMEODDS_KEY", "k")
+
+        def other_bug(self: Any, now: Any, **kw: Any) -> list[Any]:
+            raise KeyError("eventID")
+
+        monkeypatch.setattr(odds_mod.SportsGameOddsAdapter, "captures", other_bug)
+        with pytest.raises(KeyError):
+            handlers.odds({}, None)
