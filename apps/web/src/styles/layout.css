@@ -997,9 +997,21 @@ a.ticker-item:hover {
     gap: var(--space-4) var(--rail-gap);
     align-items: start;
   }
+  /* the trajectory TRACKS the table: the table runs ~1340px, the chart ~360px, so without
+     this the rail simply ends and leaves a column of nothing. Sticky (verified: the rail's
+     top goes 261px → 96px between scroll 0 and scroll 1200) keeps it beside whatever row
+     you are reading; the taller chart and the note below it give the rail real presence at
+     the top of the page too. */
   .ratings-cols .ratings-chart {
     position: sticky;
     top: 96px;
+    display: grid;
+    gap: var(--space-3);
+    align-content: start;
+    max-height: calc(100vh - var(--space-6) - 96px);
+  }
+  .ratings-cols .ratings-chart .elo-wrap {
+    --elo-h: 420px;
   }
 }
 
@@ -1047,4 +1059,121 @@ a.ticker-item:hover {
 
 .btn.ghost:hover {
   border-color: var(--ink);
+}
+
+/* ---- home board geometry (visual-QA pass at 1440px + 390px) ----
+   Corrections folded in next to the rules they fix. Each value is absolute, not a delta. */
+/* ---- desktop: one gutter for the whole board, and three columns that close on one line ----
+   `.board-split` used --rail-gap (48px) between the fixture grid and the pipeline while the
+   fixture grid itself used --space-4 (16px), so one row carried two different gutters; and
+   `align-items: start` left the pipeline card ending 68px above the fixture column for a
+   ragged bottom edge across outlined cards. */
+@media (min-width: 1024px) {
+  .board-split {
+    gap: var(--space-5);
+    align-items: stretch;
+  }
+
+  /* the pipeline fills the row; its footer links sit on the fixture grid's bottom line */
+  .board-split > .rail {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .board-split > .rail .rail-foot {
+    margin-top: auto;
+  }
+}
+
+/* the fixture grid shares the board gutter at every width */
+.board-split > .grid-2 {
+  gap: var(--space-5);
+}
+
+/* ---- the ring's chords: text sets inside the chalk, at every width ----
+   a 12% inset left the fixture's freeze line 2px short of fitting, so it wrapped and the
+   orphaned "UTC" ran down into the stroke. Widen the chord instead of shrinking the type:
+   at this depth the circle is far wider than the text. */
+.ph-bottom {
+  left: 8%;
+  right: 8%;
+}
+
+/* the label above the spot is two words wide — balance it rather than orphan "in" */
+.ph-top .fp-head {
+  text-wrap: balance;
+}
+
+/* ---- mobile: the board is one stack with ONE gap ----
+   below 1024 `.board-split` was a plain block, so the pipeline card sat flush (0px) against
+   the last fixture card while the fixture cards were 16px apart — the pipeline read as
+   attached to the card above. */
+@media (max-width: 1023px) {
+  .board-split {
+    display: grid;
+    gap: var(--space-5);
+  }
+
+  /* the KPI strip is 2-up here and the status cell is its 5th child, so its rows and their
+     hairline underlines stopped at ~45% of the panel. It owns the full row. */
+  .grid-kpi > .status-cell {
+    grid-column: 1 / -1;
+  }
+}
+
+/* ---- hero: reclaim the dead band under the copy, and give the ring a chord its text fits ----
+   `.ph-cell` reserved a full --ph-size of layout box and THEN pushed itself down half of it
+   with translateY(50%), so the top half of that reservation was empty: 152px of nothing
+   between the CTA row and the ring on mobile. Reserving only the half above the halfway
+   line (negative bottom margin) and letting the lower half overflow — which the entry's
+   own bottom margin already accounts for — puts the ring back on the page's rhythm. */
+@media (max-width: 1023px) {
+  .hero-stage {
+    --ph-size: 268px;
+  }
+
+  .ph-cell {
+    transform: none;
+    margin: 0 auto calc(var(--ph-size) / -2);
+  }
+
+  /* reserve the ring's lower half minus the ticker band it deliberately sits inside */
+  .hero-entry {
+    margin-bottom: calc(268px / 2 - 64px);
+  }
+
+  /* wider chords: "New York City vs Toronto FC" and its freeze line now set on one line
+     each inside the chalk, instead of orphaning "FC" and running into the stroke */
+  .ph-top {
+    left: 14%;
+    right: 14%;
+  }
+
+  .ph-bottom {
+    left: 7%;
+    right: 7%;
+  }
+}
+
+/* small phones: keep the ring inside the shell */
+@media (max-width: 359px) {
+  .hero-stage {
+    --ph-size: 240px;
+  }
+
+  .hero-entry {
+    margin-bottom: calc(240px / 2 - 64px);
+  }
+}
+
+@media (min-width: 1024px) {
+  /* the desktop band between the CTA row and the ticker was 174px of nothing left of the
+     ring; the ring's lower half is structural, the slack above it was not */
+  .hero-copy {
+    padding-bottom: var(--space-4);
+  }
+
+  .hero-entry {
+    margin-bottom: calc(300px / 2 - 64px);
+  }
 }

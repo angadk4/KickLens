@@ -272,11 +272,11 @@ export function EngineeringPage() {
 
       <Section
         eyebrow="Operations"
-        meta={["13 alarms", "SNS → email"]}
+        meta={[`${ALARM_COUNT} alarms`, "SNS → email"]}
         title="Operating it"
-        description="Eight schedules, thirteen alarms, and a canary that assumes the worst.
-        Schedule state is ENABLED in code, so a terraform apply can never silently disarm
-        the live loop."
+        description={`${CRON_RULES} schedules, ${ALARM_COUNT} alarms, and a canary that assumes
+        the worst. Schedule state is ENABLED in code, so a terraform apply can never silently
+        disarm the live loop.`}
       >
         <div className="prose">
           <p>

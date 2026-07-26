@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { NavLink, Link, useLocation } from "react-router-dom";
 import { useCountdown } from "../../lib/useCountdown";
 import { useHealth } from "./HealthContext";
@@ -61,6 +61,60 @@ export function TopNav() {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  // Below 720px the rail scrolls horizontally and half the links start off-screen — on
+  // /engineering the ACTIVE tab sat 300px past the right edge, so the current page looked
+  // unreachable. Bring the active tab into view (own scrollLeft only — never
+  // scrollIntoView, which would also scroll the document), and fade whichever edge still
+  // has links beyond it, so a label never dies mid-word and the fade always MEANS "more
+  // this way" — same both-edges idiom as the ticker.
+  const railRef = useRef<HTMLElement>(null);
+  const [railMask, setRailMask] = useState<string>("none");
+  const syncRail = useCallback(() => {
+    const rail = railRef.current;
+    if (!rail) return;
+    const more = rail.scrollWidth - rail.clientWidth;
+    const left = more > 1 && rail.scrollLeft > 1;
+    const right = more > 1 && rail.scrollLeft < more - 1;
+    setRailMask(
+      left || right
+        ? `linear-gradient(90deg, ${left ? "transparent, #000 32px" : "#000"}, ${
+            right ? "#000 calc(100% - 32px), transparent" : "#000"
+          })`
+        : "none",
+    );
+  }, []);
+  const revealActive = useCallback(() => {
+    const rail = railRef.current;
+    const active = rail?.querySelector("a.active");
+    if (rail && active) {
+      const railBox = rail.getBoundingClientRect();
+      const tabBox = active.getBoundingClientRect();
+      const pad = 40; // clear the rail's own padding and the right-edge fade
+      if (tabBox.right > railBox.right - pad) {
+        rail.scrollLeft += tabBox.right - (railBox.right - pad);
+      } else if (tabBox.left < railBox.left + pad) {
+        rail.scrollLeft -= railBox.left + pad - tabBox.left;
+      }
+    }
+    syncRail();
+  }, [syncRail]);
+  useEffect(() => {
+    let cancelled = false;
+    const rerun = () => {
+      if (!cancelled) revealActive();
+    };
+    rerun();
+    // the display face loads after first paint and widens the rail by ~70px — without a
+    // second pass the mount-time scroll lands short and the active tab is still cut off
+    document.fonts?.ready.then(rerun, () => {});
+    window.addEventListener("resize", rerun);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("resize", rerun);
+    };
+  }, [pathname, revealActive]);
+
   return (
     <div className={`topnav${scrolled ? " scrolled" : ""}`}>
       <div className="topnav-inner">
@@ -68,7 +122,13 @@ export function TopNav() {
           <img src="/favicon.svg" alt="" />
           KickLens
         </Link>
-        <nav className="nav-links" aria-label="Primary">
+        <nav
+          className="nav-links"
+          aria-label="Primary"
+          ref={railRef}
+          onScroll={syncRail}
+          style={{ maskImage: railMask, WebkitMaskImage: railMask }}
+        >
           {LINKS.map((l) => (
             <NavLink
               key={l.to}

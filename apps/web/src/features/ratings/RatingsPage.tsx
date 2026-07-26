@@ -121,14 +121,17 @@ export function RatingsPage() {
                 </tbody>
               </table>
             </div>
-            <p className="blurb">
-              Ratings are inputs to the forecast model, not predictions themselves.
-            </p>
             </div>
+            {/* the rail: sticky beside the table on wide screens, so the trajectory stays
+                with whatever row is being read rather than ending 900px above the table's
+                last row. The closing note lives here so the rail is not a lone chart. */}
             <div className="ratings-chart">
               {selectedId !== null && (
                 <EloHistory teams={data.teams} selectedId={selectedId} />
               )}
+              <p className="blurb">
+                Ratings are inputs to the forecast model, not predictions themselves.
+              </p>
             </div>
           </div>
         )}

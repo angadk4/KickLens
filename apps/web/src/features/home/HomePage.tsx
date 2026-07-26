@@ -26,6 +26,20 @@ import { useNow, useRelativeTime } from "../../lib/useRelativeTime";
 import { FixtureCard } from "../forecasts/FixtureCard";
 import { InPlaySection } from "../forecasts/InPlaySection";
 import { PitchHero } from "./PitchHero";
+// board geometry corrections that belong in styles/layout.css — see the file header
+
+/** Matchup for the hero ring. Each club name is one unbreakable unit: inside a 268px chalk
+    circle a naked wrap orphaned "FC" onto a line of its own ("New York City vs Toronto /
+    FC"). It may still wrap BETWEEN the names — never through one. */
+function RingMatchup({ home, away }: { home: string; away: string }) {
+  return (
+    <span className="who">
+      <span style={{ whiteSpace: "nowrap" }}>{teamName(home)}</span>{" "}
+      <span className="vs">vs</span>{" "}
+      <span style={{ whiteSpace: "nowrap" }}>{teamName(away)}</span>
+    </span>
+  );
+}
 
 function Hero() {
   const { nextCutoff, nextMatch, inPlay, list } = useUpcoming();
@@ -136,10 +150,7 @@ function Hero() {
                     <div className="fp-head">freeze pending</div>
                     {nextMatch && (
                       <div className="fc-match">
-                        <span className="who">
-                          {teamName(nextMatch.home)} <span className="vs">vs</span>{" "}
-                          {teamName(nextMatch.away)}
-                        </span>
+                        <RingMatchup home={nextMatch.home} away={nextMatch.away} />
                       </div>
                     )}
                     <p className="countdown-caption">
@@ -158,10 +169,7 @@ function Hero() {
               matchday ? (
                 nextKo ? (
                   <div className="fc-match">
-                    <span className="who">
-                      {teamName(nextKo.home)} <span className="vs">vs</span>{" "}
-                      {teamName(nextKo.away)}
-                    </span>
+                    <RingMatchup home={nextKo.home} away={nextKo.away} />
                     <span className="when">
                       kicks off{" "}
                       <time dateTime={nextKo.kickoff_utc} title={kickoffUTC(nextKo.kickoff_utc)}>
@@ -176,10 +184,7 @@ function Hero() {
                 )
               ) : nextMatch && nextCutoff && !cd.expired ? (
                 <div className="fc-match">
-                  <span className="who">
-                    {teamName(nextMatch.home)} <span className="vs">vs</span>{" "}
-                    {teamName(nextMatch.away)}
-                  </span>
+                  <RingMatchup home={nextMatch.home} away={nextMatch.away} />
                   <span className="when">
                     freezes{" "}
                     <time

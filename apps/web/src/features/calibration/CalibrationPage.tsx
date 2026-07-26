@@ -75,14 +75,39 @@ function DotDemo() {
   );
 }
 
-function ClasswiseBars({ s, scope }: { s: CalibrationScope; scope: string }) {
-  const rows = [
+type CwRow = { key: string; v: number };
+
+/** the three per-outcome errors a scope actually reported */
+function classwiseRows(s: CalibrationScope | undefined): CwRow[] {
+  if (!s) return [];
+  return [
     { key: "home", v: s.classwise_ece_H },
     { key: "draw", v: s.classwise_ece_D },
     { key: "away", v: s.classwise_ece_A },
-  ].filter((r): r is { key: string; v: number } => typeof r.v === "number");
+  ].filter((r): r is CwRow => typeof r.v === "number");
+}
+
+/** ONE domain for every per-outcome bar on the page. Auto-scaling each card meant a bar of
+    identical length encoded 0.045 on one card and 0.19 on the card beside it — on a page
+    whose entire subject is whether a number means what it says. Rounded up to a 0.02 step
+    so the printed maximum is readable. */
+function sharedScaleMax(scopes: (CalibrationScope | undefined)[]): number {
+  const all = scopes.flatMap((s) => classwiseRows(s).map((r) => r.v));
+  if (!all.length) return 0.06;
+  return Math.max(0.06, Math.ceil(Math.max(...all) * 50) / 50);
+}
+
+function ClasswiseBars({
+  s,
+  scope,
+  max,
+}: {
+  s: CalibrationScope;
+  scope: string;
+  max: number;
+}) {
+  const rows = classwiseRows(s);
   if (!rows.length) return null;
-  const max = Math.max(...rows.map((r) => r.v), 0.06);
   const draws = rows.find((r) => r.key === "draw");
   const drawsBest = !!draws && rows.every((r) => r.v >= draws.v);
   return (
@@ -106,13 +131,26 @@ function ClasswiseBars({ s, scope }: { s: CalibrationScope; scope: string }) {
             <span>{r.v.toFixed(4)}</span>
           </div>
         ))}
+        <div className="cw-row cw-axis">
+          <span aria-hidden />
+          <span className="cw-scale">
+            <span>0</span>
+            <span>{max.toFixed(2)}</span>
+          </span>
+          <span aria-hidden />
+        </div>
       </div>
+      <p className="cw-foot">
+        Every scope on this page shares one 0–{max.toFixed(2)} scale, so bar length means the
+        same thing on every card.
+      </p>
     </div>
   );
 }
 
 export function CalibrationPage() {
   const { data, error, loading, retry } = useApi(() => api.calibration());
+  const barMax = sharedScaleMax([data?.dev, data?.test, data?.live]);
   return (
     <div className="page">
       <Section
@@ -170,7 +208,7 @@ export function CalibrationPage() {
                           </dl>
                         )}
                         {showDetail ? (
-                          <ClasswiseBars s={s} scope={scope} />
+                          <ClasswiseBars s={s} scope={scope} max={barMax} />
                         ) : (
                           <p className="blurb">
                             The reliability curve and per-outcome bars appear once the live

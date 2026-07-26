@@ -197,11 +197,17 @@ function ScopePanel({ scope, label, blurb, emptyNote }: (typeof SCOPES)[number])
                         <dt>accuracy</dt>
                         <dd>
                           {(m.accuracy * 100).toFixed(1)}%{" "}
+                          {/* T-171: the comparator must come from THIS scope's own sample.
+                              Live/backtest carry no always-home figure of their own, so they
+                              get none — borrowing the dev number merged two evidence scopes
+                              inside a single sentence. */}
                           <small>
-                            diagnostic only · always-home scored{" "}
-                            {scope === "test"
-                              ? `${ALWAYS_HOME_ACC_TEST} on 2025`
-                              : `${ALWAYS_HOME_ACC_DEV} on dev`}
+                            diagnostic only
+                            {scope === "dev"
+                              ? ` · always-home scored ${ALWAYS_HOME_ACC_DEV} on dev`
+                              : scope === "test"
+                                ? ` · always-home scored ${ALWAYS_HOME_ACC_TEST} on 2025`
+                                : " · no baseline computed on this sample"}
                           </small>
                         </dd>
                       </div>

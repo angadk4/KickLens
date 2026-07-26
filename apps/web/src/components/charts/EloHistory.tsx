@@ -82,7 +82,9 @@ export function EloHistory({
           setLabelPos(null);
         }}
       >
-        <ResponsiveContainer width="100%" height={280}>
+        {/* height comes from .elo-wrap so the sticky ratings rail can give the trajectory
+            real presence on wide screens without a second breakpoint in JS */}
+        <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} margin={{ right: 40 }}>
             <CartesianGrid {...gridProps} />
             <XAxis

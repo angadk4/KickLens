@@ -596,7 +596,14 @@ a.card.stamped:hover {
   box-shadow: var(--edge-hi);
 }
 
-/* the proof bench: evidence left, the prover rail right of the one licensed gold rule */
+/* the proof bench: evidence left, the prover rail right of the one licensed gold rule.
+   min-width:0 on every child at EVERY width: a grid/flex item's automatic minimum is its
+   min-content, so one long hash or JSON line otherwise widens the whole card (this is what
+   overflowed the panel below 1200px, where the 2-col rule doesn't apply). */
+.proof-bench > * {
+  min-width: 0;
+}
+
 @media (min-width: 1200px) {
   .proof-bench {
     display: grid;
@@ -728,6 +735,26 @@ a.card.stamped:hover {
   overflow-wrap: anywhere;
 }
 
+@media (max-width: 719px) {
+  /* STACK: a 140px term column left the description ~150px wide at 390px — four words a
+     line beside a mostly empty label, and long tokens (anchors/<date>.jsonl) broken
+     mid-word by overflow-wrap. The term is a heading here, not a column. */
+  .kv {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+  .kv dt {
+    align-self: start;
+    padding-top: var(--space-3);
+  }
+  .kv dt:first-of-type {
+    padding-top: 0;
+  }
+  .kv dd {
+    padding-top: var(--space-1);
+  }
+}
+
 .codeblock {
   background: var(--bg-0);
   border: 1px solid var(--line);
@@ -736,7 +763,14 @@ a.card.stamped:hover {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   overflow-x: auto;
-  white-space: pre;
+  /* WRAP, don't stretch: the canonical JSON and the anchor line are single unbreakable
+     lines ~300+ chars long. Under `white-space: pre` they set the panel's min-content
+     width and blew the proof bench to ~2600px inside a 1440px viewport (and worse on
+     mobile). Wrapping is CSS-only — the copied bytes are still exactly the hashed
+     document, which is the whole point of the block. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  min-width: 0;
   color: var(--ink-muted);
 }
 
@@ -775,17 +809,31 @@ a.card.stamped:hover {
   opacity: 1;
 }
 
-/* the ladder's sidecar: one mono line explaining the hovered rung */
+/* the ladder draws itself to this box — no min-width, no sideways scroll, no clipping */
+.ladder-plot {
+  min-width: 0;
+}
+
+/* the ladder's sidecar: one mono line explaining the hovered rung. It carries HOVERED
+   CONTENT only — the "hover a rung…" affordance lives in an .sr-only description, after
+   it spent a release rendering as a visible sentence above the caption. */
 .ladder-sidecar {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   color: var(--ink-muted);
-  min-height: 1.6em; /* reserved — appearing text never reflows the page */
+}
+
+@media (hover: hover) {
+  /* reserved only where a hover can actually fill it — appearing text never reflows */
+  .ladder-sidecar {
+    min-height: 1.6em;
+  }
 }
 
 /* EloHistory floating hover label */
 .elo-wrap {
   position: relative;
+  height: var(--elo-h, 280px);
 }
 
 .elo-label {
@@ -922,9 +970,11 @@ a.card.stamped:hover {
   max-width: 480px;
 }
 
+/* the track is CAPPED, not fluid: one shared domain only reads as one scale if the tracks
+   it is drawn on are the same length, and the cards sit in columns of different widths */
 .classwise .cw-row {
   display: grid;
-  grid-template-columns: 5.5rem 1fr 4rem;
+  grid-template-columns: 4.5rem minmax(0, 240px) 4.5rem;
   align-items: center;
   gap: var(--space-3);
   font-family: var(--font-mono);
@@ -941,6 +991,27 @@ a.card.stamped:hover {
 .classwise .cw-fill {
   height: 100%;
   background: var(--ink-muted);
+}
+
+/* the printed domain — without it a bar length encodes nothing */
+.classwise .cw-axis {
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+  align-items: start;
+}
+
+.classwise .cw-scale {
+  display: flex;
+  justify-content: space-between;
+  border-top: 1px solid var(--line);
+  padding-top: 2px;
+}
+
+.cw-foot {
+  margin-top: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+  max-width: 480px;
 }
 
 /* ---- guarantees (methodology): ruled rows — the clauses of the contract ---- */
@@ -1207,6 +1278,33 @@ a.card.stamped:hover {
   .diagram {
     min-width: 0;
   }
+}
+
+/* below 720px the canvas cannot be shown honestly (36% of it fitted, silently), so the
+   component collapses it behind this disclosure and the written list carries the section */
+.diagram-toggle > summary {
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-muted);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+@media (max-width: 719px) {
+  .diagram-toggle .diagram-scroll {
+    margin-top: var(--space-3);
+    /* the right edge fades so "there is more this way" is unmissable */
+    -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 40px), transparent);
+    mask-image: linear-gradient(90deg, #000 calc(100% - 40px), transparent);
+  }
+}
+
+.diagram-whys > summary {
+  cursor: pointer;
 }
 
 .diagram .dg-box {

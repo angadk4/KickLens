@@ -44,8 +44,11 @@ export function ReliabilityDiagram({
             dataKey="bucket"
             {...axisProps}
           />
+          {/* headroom above 100%: a bucket that hits 1.00 used to have its marker sliced in
+              half by the plot's top edge. Ticks stay on the honest 0/25/50/75/100 grid. */}
           <YAxis
-            domain={[0, 1]}
+            domain={[0, 1.05]}
+            ticks={[0, 0.25, 0.5, 0.75, 1]}
             {...axisProps}
             tickFormatter={(v: number) => `${Math.round(v * 100)}%`}
           />

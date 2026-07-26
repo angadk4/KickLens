@@ -3,6 +3,8 @@
 /PROGRESS.md
 /BUILD_LOG.md
 /.claude/
+# local visual-QA tooling + its output (screenshot rig) — a workbench tool, not the project
+/.devtools/
 
 # Python
 __pycache__/

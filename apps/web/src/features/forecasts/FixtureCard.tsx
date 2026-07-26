@@ -58,11 +58,15 @@ export function FixtureCard({ m, timeOnly = false }: { m: UpcomingMatch; timeOnl
                 <span className="chip" title="When the official forecast freezes">
                   {/* drop the day ONLY when the freeze shares the kickoff's UTC day —
                       the day headings group by UTC, so the check must agree with them
-                      (parse → toISOString: never assume the API string's offset form) */}
+                      (parse → toISOString: never assume the API string's offset form).
+                      This rule is PAGE-INDEPENDENT on purpose: keyed off `timeOnly` it made
+                      the same fixture print a short chip on /forecasts and a long one on
+                      /home, so one page laid the footer out inline and the other stacked it.
+                      The kickoff line directly above always carries the date, so the short
+                      form loses nothing wherever the card is rendered. */}
                   freezes{" "}
-                  {timeOnly &&
-                  cutoff.toISOString().slice(0, 10) ===
-                    new Date(m.kickoff_utc).toISOString().slice(0, 10)
+                  {cutoff.toISOString().slice(0, 10) ===
+                  new Date(m.kickoff_utc).toISOString().slice(0, 10)
                     ? timeLocal(cutoff.toISOString())
                     : kickoffLocal(cutoff.toISOString())}
                 </span>

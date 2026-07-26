@@ -1,12 +1,18 @@
 // H/D/A probability bar — fixed order, 2px gaps, always visible (no JS/animation-gated
-// visibility). Labels are PIXEL-aware: in-bar only when every segment can fit its label
-// at the bar's measured width, otherwise a caption row below — one encoding, never a
-// silently clipped sliver (a share-based gate clips on narrow cards).
+// visibility). ONE label rule, everywhere: the outcome letter + the probability at ONE
+// decimal, in the bar, at every viewport and every segment width. The published number IS
+// the record, so it must read identically on a 390px phone and a 1440px desktop — a bar
+// that swaps precision (or swaps to a legend row) by measured width made the SAME forecast
+// render "57.9%" on one screen and "58%" on another, and put two treatments side by side in
+// one card grid. Width now decides only whether a LABEL is drawn, never how a NUMBER reads:
+// a segment too narrow to hold its label in full renders no label rather than a clipped
+// sliver (the aria-label always carries all three figures).
 import { useEffect, useRef, useState } from "react";
 import { pct } from "../../lib/format";
 
-const FULL_LABEL_PX = 62; // ≈ "D 26.0%" at 11px mono + breathing room
-const PCT_LABEL_PX = 48; // ≈ "D 26%" — same letter+number language as the full tier
+/** A label is exactly 7 monospace glyphs ("D 26.0%") = 50.4px at --text-xs IBM Plex Mono
+    600 (measured, not estimated); +8px so it never sets flush against a segment edge. */
+const LABEL_PX = 58;
 
 export function ProbBar({
   pHome,
@@ -35,14 +41,7 @@ export function ProbBar({
     { key: "draw", label: "D", p: pDraw },
     { key: "away", label: "A", p: pAway },
   ] as const;
-  // three tiers: full "H 46.5%" → bare "47%" → legend row. One system per bar,
-  // never a silently clipped sliver.
-  const tier =
-    width > 0 && segs.every((s) => s.p * width >= FULL_LABEL_PX)
-      ? "full"
-      : width > 0 && segs.every((s) => s.p * width >= PCT_LABEL_PX)
-        ? "pct"
-        : "legend";
+
   return (
     <div className="probbar-wrap">
       <div
@@ -56,24 +55,15 @@ export function ProbBar({
             key={s.key}
             className={`seg ${s.key}`}
             style={{ flexGrow: Math.max(s.p, 0.001), flexBasis: 0 }}
+            title={`${s.label} ${pct(s.p)}`}
           >
-            <span className="seg-label">
-              {tier === "full" && `${s.label} ${pct(s.p)}`}
-              {tier === "pct" && `${s.label} ${Math.round(s.p * 100)}%`}
-            </span>
+            {/* one precision, one place: in-bar, 1dp — drawn only when it fits whole */}
+            {width > 0 && s.p * width >= LABEL_PX && (
+              <span className="seg-label">{`${s.label} ${pct(s.p)}`}</span>
+            )}
           </div>
         ))}
       </div>
-      {tier === "legend" && (
-        <div className="probbar-legend" aria-hidden>
-          {segs.map((s) => (
-            <span key={s.key}>
-              <span className="swatch" style={{ background: `var(--${s.key})` }} />
-              {s.label} {pct(s.p)}
-            </span>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
