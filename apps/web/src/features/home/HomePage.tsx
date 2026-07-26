@@ -8,9 +8,17 @@ import { Ticker } from "../../components/layout/Ticker";
 import { useUpcoming } from "../../components/layout/UpcomingContext";
 import { Section } from "../../components/ui/Section";
 import { StatTile } from "../../components/ui/StatTile";
-import { Skeleton } from "../../components/ui/states";
+import { EmptyState, Skeleton } from "../../components/ui/states";
 import { MARKET_LOG_LOSS_TEST } from "../../lib/facts";
-import { freezeRunOf, kickoffLocal, kickoffUTC, nats, teamName, timeLocal } from "../../lib/format";
+import {
+  dateShort,
+  freezeRunOf,
+  kickoffLocal,
+  kickoffUTC,
+  nats,
+  teamName,
+  timeLocal,
+} from "../../lib/format";
 import { matchPhase } from "../../lib/matchPhase";
 import { useApi } from "../../lib/useApi";
 import { useCountdown } from "../../lib/useCountdown";
@@ -195,12 +203,15 @@ function Hero() {
     never repeats the hero's next-freeze fact. */
 function StatusCell() {
   const { health, apiDown } = useHealth();
-  const { list, inPlay } = useUpcoming();
+  const { upcoming, inPlay } = useUpcoming();
   const ingested = useRelativeTime(health?.last_ingest);
   const graded = useRelativeTime(health?.last_grade);
+  // a dead FULL fixture sweep is its own kind of stale: results kept flowing while the
+  // schedule silently froze, so the cell names it rather than reading "system live"
+  const scheduleStale = health?.schedule_fresh === false;
   const state = apiDown
     ? { label: "api unreachable", cls: "bad" }
-    : health && !health.freshness_ok
+    : health && (!health.freshness_ok || scheduleStale)
       ? { label: "system stale", cls: "stale" }
       : health
         ? { label: "system live", cls: "" }
@@ -216,10 +227,15 @@ function StatusCell() {
       <span className="sc-row" title={health?.last_grade ?? undefined}>
         graded <span className="v">{health?.last_grade ? graded : "—"}</span>
       </span>
+      {typeof health?.schedule_fresh === "boolean" && (
+        <span className="sc-row" title={health.last_full_ingest ?? undefined}>
+          schedule <span className="v">{health.schedule_fresh ? "current" : "stale"}</span>
+        </span>
+      )}
       <span className="sc-row">
         window{" "}
         <span className="v">
-          {list ? `${list.length} upcoming` : "—"}
+          {upcoming ? `${upcoming.length} upcoming` : "—"}
           {inPlay && inPlay.length > 0 ? ` · ${inPlay.length} in play` : ""}
         </span>
       </span>
@@ -228,12 +244,27 @@ function StatusCell() {
 }
 
 export function HomePage() {
-  const { list, totalGraded } = useUpcoming();
+  const { upcoming, totalGraded } = useUpcoming();
+  const { health } = useHealth();
   const test = useApi(() => api.performance("test"));
   const dev = useApi(() => api.performance("dev"));
 
   const testM = test.data?.metrics;
   const devM = dev.data?.metrics;
+  // the board shows the next four; the strap says how many exist and how far they reach —
+  // the endpoint has no fixed horizon, so only the fixtures actually returned are described
+  const shown = upcoming ? upcoming.slice(0, 4) : null;
+  const lastShown = shown && shown.length > 0 ? shown[shown.length - 1] : null;
+  const fixtureMeta =
+    upcoming && shown && lastShown
+      ? [
+          upcoming.length > shown.length
+            ? `${shown.length} of ${upcoming.length} fixtures`
+            : `${upcoming.length} fixture${upcoming.length === 1 ? "" : "s"}`,
+          `through ${dateShort(lastShown.kickoff_utc)}`,
+        ]
+      : undefined;
+  const scheduleStale = health?.schedule_fresh === false;
   // ONE source for the live graded count everywhere: /predictions/completed via the shared
   // context (a live SQL count that refetches on matchday) — never the lagging snapshot n
   const liveN = totalGraded;
@@ -318,7 +349,7 @@ export function HomePage() {
 
       <Section
         eyebrow="Next up"
-        meta={["7-day window"]}
+        meta={fixtureMeta}
         title="Upcoming fixtures"
         description={
           <>
@@ -328,12 +359,21 @@ export function HomePage() {
         }
       >
         <div className="board-split">
-          {list ? (
-            <div className="grid-2">
-              {list.slice(0, 4).map((m) => (
-                <FixtureCard key={m.match_id} m={m} />
-              ))}
-            </div>
+          {shown ? (
+            shown.length > 0 ? (
+              <div className="grid-2">
+                {shown.map((m) => (
+                  <FixtureCard key={m.match_id} m={m} />
+                ))}
+              </div>
+            ) : (
+              // an empty grid used to read as "MLS has no fixtures" — say which it is
+              <EmptyState title="No upcoming fixtures">
+                {scheduleStale
+                  ? `The fixture schedule has not refreshed since ${health?.last_full_ingest ?? "never"}, so this list is incomplete until the next full sweep.`
+                  : "The schedule sweep is current and holds no fixture ahead of now — it looks 7 days out, so later fixtures appear as they enter that window."}
+              </EmptyState>
+            )
           ) : (
             <div className="grid-2">
               <Skeleton height={160} />

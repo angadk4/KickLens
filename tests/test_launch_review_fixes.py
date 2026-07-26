@@ -314,6 +314,141 @@ if DATABASE_URL:
             (match_id,),
         )
 
+    def test_unmapped_team_skips_only_that_fixture(env) -> None:  # type: ignore[no-untyped-def]
+        """ADR-006 (real incident 2026-07-25): one unmappable club (cup / all-star / expansion
+        opponent) used to abort the WHOLE sweep via the T-040 fail-stop, silently freezing all
+        fixture AND result ingestion for days. It must now skip just that fixture and carry on
+        — while still refusing to guess the team."""
+        conn = env["conn"]
+        ko = KO + timedelta(days=21)
+        unknown = LiveFixture(
+            provider="highlightly",
+            provider_fixture_id="900",
+            kickoff_utc=ko,
+            status="scheduled",
+            home_key="999999",  # no alias — the incident's shape
+            away_key="222",
+            home_goals=None,
+            away_goals=None,
+            provider_last_updated_utc=None,
+            home_label="Some Cup Opponent",
+        )
+        good = _fx("901", ko + timedelta(hours=1))
+        notes: list[str] = []
+        # the unmapped fixture is FIRST, so a halting sweep would never reach the good one
+        stats = ingest_live_fixtures(
+            conn, [unknown, good], env["season"], 2026, unresolved_out=notes
+        )
+        assert stats["unresolved"] == 1
+        assert stats["new"] == 1  # the good fixture STILL ingested — the whole point
+        # refused to guess: no match, no source_fixture row for the unmapped fixture
+        row = conn.execute(
+            "SELECT count(*) FROM source_fixture WHERE provider_fixture_id='900'"
+        ).fetchone()
+        assert row is not None and int(row[0]) == 0
+        # the note names the club, so it is actionable without a manual provider lookup
+        assert len(notes) == 1
+        assert "Some Cup Opponent" in notes[0] and "999999" in notes[0]
+
+    def test_unmapped_fixture_ingests_once_the_alias_exists(env) -> None:  # type: ignore[no-untyped-def]
+        """A skip is not a dead end: nothing is persisted for the skipped fixture, so the very
+        next sweep picks it up as soon as the developer adds the alias."""
+        conn = env["conn"]
+        ko = KO + timedelta(days=28)
+        fx = LiveFixture(
+            provider="highlightly",
+            provider_fixture_id="902",
+            kickoff_utc=ko,
+            status="scheduled",
+            home_key="888888",
+            away_key="222",
+            home_goals=None,
+            away_goals=None,
+            provider_last_updated_utc=None,
+        )
+        first = ingest_live_fixtures(conn, [fx], env["season"], 2026)
+        assert first["unresolved"] == 1 and first["new"] == 0
+
+        conn.execute(
+            "INSERT INTO team_alias (provider, provider_key, team_id) VALUES"
+            " ('highlightly','888888',%s)",
+            (env["h"],),
+        )
+        second = ingest_live_fixtures(conn, [fx], env["season"], 2026)
+        assert second.get("unresolved", 0) == 0 and second["new"] == 1  # picked up, no backfill
+
+    def test_score_correction_bumps_result_version_so_regrade_fires(env) -> None:  # type: ignore[no-untyped-def]
+        """RECORD-CORRUPTION guard: a provider score correction must go through the T-161
+        versioned path. Writing the new score directly leaves result_version untouched, and
+        grade_all_pending only regrades when the grade's result_version differs from the
+        match's — so the record would publish the NEW score beside a grade computed from the
+        OLD one, forever."""
+        from models.grading import grade_all_pending
+
+        conn = env["conn"]
+        ko = KO + timedelta(days=35)
+
+        def fx_final(h: int, a: int) -> LiveFixture:
+            return LiveFixture(
+                provider="highlightly",
+                provider_fixture_id="910",
+                kickoff_utc=ko,
+                status="final",
+                home_key="111",
+                away_key="222",
+                home_goals=h,
+                away_goals=a,
+                provider_last_updated_utc=None,
+            )
+
+        ingest_live_fixtures(conn, [_fx("910", ko)], env["season"], 2026)
+        row = conn.execute(
+            "SELECT match_id FROM source_fixture WHERE provider_fixture_id='910'"
+        ).fetchone()
+        assert row is not None
+        match_id = int(row[0])
+        pid, _ = _mk_official(env, match_id, ko)
+
+        # first final: 2-1 home win, graded normally at result_version 0
+        ingest_live_fixtures(conn, [fx_final(2, 1)], env["season"], 2026)
+        assert grade_all_pending(conn) == 1
+        v0 = conn.execute(
+            "SELECT result, result_version FROM match WHERE match_id=%s", (match_id,)
+        ).fetchone()
+        assert v0 is not None and v0[0] == "H" and int(v0[1]) == 0
+
+        # the provider CORRECTS it to 1-2 (an away win) — a different outcome entirely
+        stats = ingest_live_fixtures(conn, [fx_final(1, 2)], env["season"], 2026)
+        assert stats.get("corrections") == 1
+        v1 = conn.execute(
+            "SELECT result, result_version FROM match WHERE match_id=%s", (match_id,)
+        ).fetchone()
+        assert v1 is not None and v1[0] == "A" and int(v1[1]) == 1  # version BUMPED
+
+        # …so the regrade actually fires, and the record ends up graded against the new score
+        assert grade_all_pending(conn) == 1
+        grades = conn.execute(
+            "SELECT result_version, correct FROM prediction_grade WHERE prediction_id=%s"
+            " ORDER BY result_version",
+            (pid,),
+        ).fetchall()
+        assert [int(g[0]) for g in grades] == [0, 1]  # both kept — append-only
+        assert grades[0][1] is True and grades[1][1] is False  # H hit, then A missed
+        # a re-report of the SAME score is a no-op (no phantom version churn)
+        again = ingest_live_fixtures(conn, [fx_final(1, 2)], env["season"], 2026)
+        assert again.get("corrections", 0) == 0
+        v2 = conn.execute(
+            "SELECT result_version FROM match WHERE match_id=%s", (match_id,)
+        ).fetchone()
+        assert v2 is not None and int(v2[0]) == 1
+        # restore the module invariant: no COMPLETED match may carry toy feature rows, or
+        # the leakage suite's R1 recompute-parity audit (rightly) fails on them
+        conn.execute(
+            "UPDATE match SET result=NULL, status='postponed', home_goals=NULL,"
+            " away_goals=NULL WHERE match_id=%s",
+            (match_id,),
+        )
+
     # ---------- anchor catch-up republisher ----------
 
     def test_retry_failed_anchors_republishes_then_clears(  # type: ignore[no-untyped-def]

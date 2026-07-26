@@ -6,13 +6,13 @@ import { ReliabilityDiagram } from "../../components/charts/ReliabilityDiagram";
 import { ScopeChip } from "../../components/ui/ScopeChip";
 import { Section } from "../../components/ui/Section";
 import { EmptyState, ErrorState, Skeleton } from "../../components/ui/states";
-import { ECE_DEV_CHAMPION, ECE_DEV_MARKET, ECE_DEV_RAW } from "../../lib/facts";
+import {
+  ECE_DEV_CHAMPION,
+  ECE_DEV_MARKET,
+  ECE_DEV_RAW,
+  MIN_N_BUCKET_DETAIL,
+} from "../../lib/facts";
 import { useApi } from "../../lib/useApi";
-
-// Below this live sample size, a reliability curve spreads the forecasts one or two per
-// confidence bucket — per-bucket rates are noise, not evidence — so only the headline ECE
-// (with its scope + n chip) renders until the sample clears it. Dev/test sit far above.
-const MIN_N_CALIBRATION_DETAIL = 30;
 
 const LABELS: Record<string, { label: string; blurb: string }> = {
   dev: {
@@ -132,7 +132,7 @@ export function CalibrationPage() {
           const s: CalibrationScope | undefined = data[scope];
           const meta = LABELS[scope];
           // dev/test are never gated (large sealed n); live earns its curves at n≥30
-          const showDetail = scope !== "live" || (s?.n ?? 0) >= MIN_N_CALIBRATION_DETAIL;
+          const showDetail = scope !== "live" || (s?.n ?? 0) >= MIN_N_BUCKET_DETAIL;
           return (
             <div key={scope} className="entry">
               <header className="entry-strap">
@@ -174,7 +174,7 @@ export function CalibrationPage() {
                         ) : (
                           <p className="blurb">
                             The reliability curve and per-outcome bars appear once the live
-                            sample reaches n≥{MIN_N_CALIBRATION_DETAIL} — at n={s.n ?? 0},
+                            sample reaches n≥{MIN_N_BUCKET_DETAIL} — at n={s.n ?? 0},
                             each confidence bucket holds only a handful of forecasts, so a
                             curve would show noise, not calibration.
                           </p>

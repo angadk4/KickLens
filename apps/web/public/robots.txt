@@ -1,0 +1,3 @@
+# KickLens — a public, read-only forecast record. Crawling is welcome.
+User-agent: *
+Allow: /

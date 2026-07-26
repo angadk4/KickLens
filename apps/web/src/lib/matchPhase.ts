@@ -61,6 +61,14 @@ export function matchPhase(i: PhaseInput): MatchPhase {
   return elapsedMin < LIKELY_FT_MIN ? "in-play" : "result-pending";
 }
 
+/** The ONE definition of "upcoming": kickoff still in the future. Fetches are periodic but
+    the clock isn't, so an open tab must drop a fixture the moment it kicks off — otherwise
+    the same match sits in an "upcoming" list AND the in-play band. Mirrors the server's
+    `kickoff_utc > now()` filter on /matches/upcoming; pass a clock tick as `now`. */
+export function notYetKickedOff<T extends { kickoff_utc: string }>(list: T[], now: number): T[] {
+  return list.filter((m) => new Date(m.kickoff_utc).getTime() > now);
+}
+
 /** Display text per phase. `title` carries the honest mechanics for a hover/tooltip. */
 export function phaseLabel(p: MatchPhase): { text: string; title?: string } {
   switch (p) {

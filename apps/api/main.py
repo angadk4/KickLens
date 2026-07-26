@@ -70,15 +70,28 @@ def health(conn: Conn) -> dict[str, Any]:
         " (SELECT max(created_at_utc) FROM dataset_snapshot),"
         " (SELECT max(finished_at_utc) FROM job_run"
         "   WHERE job_name = 'ingest' AND status = 'done')),"
-        " (SELECT max(graded_at_utc) FROM prediction_grade)"
+        " (SELECT max(graded_at_utc) FROM prediction_grade),"
+        # the FULL sweep specifically (fixtures, kickoff moves, supersession). Narrow
+        # results-only night sweeps (ADR-005) must not be able to hold freshness green on
+        # their own — that is precisely what masked the 2026-07-23 ingest outage for ~60h.
+        # Runs predating the sweep-kind tag are counted as full (they were).
+        " (SELECT max(finished_at_utc) FROM job_run WHERE job_name = 'ingest'"
+        "   AND status = 'done' AND coalesce(details->>'sweep', 'full') = 'full')"
     ).fetchone()
     last_ingest = row[0] if row else None
-    freshness_ok = bool(last_ingest and datetime.now(UTC) - last_ingest <= FRESHNESS_LIMIT)
+    last_full = row[2] if row else None
+    now = datetime.now(UTC)
+    fresh_any = bool(last_ingest and now - last_ingest <= FRESHNESS_LIMIT)
+    fresh_full = bool(last_full and now - last_full <= FRESHNESS_LIMIT)
     return {
         "status": "ok",
         "last_ingest": _iso(last_ingest),
         "last_grade": _iso(row[1] if row else None),
-        "freshness_ok": freshness_ok,
+        # honest only if the FULL sweep is current: results can keep flowing while the
+        # fixture schedule silently goes stale, and the site must be able to say so
+        "freshness_ok": fresh_any and fresh_full,
+        "last_full_ingest": _iso(last_full),
+        "schedule_fresh": fresh_full,
     }
 
 
@@ -292,10 +305,19 @@ def predictions_completed(
         " JOIN team h ON h.team_id = m.home_team_id JOIN team a ON a.team_id = m.away_team_id"
         " JOIN LATERAL (SELECT * FROM prediction_grade gg WHERE gg.prediction_id = p.prediction_id"
         "   ORDER BY gg.result_version DESC LIMIT 1) g ON true"
-        " WHERE p.is_official ORDER BY m.kickoff_utc DESC LIMIT %s OFFSET %s",
+        # voided forecasts stay publicly verifiable on /matches/{id} but never enter the
+        # published record — same predicate as ledger.latest_official and the live snapshot
+        " WHERE p.is_official AND NOT EXISTS (SELECT 1 FROM prediction_event e"
+        "   WHERE e.prediction_id = p.prediction_id AND e.event_type='Voided')"
+        " ORDER BY m.kickoff_utc DESC LIMIT %s OFFSET %s",
         (limit, offset),
     ).fetchall()
-    total = conn.execute("SELECT count(DISTINCT prediction_id) FROM prediction_grade").fetchone()
+    total = conn.execute(
+        "SELECT count(DISTINCT g.prediction_id) FROM prediction_grade g"
+        " JOIN prediction p USING (prediction_id)"
+        " WHERE p.is_official AND NOT EXISTS (SELECT 1 FROM prediction_event e"
+        "   WHERE e.prediction_id = p.prediction_id AND e.event_type='Voided')"
+    ).fetchone()
     return {
         "total_graded": 0 if total is None else int(total[0]),
         "items": [
@@ -437,7 +459,9 @@ def methodology(conn: Conn, response: Response) -> dict[str, Any]:
             "draws are the hardest outcome; accuracy is a diagnostic, never a selection metric",
         ],
         "data": "football-data.co.uk (historical); Highlightly (live fixtures); "
-        "SportsGameOdds (live odds, aggregate display only)",
+        # "aggregate display only" described a display that does not exist anywhere on the
+        # site — odds are captured solely as the same-cutoff market reference, never shown
+        "SportsGameOdds (closing odds, collected for the market reference; not displayed)",
         "calibration": {
             "method": None if prod is None else prod[0],
             "param_t": None if prod is None or prod[1] is None else float(prod[1]),

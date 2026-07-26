@@ -24,7 +24,7 @@ from typing import Any
 
 import psycopg
 
-from ingestion.aliases import resolve_or_raise, resolver
+from ingestion.aliases import UnresolvedTeamError, resolve_or_raise, resolver
 from ingestion.historical import RETRY_DELAYS_S
 from ingestion.rs_filter import is_regular_season
 
@@ -75,6 +75,10 @@ class LiveFixture:
     away_goals: int | None
     provider_last_updated_utc: datetime | None
     raw_ref: str | None = None
+    # provider display names — DIAGNOSTICS ONLY, never used to resolve a team (that would be
+    # guessing; T-040). They exist so an unresolved key says WHICH club it is.
+    home_label: str | None = None
+    away_label: str | None = None
 
 
 def _http_json(url: str, headers: dict[str, str]) -> dict[str, Any]:
@@ -100,6 +104,14 @@ def _with_retries(
             if attempt < len(retry_delays):
                 sleep(retry_delays[attempt])
     raise ProviderError(str(last))
+
+
+def _label(team: Any) -> str | None:
+    """Provider display name, best-effort — diagnostics only (see LiveFixture)."""
+    if not isinstance(team, dict):
+        return None
+    name = team.get("name") or team.get("displayName") or team.get("longName")
+    return None if name is None else str(name)
 
 
 def _canonical_status(raw: str) -> str:
@@ -144,6 +156,8 @@ class HighlightlyAdapter:
                     home_goals=hg,
                     away_goals=ag,
                     provider_last_updated_utc=None,  # Highlightly has no per-fixture stamp
+                    home_label=_label(m.get("homeTeam")),
+                    away_label=_label(m.get("awayTeam")),
                 )
             )
         return out
@@ -183,6 +197,8 @@ class ApiFootballAdapter:
                     home_goals=goals.get("home"),
                     away_goals=goals.get("away"),
                     provider_last_updated_utc=None,
+                    home_label=_label(teams.get("home")),
+                    away_label=_label(teams.get("away")),
                 )
             )
         return out
@@ -277,6 +293,7 @@ def ingest_live_fixtures(
     *,
     now: datetime | None = None,
     results_only: bool = False,
+    unresolved_out: list[str] | None = None,
 ) -> dict[str, int]:
     """Upsert canonical rows: unchanged payload → no-op; changed → revision N+1 (same match).
     Finished fixtures set the match result (live provider wins for the current season).
@@ -286,85 +303,145 @@ def ingest_live_fixtures(
     kickoff updates. The night window overlaps live play, where a transient provider blip
     (kickoff-time wobble, momentary 'postponed') must not void a frozen official mid-game;
     voids/supersession remain the 08:00/20:00 full sweeps' job, which never coincide with
-    MLS play. The narrowing is the whole safety argument — do not widen it casually."""
+    MLS play. The narrowing is the whole safety argument — do not widen it casually.
+
+    A fixture whose teams have no alias is SKIPPED, never guessed (T-040 holds), and reported
+    via stats['unresolved'] + unresolved_out — the sweep continues (ADR-006)."""
     now = now or datetime.now(UTC)
     stats = {"new": 0, "revisions": 0, "unchanged": 0, "results": 0, "voided": 0}
+    unresolved: list[str] = []
     for fx in fixtures:
         if results_only and not (
             fx.status == "final" and fx.home_goals is not None and fx.away_goals is not None
         ):
             stats["skipped_nonfinal"] = stats.get("skipped_nonfinal", 0) + 1
             continue
-        teams = resolver(conn, fx.provider)
-        latest = _latest_revision(conn, fx.provider, fx.provider_fixture_id)
-        if latest is None:
-            match_id = _find_or_create_match(conn, fx, season_id, season_year, teams)
-            revision = 0
-            stats["new"] += 1
-        else:
-            revision, match_id_opt, ko, status, hg, ag = latest
-            match_id = (
-                match_id_opt
-                if match_id_opt is not None
-                else _find_or_create_match(conn, fx, season_id, season_year, teams)
-            )
-            unchanged = (
-                ko == fx.kickoff_utc
-                and status == fx.status
-                and hg == fx.home_goals
-                and ag == fx.away_goals
-            )
-            if unchanged:
-                stats["unchanged"] += 1
-                continue
-            revision += 1
-            stats["revisions"] += 1
-        conn.execute(
-            "INSERT INTO source_fixture (provider, provider_fixture_id, fixture_revision,"
-            " match_id, kickoff_utc, status, home_provider_key, away_provider_key,"
-            " home_goals, away_goals, fetched_at_utc)"
-            " VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
-            (
-                fx.provider,
-                fx.provider_fixture_id,
-                revision,
-                match_id,
-                fx.kickoff_utc,
-                fx.status,
-                fx.home_key,
-                fx.away_key,
-                fx.home_goals,
-                fx.away_goals,
-                now,
-            ),
-        )
-        if results_only:
-            # finals only: write the status, never the kickoff (a provider's post-hoc
-            # "actual kickoff" correction must not ripple into cutoffs/anchors), and
-            # never void — see the docstring's safety argument
-            conn.execute("UPDATE match SET status=%s WHERE match_id=%s", (fx.status, match_id))
-        else:
-            # Contract §7 supersession (launch-review fix — was never wired): a kickoff move
-            # or a postpone/cancel/abandon AFTER an official freeze voids the old official;
-            # the new T-3h forecast is then produced by fixtures_due/finalize automatically.
-            prev = conn.execute(
-                "SELECT kickoff_utc FROM match WHERE match_id=%s", (match_id,)
-            ).fetchone()
-            kickoff_moved = prev is not None and prev[0] is not None and prev[0] != fx.kickoff_utc
-            if kickoff_moved or fx.status in ("postponed", "cancelled", "abandoned"):
-                from models.ledger import latest_official, void_official
+        try:
+            _ingest_one(conn, fx, season_id, season_year, now, stats, results_only)
+        except UnresolvedTeamError as exc:
+            # T-040 still REFUSES to guess this fixture — but skipping it is now the whole
+            # blast radius (ADR-006). Halting the sweep meant one unmappable club (a cup /
+            # all-star / expansion opponent) silently froze ALL fixture and result ingestion
+            # for days, which is strictly worse for the record than dropping that one row.
+            unresolved.append(_unresolved_note(fx, exc))
+            stats["unresolved"] = stats.get("unresolved", 0) + 1
+            continue
+    if unresolved:
+        # loud in CloudWatch AND handed to the caller, which persists it to job_run.details
+        # so the daily canary keeps raising until an alias (or an exclusion) is added
+        print(f"live-ingest: {len(unresolved)} fixture(s) SKIPPED, unmapped teams: {unresolved}")
+        if unresolved_out is not None:
+            unresolved_out.extend(unresolved)
+    return stats
 
-                official = latest_official(conn, match_id)
-                if official is not None:
-                    reason = "kickoff moved" if kickoff_moved else fx.status
-                    void_official(conn, official, match_id, reason=reason)
-                    stats["voided"] = stats.get("voided", 0) + 1
-            # kickoff moves + status flow onto the canonical match (identity unchanged)
-            conn.execute(
-                "UPDATE match SET kickoff_utc=%s, status=%s WHERE match_id=%s",
-                (fx.kickoff_utc, fx.status, match_id),
-            )
-        if fx.status == "final" and fx.home_goals is not None and fx.away_goals is not None:
+
+def _unresolved_note(fx: LiveFixture, exc: UnresolvedTeamError) -> str:
+    """Human-identifiable record of a skipped fixture — the names make it actionable at a
+    glance (the raw provider key alone forces a manual API lookup)."""
+    home = f"{fx.home_label or '?'} [{fx.home_key}]"
+    away = f"{fx.away_label or '?'} [{fx.away_key}]"
+    return f"{fx.kickoff_utc:%Y-%m-%d} {home} v {away} (fixture {fx.provider_fixture_id}): {exc}"
+
+
+def _ingest_one(
+    conn: psycopg.Connection,
+    fx: LiveFixture,
+    season_id: int,
+    season_year: int,
+    now: datetime,
+    stats: dict[str, int],
+    results_only: bool,
+) -> None:
+    """One fixture's upsert (the per-fixture body of the sweep). Team resolution happens
+    BEFORE any write, so a fixture skipped for an unmapped team leaves no partial row."""
+    teams = resolver(conn, fx.provider)
+    latest = _latest_revision(conn, fx.provider, fx.provider_fixture_id)
+    if latest is None:
+        match_id = _find_or_create_match(conn, fx, season_id, season_year, teams)
+        revision = 0
+        stats["new"] += 1
+    else:
+        revision, match_id_opt, ko, status, hg, ag = latest
+        match_id = (
+            match_id_opt
+            if match_id_opt is not None
+            else _find_or_create_match(conn, fx, season_id, season_year, teams)
+        )
+        unchanged = (
+            ko == fx.kickoff_utc
+            and status == fx.status
+            and hg == fx.home_goals
+            and ag == fx.away_goals
+        )
+        if unchanged:
+            stats["unchanged"] += 1
+            return
+        revision += 1
+        stats["revisions"] += 1
+    conn.execute(
+        "INSERT INTO source_fixture (provider, provider_fixture_id, fixture_revision,"
+        " match_id, kickoff_utc, status, home_provider_key, away_provider_key,"
+        " home_goals, away_goals, fetched_at_utc)"
+        " VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+        (
+            fx.provider,
+            fx.provider_fixture_id,
+            revision,
+            match_id,
+            fx.kickoff_utc,
+            fx.status,
+            fx.home_key,
+            fx.away_key,
+            fx.home_goals,
+            fx.away_goals,
+            now,
+        ),
+    )
+    if results_only:
+        # finals only: write the status, never the kickoff (a provider's post-hoc
+        # "actual kickoff" correction must not ripple into cutoffs/anchors), and
+        # never void — see ingest_live_fixtures' docstring for the safety argument
+        conn.execute("UPDATE match SET status=%s WHERE match_id=%s", (fx.status, match_id))
+    else:
+        # Contract §7 supersession (launch-review fix — was never wired): a kickoff move
+        # or a postpone/cancel/abandon AFTER an official freeze voids the old official;
+        # the new T-3h forecast is then produced by fixtures_due/finalize automatically.
+        prev = conn.execute(
+            "SELECT kickoff_utc FROM match WHERE match_id=%s", (match_id,)
+        ).fetchone()
+        kickoff_moved = prev is not None and prev[0] is not None and prev[0] != fx.kickoff_utc
+        if kickoff_moved or fx.status in ("postponed", "cancelled", "abandoned"):
+            from models.ledger import latest_official, void_official
+
+            official = latest_official(conn, match_id)
+            if official is not None:
+                reason = "kickoff moved" if kickoff_moved else fx.status
+                void_official(conn, official, match_id, reason=reason)
+                stats["voided"] = stats.get("voided", 0) + 1
+        # kickoff moves + status flow onto the canonical match (identity unchanged)
+        conn.execute(
+            "UPDATE match SET kickoff_utc=%s, status=%s WHERE match_id=%s",
+            (fx.kickoff_utc, fx.status, match_id),
+        )
+    if fx.status == "final" and fx.home_goals is not None and fx.away_goals is not None:
+        prior = conn.execute(
+            "SELECT home_goals, away_goals FROM match WHERE match_id=%s", (match_id,)
+        ).fetchone()
+        had_score = prior is not None and prior[0] is not None and prior[1] is not None
+        if had_score:
+            assert prior is not None
+            if (int(prior[0]), int(prior[1])) == (fx.home_goals, fx.away_goals):
+                return  # the same score re-reported: nothing to write, nothing to regrade
+            # T-161 CORRECTION path: the provider changed a score we had ALREADY recorded
+            # (disallowed goal / official scoring change). A plain UPDATE here would leave
+            # result_version untouched, and grade_all_pending only regrades when the grade's
+            # result_version differs from the match's — so the record would keep a grade
+            # computed against the OLD score while publishing the NEW one, permanently.
+            from models.grading import apply_result_correction
+
+            apply_result_correction(conn, match_id, fx.home_goals, fx.away_goals)
+            stats["corrections"] = stats.get("corrections", 0) + 1
+        else:
             result = (
                 "H"
                 if fx.home_goals > fx.away_goals
@@ -376,5 +453,4 @@ def ingest_live_fixtures(
                 "UPDATE match SET home_goals=%s, away_goals=%s, result=%s WHERE match_id=%s",
                 (fx.home_goals, fx.away_goals, result, match_id),
             )
-            stats["results"] += 1
-    return stats
+        stats["results"] += 1

@@ -51,6 +51,14 @@ export type Health = {
   last_ingest: string | null;
   last_grade: string | null;
   freshness_ok: boolean;
+  // OPTIONAL so the app degrades gracefully against an older API. A narrow results-only
+  // night sweep keeps last_ingest moving while the FULL fixture sweep (fixtures, kickoff
+  // moves, supersession) is dead — these two say so instead of letting the schedule go
+  // quietly stale behind a green light.
+  /** completion of the last FULL fixture sweep */
+  last_full_ingest?: string | null;
+  /** is that full sweep inside the 36h freshness limit */
+  schedule_fresh?: boolean;
 };
 
 export type Scope = "dev" | "test" | "backtest" | "live";

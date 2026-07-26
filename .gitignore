@@ -17,6 +17,8 @@ build/
 
 # Local data + secrets
 /data/
+# `aws lambda invoke` response dumps — transient operational output, may echo payload contents
+out-*.json
 .env
 .env.*
 !.env.example

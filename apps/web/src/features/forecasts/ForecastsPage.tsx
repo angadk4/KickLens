@@ -1,9 +1,11 @@
 // Forecasts grouped by kickoff day — a schedule, not a card dump. One color key at the top;
 // cards carry time-only since the day heading owns the date.
 import { api, type UpcomingMatch } from "../../api";
+import { useHealth } from "../../components/layout/HealthContext";
 import { Section } from "../../components/ui/Section";
 import { EmptyState, ErrorState, Skeleton } from "../../components/ui/states";
 import { dayHeading } from "../../lib/format";
+import { notYetKickedOff } from "../../lib/matchPhase";
 import { useApi } from "../../lib/useApi";
 import { useNow } from "../../lib/useRelativeTime";
 import { FixtureCard } from "./FixtureCard";
@@ -21,12 +23,12 @@ function groupByDay(list: UpcomingMatch[]): { day: string; items: UpcomingMatch[
 }
 
 export function ForecastsPage() {
+  // this page keeps its own fetch for the error/retry surface, but shares the ONE
+  // definition of "upcoming" with the board, the ticker and the status cell
   const { data, error, loading, retry } = useApi(() => api.upcoming());
+  const { health } = useHealth();
   const now = useNow();
-  // the fetch is one-shot but the clock isn't: drop a fixture from the day groups the
-  // moment it kicks off, so it can't sit here as "upcoming" while the (polled) matchday
-  // band above shows the same game in play — mirrors the server's kickoff_utc > now filter
-  const upcoming = data?.filter((m) => new Date(m.kickoff_utc).getTime() > now) ?? null;
+  const upcoming = data ? notYetKickedOff(data, now) : null;
   return (
     <div className="page">
       <Section
@@ -64,8 +66,9 @@ export function ForecastsPage() {
         {error && <ErrorState retry={retry} />}
         {upcoming && upcoming.length === 0 && (
           <EmptyState title="No upcoming fixtures with forecasts yet">
-            Fixtures appear here as the schedule fills; drafts generate inside the 7-day
-            window.
+            {health?.schedule_fresh === false
+              ? `Our fixture feed is stale — the last full schedule sync finished ${health.last_full_ingest ?? "never"}, so fixtures are missing here rather than absent from the league. Results and grading are unaffected.`
+              : "Fixtures appear here as the 7-day schedule sweep picks them up; drafts generate inside the same 7-day window."}
           </EmptyState>
         )}
       </Section>

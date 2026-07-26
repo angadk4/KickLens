@@ -22,10 +22,16 @@ def recompute_live_snapshot(conn: psycopg.Connection) -> int:
     """Aggregate the LIVE record from graded official forecasts. Idempotent append
     (a new snapshot row per recompute; the API serves the newest per scope)."""
     rows = conn.execute(
+        # official + NOT voided, matching ledger.latest_official / grade_match: a voided
+        # forecast (postponement, kickoff move) is retained forever and stays publicly
+        # verifiable, but it must never move the published live record — /matches/{id}
+        # already renders it voided=true, so counting it here would contradict that.
         "SELECT DISTINCT ON (g.prediction_id) g.log_loss, g.rps, g.brier, g.correct,"
         " p.p_home, p.p_draw, p.p_away, m.kickoff_utc, m.result"
         " FROM prediction_grade g JOIN prediction p USING (prediction_id)"
         " JOIN match m ON m.match_id = p.match_id"
+        " WHERE p.is_official AND NOT EXISTS (SELECT 1 FROM prediction_event e"
+        "   WHERE e.prediction_id = p.prediction_id AND e.event_type='Voided')"
         " ORDER BY g.prediction_id, g.result_version DESC"
     ).fetchall()
     n = len(rows)
@@ -34,6 +40,10 @@ def recompute_live_snapshot(conn: psycopg.Connection) -> int:
         from models.metrics import classwise_ece, ece
 
         lls = [float(r[0]) for r in rows]
+        # by KICKOFF, not row order: prediction_id ≈ kickoff order only by accident (it
+        # diverges on a deferred finalize or a postponed-then-refrozen fixture), and a
+        # "last 20 matches" metric must mean the last 20 matches PLAYED
+        recent = sorted(rows, key=lambda r: r[7])[-20:]
         probs = [(float(r[4]), float(r[5]), float(r[6])) for r in rows]
         outcomes = [str(r[8]) for r in rows]
         cw = classwise_ece(probs, outcomes)
@@ -49,7 +59,7 @@ def recompute_live_snapshot(conn: psycopg.Connection) -> int:
                 "classwise_ece_A": cw.get("A"),
                 "by_month": _by_month(rows),
                 "by_confidence": _by_confidence(rows),
-                "rolling_last_20": sum(lls[-20:]) / min(n, 20),
+                "rolling_last_20": sum(float(r[0]) for r in recent) / len(recent),
             }
         )
     return write_snapshot(conn, "live", payload)

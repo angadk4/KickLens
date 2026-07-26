@@ -1,7 +1,12 @@
 // The phase model is honesty-critical: it decides when the site stops claiming a game is
 // "in play". Every boundary is pinned here with an injected clock — no mocked Date needed.
 import { describe, expect, it } from "vitest";
-import { IN_PLAY_TRUST_MIN, LIKELY_FT_MIN, matchPhase } from "./matchPhase";
+import {
+  IN_PLAY_TRUST_MIN,
+  LIKELY_FT_MIN,
+  matchPhase,
+  notYetKickedOff,
+} from "./matchPhase";
 import { dateShort, dayHeading } from "./format";
 
 const KO = "2026-07-23T02:30:00+00:00";
@@ -65,6 +70,20 @@ describe("matchPhase", () => {
 
   it("null kickoff never claims play", () => {
     expect(matchPhase({ kickoff_utc: null, now: koMs })).toBe("upcoming");
+  });
+});
+
+describe("notYetKickedOff", () => {
+  const fixtures = [
+    { kickoff_utc: KO },
+    { kickoff_utc: new Date(koMs + 60 * min).toISOString() },
+  ];
+
+  it("keeps only future kickoffs, and drops one the instant it kicks off", () => {
+    expect(notYetKickedOff(fixtures, koMs - min)).toHaveLength(2);
+    // at kickoff the match belongs to the in-play band, never to an "upcoming" list
+    expect(notYetKickedOff(fixtures, koMs)).toEqual([fixtures[1]]);
+    expect(notYetKickedOff(fixtures, koMs + 61 * min)).toEqual([]);
   });
 });
 

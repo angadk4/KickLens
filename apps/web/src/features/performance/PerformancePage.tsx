@@ -13,6 +13,7 @@ import {
   DEV_SEAL_DATE,
   MARKET_LOG_LOSS_DEV,
   MARKET_LOG_LOSS_TEST,
+  MIN_N_BUCKET_DETAIL,
   TEST_EVAL_DATE,
 } from "../../lib/facts";
 import { nats } from "../../lib/format";
@@ -118,7 +119,14 @@ function ScopePanel({ scope, label, blurb, emptyNote }: (typeof SCOPES)[number])
   const { data, error, notFound, loading, retry } = useApi(() => api.performance(scope));
   const m = data?.metrics;
   const ladder = m ? ladderRows(scope, m) : [];
-  const hasCharts = ladder.length > 0 || !!m?.by_confidence;
+  // ONE small-sample standard site-wide: below MIN_N_BUCKET_DETAIL the live buckets hold a
+  // forecast or two each, so a by-confidence chart plots noise — the same floor Calibration
+  // gates its reliability curve on, applied to the same live data. Dev/test are never gated.
+  const buckets = m?.by_confidence ? Object.values(m.by_confidence) : [];
+  const showBuckets =
+    buckets.length > 0 && (scope !== "live" || (m?.n ?? 0) >= MIN_N_BUCKET_DETAIL);
+  const biggestBucket = buckets.length > 0 ? Math.max(...buckets.map((b) => b.n)) : 0;
+  const hasCharts = ladder.length > 0 || showBuckets;
   return (
     <div className="entry">
       <header className="entry-strap">
@@ -199,6 +207,15 @@ function ScopePanel({ scope, label, blurb, emptyNote }: (typeof SCOPES)[number])
                       </div>
                     )}
                   </dl>
+                  {buckets.length > 0 && !showBuckets && (
+                    <p className="blurb">
+                      The by-confidence breakdown appears once the live record reaches n≥
+                      {MIN_N_BUCKET_DETAIL} — at n={m.n ?? 0} its {buckets.length} confidence
+                      buckets hold no more than {biggestBucket} forecast
+                      {biggestBucket === 1 ? "" : "s"} each, so the chart would show noise,
+                      not skill.
+                    </p>
+                  )}
                   {scope === "test" &&
                     typeof m.market_log_loss === "number" &&
                     typeof m.log_loss === "number" && (
@@ -214,7 +231,9 @@ function ScopePanel({ scope, label, blurb, emptyNote }: (typeof SCOPES)[number])
             {m && hasCharts && (
               <div style={{ display: "grid", gap: "var(--space-4)", minWidth: 0 }}>
                 {ladder.length > 0 && <BaselineLadder rows={ladder} n={m.n ?? null} />}
-                {m.by_confidence && <ConfidenceChart byConfidence={m.by_confidence} />}
+                {showBuckets && m.by_confidence && (
+                  <ConfidenceChart byConfidence={m.by_confidence} />
+                )}
               </div>
             )}
           </div>

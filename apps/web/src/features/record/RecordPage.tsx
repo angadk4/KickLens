@@ -104,6 +104,12 @@ export function RecordPage() {
               }}
             >
               <ScopeChip scope="live" n={data.total_graded} />
+              {/* the fetch is capped: never let the chip's n imply the list below is all of it */}
+              {data.items.length < data.total_graded && (
+                <span className="chip">
+                  showing {data.items.length} of {data.total_graded}
+                </span>
+              )}
               <span className="chip">newest first</span>
               <span className="chip" title="ln(3) — guessing ⅓/⅓/⅓ every match">
                 1.0986 = knew-nothing baseline

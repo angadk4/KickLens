@@ -140,7 +140,7 @@ export function MatchPage() {
           </div>
         ) : (
           <EmptyState title="No forecast yet">
-            Drafts generate inside the 7-day window; the official forecast freezes at
+            Drafts generate inside the 7-day draft window; the official forecast freezes at
             kickoff−3h. <Link to="/forecasts">See upcoming fixtures →</Link>
           </EmptyState>
         )}

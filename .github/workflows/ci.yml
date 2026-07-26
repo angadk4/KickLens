@@ -30,6 +30,12 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          # gitleaks scans the pushed COMMIT RANGE; the default shallow clone (depth 1)
+          # leaves the range's base commit absent, so its `git log base...head` errors and
+          # gitleaks bails having scanned ~0 bytes (CI #45: "no leaks found" after scanning
+          # nothing — a hollow guarantee, exactly the never-cut-suite failure mode).
+          fetch-depth: 0
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5

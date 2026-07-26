@@ -21,6 +21,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 import psycopg
+from psycopg.types.json import Json
 
 __all__ = [
     "PROTECTED_TABLES",
@@ -128,8 +129,16 @@ def claim_job(conn: psycopg.Connection, job_name: str, idempotency_key: str) -> 
     return None if row is None else int(row[0])
 
 
-def finish_job(conn: psycopg.Connection, job_run_id: int, status: str = "done") -> None:
+def finish_job(
+    conn: psycopg.Connection,
+    job_run_id: int,
+    status: str = "done",
+    details: dict[str, Any] | None = None,
+) -> None:
+    """Close a claimed run. `details` records a degraded-but-successful outcome (e.g. fixtures
+    skipped for unmapped teams, ADR-006) so it survives the log-retention window and the daily
+    canary can surface it — a run can be 'done' and still have something needing attention."""
     conn.execute(
-        "UPDATE job_run SET status = %s, finished_at_utc = %s WHERE job_run_id = %s",
-        (status, datetime.now(UTC), job_run_id),
+        "UPDATE job_run SET status = %s, finished_at_utc = %s, details = %s WHERE job_run_id = %s",
+        (status, datetime.now(UTC), Json(details) if details is not None else None, job_run_id),
     )

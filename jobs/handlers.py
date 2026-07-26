@@ -16,8 +16,11 @@ window) narrows the ingest sweep to yesterday+today so finals grade within ~1-2h
 
 from __future__ import annotations
 
+import json
 import time
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
+from functools import wraps
 from typing import Any
 
 _import_t0 = time.perf_counter()
@@ -39,6 +42,23 @@ def _conn() -> psycopg.Connection:
     return psycopg.connect(load_settings(dotenv_path=None).database_url, autocommit=True)
 
 
+def _observed(
+    fn: Callable[[dict[str, Any], Any], dict[str, Any]],
+) -> Callable[[dict[str, Any], Any], dict[str, Any]]:
+    """Emit ONE structured line per run. EventBridge invokes these asynchronously and Lambda
+    discards an async handler's return value, so without this a successful freeze / grade /
+    ingest leaves no trace at all in CloudWatch — which is exactly why the 2026-07-23 ingest
+    outage could not be scoped after the fact (only the failures were visible)."""
+
+    @wraps(fn)
+    def wrapper(event: dict[str, Any], context: Any) -> dict[str, Any]:
+        result = fn(event, context)
+        print(f"{fn.__name__}: {json.dumps(result, default=str)}")
+        return result
+
+    return wrapper
+
+
 def _dry(event: dict[str, Any]) -> dict[str, Any] | None:
     if not event.get("dry_run"):
         return None
@@ -53,6 +73,7 @@ def _dry(event: dict[str, Any]) -> dict[str, Any] | None:
     }
 
 
+@_observed
 def ingest(event: dict[str, Any], context: Any) -> dict[str, Any]:
     if (d := _dry(event)) is not None:
         return d
@@ -65,6 +86,9 @@ def ingest(event: dict[str, Any], context: Any) -> dict[str, Any]:
     adapters = [HighlightlyAdapter(settings.highlightly_key)]
     totals: dict[str, int] = {}
     failed_days: list[str] = []
+    # fixtures skipped for an unmapped team (ADR-006) — persisted to job_run.details so the
+    # daily canary keeps flagging them; a skip is never silent
+    unresolved: list[str] = []
     with _conn() as conn:
         # hour-bucket claim (launch-review fix): duplicate EventBridge deliveries no-op;
         # a crashed run reclaims after the lease expires
@@ -104,7 +128,13 @@ def ingest(event: dict[str, Any], context: Any) -> dict[str, Any]:
                     failed_days.append(day.isoformat())
                     continue  # provider down → last-known data serves; freshness gate flags
                 stats = ingest_live_fixtures(
-                    conn, fixtures, season_id, year, now=now, results_only=results_only
+                    conn,
+                    fixtures,
+                    season_id,
+                    year,
+                    now=now,
+                    results_only=results_only,
+                    unresolved_out=unresolved,
                 )
                 for k, v in stats.items():
                     totals[k] = totals.get(k, 0) + v
@@ -112,15 +142,37 @@ def ingest(event: dict[str, Any], context: Any) -> dict[str, Any]:
                 # a TOTAL provider outage must be visible: raising fires the Errors alarm
                 # (launch-review fix — silent None-continue hid full outages forever)
                 raise RuntimeError(f"ingest: provider down for ALL days: {failed_days}")
-            finish_job(conn, job_id)
+            # the sweep SUCCEEDED (freshness is honest) even if some fixtures were skipped —
+            # the skips ride in details so the canary can surface them without paging hourly
+            finish_job(
+                conn,
+                job_id,
+                details={
+                    # the sweep KIND is recorded so /health can tell a full fixture sweep
+                    # from a narrow results-only night sweep: without this, six hourly
+                    # narrow sweeps keep freshness_ok green forever while the full sweep
+                    # (fixtures, kickoff moves, supersession) is dead — exactly what hid
+                    # the 2026-07-23 outage for ~60h
+                    "sweep": "results_only" if results_only else "full",
+                    **({"unresolved_teams": unresolved} if unresolved else {}),
+                },
+            )
         except BaseException:
             finish_job(conn, job_id, status="failed")
             raise
     if failed_days:
         print(f"ingest: provider failures for days {failed_days}")
-    return {"statusCode": 200, "totals": totals, "failed_days": failed_days}
+    if unresolved:
+        print(f"ingest: {len(unresolved)} fixture(s) skipped for unmapped teams: {unresolved}")
+    return {
+        "statusCode": 200,
+        "totals": totals,
+        "failed_days": failed_days,
+        "unresolved_teams": unresolved,
+    }
 
 
+@_observed
 def feature(event: dict[str, Any], context: Any) -> dict[str, Any]:
     if (d := _dry(event)) is not None:
         return d
@@ -142,6 +194,7 @@ def feature(event: dict[str, Any], context: Any) -> dict[str, Any]:
     return {"statusCode": 200, "drafts_refreshed": refreshed}
 
 
+@_observed
 def inference(event: dict[str, Any], context: Any) -> dict[str, Any]:
     if (d := _dry(event)) is not None:
         return d
@@ -164,6 +217,7 @@ def inference(event: dict[str, Any], context: Any) -> dict[str, Any]:
     }
 
 
+@_observed
 def grade(event: dict[str, Any], context: Any) -> dict[str, Any]:
     if (d := _dry(event)) is not None:
         return d
@@ -215,6 +269,7 @@ def _commit_yesterday_merkle(conn: psycopg.Connection) -> str | None:
     return commit_daily_root_from_content(conn, day, content)
 
 
+@_observed
 def odds(event: dict[str, Any], context: Any) -> dict[str, Any]:
     """T-142 schedule (Contract §9): hourly; capture the 3-way market for fixtures whose
     kickoff falls in [now+2h, now+4h] -> market_snapshot (is_closing=false). Aggregate-display
@@ -248,6 +303,7 @@ def odds(event: dict[str, Any], context: Any) -> dict[str, Any]:
     return {"statusCode": 200, "captures": len(captures), **stats}
 
 
+@_observed
 def canary(event: dict[str, Any], context: Any) -> dict[str, Any]:
     """Daily health canary (Contract §9): hits the PUBLIC /health endpoint and checks for
     overdue results (kicked off >24h ago, still not final). ANY failure raises -> the Lambda
@@ -295,9 +351,16 @@ def canary(event: dict[str, Any], context: Any) -> dict[str, Any]:
         # >90min ago with NO un-voided official forecast means the inference loop is silently
         # broken — the single worst failure this project can have
         missed = conn.execute(
-            "SELECT count(*) FROM match m WHERE m.is_regular_season AND m.result IS NULL"
-            "   AND m.status = 'scheduled' AND m.kickoff_utc > now()"
-            "   AND m.kickoff_utc - interval '3 hours' < now() - interval '90 minutes'"
+            # RETROSPECTIVE (fixed 2026-07-25): the old form required kickoff_utc > now(),
+            # i.e. the fixture had to still be in the future — a 90-minute window that a
+            # once-daily 09:00 UTC canary essentially never lands inside, so the dead-man
+            # check for the WORST failure mode could not fire. finalize_fixture refuses to
+            # forecast once kickoff passes, so a miss is permanent and must be caught after
+            # the fact: any regular-season match kicked off in the last 48h with no
+            # un-voided official forecast.
+            "SELECT count(*) FROM match m WHERE m.is_regular_season"
+            "   AND m.status NOT IN ('postponed','cancelled','abandoned')"
+            "   AND m.kickoff_utc < now() AND m.kickoff_utc > now() - interval '48 hours'"
             "   AND NOT EXISTS (SELECT 1 FROM prediction p"
             "     WHERE p.match_id = m.match_id AND p.is_official"
             "       AND NOT EXISTS (SELECT 1 FROM prediction_event e"
@@ -314,10 +377,28 @@ def canary(event: dict[str, Any], context: Any) -> dict[str, Any]:
             "   ORDER BY e.prediction_event_id DESC LIMIT 1) = 'AnchorPushFailed'"
         ).fetchone()
         n_unpub = 0 if unpub is None else int(unpub[0])
+        # fixtures the provider served that we could not map to a team (ADR-006). The sweep
+        # now skips them instead of halting, so this daily check is what keeps the gap
+        # visible: it stays lit until an alias is added or the fixture leaves the window.
+        skipped = conn.execute(
+            "SELECT details->'unresolved_teams' FROM job_run"
+            " WHERE job_name = 'ingest' AND status = 'done'"
+            "   AND details ? 'unresolved_teams'"
+            "   AND finished_at_utc > now() - interval '24 hours'"
+            " ORDER BY finished_at_utc DESC LIMIT 1"
+        ).fetchone()
+        unmapped = [] if skipped is None or skipped[0] is None else list(skipped[0])
+    if unmapped:
+        problems.append(
+            f"{len(unmapped)} fixture(s) skipped for unmapped teams: {unmapped} "
+            "(add the alias, or exclude the fixture if it is not regular season)"
+        )
     if n_overdue:
         problems.append(f"{n_overdue} match(es) kicked off >24h ago without a final result")
     if n_missed:
-        problems.append(f"{n_missed} fixture(s) past cutoff+90min with NO official forecast")
+        problems.append(
+            f"{n_missed} match(es) kicked off in the last 48h with NO official forecast"
+        )
     if n_unpub:
         problems.append(f"{n_unpub} official forecast(s) with unpublished anchors")
     if problems:

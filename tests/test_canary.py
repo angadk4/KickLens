@@ -70,6 +70,28 @@ if DATABASE_URL:
         out = handlers.canary({}, None)
         assert out["statusCode"] == 200 and out["overdue_results"] == 0
 
+    def test_unmapped_team_skips_surface_daily(  # type: ignore[no-untyped-def]
+        env, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """ADR-006: the sweep no longer halts on an unmappable club, so the canary is what
+        keeps the skip visible — it must raise while the fixture is still being dropped."""
+        conn = env["conn"]
+        monkeypatch.setattr(
+            "urllib.request.urlopen",
+            _fake_urlopen({"status": "ok", "freshness_ok": True, "last_ingest": "now"}),
+        )
+        conn.execute(
+            "INSERT INTO job_run (job_name, idempotency_key, status, started_at_utc,"
+            " finished_at_utc, details) VALUES ('ingest','canary-adr006','done', now(), now(),"
+            ' \'{"unresolved_teams": ["2026-08-01 Some Cup FC [999] v H FC"]}\')'
+        )
+        try:
+            with pytest.raises(RuntimeError, match="unmapped teams"):
+                handlers.canary({}, None)
+        finally:
+            # leave the module's DB clean so the other canary tests stay green-path
+            conn.execute("DELETE FROM job_run WHERE idempotency_key = 'canary-adr006'")
+
     def test_stale_data_raises(env, monkeypatch: pytest.MonkeyPatch) -> None:  # type: ignore[no-untyped-def]
         monkeypatch.setattr(
             "urllib.request.urlopen",
@@ -102,23 +124,36 @@ if DATABASE_URL:
     def test_missed_forecast_deadman_raises(  # type: ignore[no-untyped-def]
         env, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """Launch-review fix: a future fixture past cutoff+90min with no official forecast
-        means the inference loop is silently broken — the canary must scream."""
+        """A match that kicked off with no official forecast means the inference loop is
+        silently broken — the canary must scream. The check is RETROSPECTIVE (fixed
+        2026-07-25): the old prospective form only looked at fixtures still in the future,
+        a ~90-minute window a once-daily 09:00 UTC canary essentially never lands inside,
+        so the dead-man for the worst failure mode could not fire at all."""
         monkeypatch.setattr(
             "urllib.request.urlopen",
             _fake_urlopen({"status": "ok", "freshness_ok": True, "last_ingest": "now"}),
         )
         conn = env["conn"]
-        soon = datetime.now(UTC) + timedelta(minutes=60)  # cutoff passed 120min ago
+        played = datetime.now(UTC) - timedelta(hours=5)  # kicked off, never forecast
         conn.execute(
             "INSERT INTO match (season_id, home_team_id, away_team_id, kickoff_utc, status)"
             " VALUES (%s,%s,%s,%s,'scheduled')",
-            (env["season"], env["h"], env["a"], soon),
+            (env["season"], env["h"], env["a"], played),
         )
         with pytest.raises(RuntimeError, match="NO official forecast"):
             handlers.canary({}, None)
+        # a fixture still in the FUTURE is not yet a miss — inference can still forecast it
+        conn.execute(
+            "UPDATE match SET kickoff_utc=%s WHERE kickoff_utc=%s",
+            (datetime.now(UTC) + timedelta(hours=5), played),
+        )
+        assert handlers.canary({}, None)["missed_forecasts"] == 0
         # postponed fixtures are exempt (they get superseded, not forecast)
-        conn.execute("UPDATE match SET status='postponed' WHERE kickoff_utc=%s", (soon,))
+        future = datetime.now(UTC) + timedelta(hours=5)
+        conn.execute(
+            "UPDATE match SET status='postponed', kickoff_utc=%s WHERE kickoff_utc=%s",
+            (played, future),
+        )
         out = handlers.canary({}, None)
         assert out["statusCode"] == 200 and out["missed_forecasts"] == 0
 

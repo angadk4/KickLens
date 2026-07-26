@@ -57,6 +57,13 @@ export const CRON_RULES = 9;
 /** CloudWatch alarms: 6 job Errors + 6 job Throttles + api 5xx — alarms.tf. */
 export const ALARM_COUNT = 13;
 
+// ——— small-sample display floor (one standard, every page) ———
+/** Below this sample size a per-bucket breakdown (reliability curve, by-confidence chart)
+    spreads the forecasts one or two per bucket: the per-bucket rates are noise, not
+    evidence, so pages show the headline metric with its n instead of drawing the chart.
+    Dev/test sit far above it and are never gated. */
+export const MIN_N_BUCKET_DETAIL = 30;
+
 // ——— leakage-suite scale (Engineering invariants) ———
 /** Stored feature rows recompute-parity-verified bit-for-bit at the dev seal — docs/fs-v1.md,
     docs/leakage-tests.md R1. Grows with the live loop; this is the sealed count. */

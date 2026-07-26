@@ -34,7 +34,9 @@ function FreezeIn({ cutoff }: { cutoff: Date }) {
 }
 
 export function Ticker() {
-  const { list } = useUpcoming();
+  // the already-kicked-off fixtures are filtered out upstream: a running match must never
+  // scroll past as "freezes in 0m"
+  const { upcoming } = useUpcoming();
   const { health } = useHealth();
   const ingested = useRelativeTime(health?.last_ingest);
   const ref = useRef<HTMLElement>(null);
@@ -53,7 +55,7 @@ export function Ticker() {
 
   const items = useMemo(() => {
     const out: React.ReactNode[] = [];
-    for (const m of (list ?? []).slice(0, 6)) {
+    for (const m of (upcoming ?? []).slice(0, 6)) {
       const frozen = m.forecast?.type === "official-frozen";
       out.push(
         <Link key={`m${m.match_id}`} to={`/match/${m.match_id}`} className="ticker-item">
@@ -80,7 +82,7 @@ export function Ticker() {
       );
     }
     return out;
-  }, [list, health, ingested]);
+  }, [upcoming, health, ingested]);
 
   if (items.length === 0) return null;
 

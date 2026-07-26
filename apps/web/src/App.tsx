@@ -31,10 +31,20 @@ export default function App() {
               API unreachable — showing nothing rather than something stale without saying so.
             </div>
           )}
-          {health && !health.freshness_ok && (
+          {/* the general staleness notice steps aside when the schedule banner below owns
+              the cause — otherwise a dead fixture sweep reads as "data is stale (last
+              ingest 40 minutes ago)", which is its own small lie */}
+          {health && !health.freshness_ok && health.schedule_fresh !== false && (
             <div className="banner stale">
               Data is stale (last ingest {health.last_ingest ?? "never"}). Forecasts made under
               staleness are tagged.
+            </div>
+          )}
+          {health && health.schedule_fresh === false && (
+            <div className="banner stale">
+              Fixture schedule not current — the last full fixture sweep finished{" "}
+              {health.last_full_ingest ?? "never"}, so upcoming fixtures may be incomplete or
+              missing. Frozen forecasts, results, and grading are unaffected.
             </div>
           )}
           <Outlet />

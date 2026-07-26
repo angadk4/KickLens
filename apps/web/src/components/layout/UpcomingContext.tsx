@@ -14,11 +14,17 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { api, type InPlayItem, type UpcomingMatch } from "../../api";
 import { cutoffOf, freezeRunOf } from "../../lib/format";
+import { notYetKickedOff } from "../../lib/matchPhase";
+import { useNow } from "../../lib/useRelativeTime";
 
 const MATCHDAY_POLL_MS = 180_000;
 
 type UpcomingState = {
+  /** every fixture the last fetch returned — includes any that has kicked off since */
   list: UpcomingMatch[] | null;
+  /** `list` minus fixtures already kicked off, recomputed on the shared clock tick. Every
+      surface that renders "upcoming" fixtures reads THIS, so none can disagree. */
+  upcoming: UpcomingMatch[] | null;
   /** cutoff (kickoff−3h) of the next fixture not yet on the record */
   nextCutoff: Date | null;
   nextMatch: UpcomingMatch | null;
@@ -31,6 +37,7 @@ type UpcomingState = {
 
 const EMPTY: UpcomingState = {
   list: null,
+  upcoming: null,
   nextCutoff: null,
   nextMatch: null,
   inPlay: null,
@@ -150,16 +157,19 @@ export function UpcomingProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  // the wall-clock tick that ages `upcoming` past each kickoff with zero network
+  const now = useNow();
   const value = useMemo<UpcomingState>(() => {
     const next = state.list ? computeNext(state.list) : null;
     return {
       list: state.list,
+      upcoming: state.list ? notYetKickedOff(state.list, now) : null,
       nextCutoff: next?.cutoff ?? null,
       nextMatch: next?.m ?? null,
       inPlay: state.inPlay,
       totalGraded: state.totalGraded,
     };
-  }, [state]);
+  }, [state, now]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
