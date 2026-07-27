@@ -560,15 +560,20 @@
 
 /* ---- hero: the center-circle countdown over the halfway line (kept from v4) ---- */
 
+/* --ph-size lives HERE, not on .hero-stage: the reservation below is on this element, and a
+   custom property only inherits DOWN — so a value set on the stage was invisible to it. That
+   is why the ring's size was hardcoded (240/268/300) in four places with four different
+   fudge factors, and why the circle's lower arc ended up 32px INSIDE the ticker, running the
+   scrolling items under the chalk. One variable, one formula, every breakpoint. */
 .hero-entry {
-  /* reserve room for the circle's lower half, which straddles the line;
-     the ticker sits inside this band */
-  margin-bottom: calc(var(--ph-size, 300px) / 2 - 40px);
+  --ph-size: 300px;
+  /* reserve the circle's lower half, which hangs below the halfway line, so the arc reaches
+     the line (the ticker's top rule) without crossing into the ticker's text band */
+  margin-bottom: calc(var(--ph-size) / 2);
 }
 
 .hero-stage {
   position: relative;
-  --ph-size: 300px;
 }
 
 .hero-kicker {
@@ -830,12 +835,6 @@
 }
 
 @media (max-width: 1023px) {
-  .hero-stage {
-    --ph-size: 240px;
-  }
-  .hero-entry {
-    margin-bottom: calc(240px / 2 - 32px);
-  }
   /* narrower content chord so the label wraps INSIDE the chalk circle */
   .ph-top {
     left: 18%;
@@ -1128,18 +1127,13 @@ a.ticker-item:hover {
    line (negative bottom margin) and letting the lower half overflow — which the entry's
    own bottom margin already accounts for — puts the ring back on the page's rhythm. */
 @media (max-width: 1023px) {
-  .hero-stage {
+  .hero-entry {
     --ph-size: 268px;
   }
 
   .ph-cell {
     transform: none;
     margin: 0 auto calc(var(--ph-size) / -2);
-  }
-
-  /* reserve the ring's lower half minus the ticker band it deliberately sits inside */
-  .hero-entry {
-    margin-bottom: calc(268px / 2 - 64px);
   }
 
   /* wider chords: "New York City vs Toronto FC" and its freeze line now set on one line
@@ -1155,14 +1149,10 @@ a.ticker-item:hover {
   }
 }
 
-/* small phones: keep the ring inside the shell */
+/* small phones: keep the ring inside the shell (the reservation follows automatically) */
 @media (max-width: 359px) {
-  .hero-stage {
-    --ph-size: 240px;
-  }
-
   .hero-entry {
-    margin-bottom: calc(240px / 2 - 64px);
+    --ph-size: 240px;
   }
 }
 
@@ -1171,9 +1161,5 @@ a.ticker-item:hover {
      ring; the ring's lower half is structural, the slack above it was not */
   .hero-copy {
     padding-bottom: var(--space-4);
-  }
-
-  .hero-entry {
-    margin-bottom: calc(300px / 2 - 64px);
   }
 }
