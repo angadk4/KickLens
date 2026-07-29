@@ -6,27 +6,14 @@
 // a 358px column (36% visible) with no affordance and ~580px of mostly-empty canvas. There
 // the diagram collapses behind an explicit "view diagram" disclosure and the written
 // one-reason-each list becomes the primary content.
-import { useEffect, useState } from "react";
+import { useMediaQuery } from "../../lib/useMediaQuery";
 import { CHIPS, EDGES, LINE_1, LINE_H, NODES, PAD_X } from "./diagramNodes";
 
 /** live media query — the diagram's mobile behaviour is a different composition, not a
-    smaller one, so it has to be a render decision rather than a CSS tweak */
-function useNarrow(query = "(max-width: 719px)"): boolean {
-  const [narrow, setNarrow] = useState(
-    () =>
-      typeof window !== "undefined" &&
-      typeof window.matchMedia === "function" &&
-      window.matchMedia(query).matches,
-  );
-  useEffect(() => {
-    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
-    const mq = window.matchMedia(query);
-    const onChange = () => setNarrow(mq.matches);
-    onChange();
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, [query]);
-  return narrow;
+    smaller one, so it has to be a render decision rather than a CSS tweak. This local
+    hook seeded lib/useMediaQuery; it now just names the breakpoint. */
+function useNarrow(): boolean {
+  return useMediaQuery("(max-width: 719px)");
 }
 
 function DiagramSvg() {

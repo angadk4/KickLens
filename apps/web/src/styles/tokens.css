@@ -41,9 +41,17 @@
   --scope-backtest: #8b98ac;
   --scope-live: #66c28f;
 
-  /* Pitch art — the only chalk-line vocabulary: hero plan, touchline gutter,
-     empty-state arc, 404 spot. Never dashed, never textured. */
-  --chalk-line: rgba(232, 237, 230, 0.35);
+  /* Pitch art — the only chalk-line vocabulary, and it is CLOSED. Five marks:
+     the hero plan (halfway line + center circle), THE BALL, the empty-state arc,
+     the 404 penalty spot, and the record's goal-mouth mark. The ball is ONE noun
+     with five licensed placements — the hero center spot, the juggling loader, the
+     record goal mouth, out-of-play on an error banner, and at rest on the
+     empty-state arc — and there is no sixth. Every mark is a stroke or a spot:
+     never dashed, never textured, never a fill pattern. */
+  --chalk-line: rgba(232, 237, 230, 0.35); /* every chalk stroke */
+  --chalk-lit: rgba(232, 237, 230, 0.55); /* a stroke under a passed deadline (expired hero) */
+  --chalk-spot: rgba(232, 237, 230, 0.5); /* the only filled chalk mark: a spot */
+  --chalk-ghost: rgba(232, 237, 230, 0.09); /* chalk at rest — the empty-state arc */
 
   /* Elevation: the "machined edge" is SEMANTIC (officials only); floats are the
      only drop shadows — layered, colored from the bg family, never black */
@@ -88,16 +96,30 @@
   --ticker-h: 36px;
   --strap-rule: var(--line); /* section-strap rule — honest neutral, never chalk */
 
+  /* Section registers (styles/sections.css) — a register may move ONLY --bg-1, --line
+     and --strap-rule, and only DARKER/crisper: the contrast pairs above were measured
+     on --bg-1, so lightening a surface invalidates them. No hue, ever. */
+  --bg-card-top: #18241d; /* the card gradient's top stop — a surface, so registers move it */
+  --bg-ref: #141d18; /* Reference register ground — between --bg-0 and --bg-1 */
+  --line-doc: #31423a; /* Reference register rule — between --line and --line-strong */
+
   /* Liveness — alias only, NO new hue: dots ≤10px and the literal word "live" */
   --live: var(--success);
 
-  /* Motion — semantically load-bearing only: the hero chalk draw (once/session),
-     seal stamp-ins, the seconds roll, pulse dots, the ambient floodlight drift */
+  /* Motion — the budget is AUTHORED in docs/motion.md (tiers, loop cap, hard rules,
+     the decision gate). Summary: transform/opacity only; content never animation-gated
+     (base state = final state); reduced motion renders the final state; ambient loops
+     capped at 4 per page (home is at 4/4 — adding one means deleting one). */
   --dur-fast: 150ms;
   --dur-med: 250ms;
   --dur-slow: 500ms;
   --dur-tick: 240ms; /* countdown seconds roll */
   --dur-drift: 96s; /* floodlight ambient loop */
+  --dur-reveal: 250ms; /* Tier-2 entrance — one value, one gesture */
+  --settle-rise: 8px; /* the reveal's travel; the route-enter uses 3/4 of it */
+  --lift: -2px; /* card hover lift — small enough not to slip the cursor */
+  --tilt-max: 3deg; /* opt-in pointer-tilt ceiling (mono numerals soften past this) */
+  --stagger: 60ms; /* one stagger step; max 3 steps */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
 }

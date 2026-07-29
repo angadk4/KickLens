@@ -136,7 +136,10 @@ code,
 .countdown .value,
 .stat-tile .value,
 .data-table th,
-.data-table .num {
+.data-table .num,
+.metric dd,
+.verdict .v-num {
+  /* the last two count up (Performance) — proportional digits would shimmy sideways */
   font-feature-settings: "zero" on;
   font-variant-numeric: tabular-nums;
 }

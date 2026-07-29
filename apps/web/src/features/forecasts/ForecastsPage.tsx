@@ -2,6 +2,7 @@
 // cards carry time-only since the day heading owns the date.
 import { api, type UpcomingMatch } from "../../api";
 import { useHealth } from "../../components/layout/HealthContext";
+import { Entry } from "../../components/ui/Entry";
 import { Section } from "../../components/ui/Section";
 import { EmptyState, ErrorState, Skeleton } from "../../components/ui/states";
 import { dayHeading } from "../../lib/format";
@@ -25,7 +26,7 @@ function groupByDay(list: UpcomingMatch[]): { day: string; items: UpcomingMatch[
 export function ForecastsPage() {
   // this page keeps its own fetch for the error/retry surface, but shares the ONE
   // definition of "upcoming" with the board, the ticker and the status cell
-  const { data, error, loading, retry } = useApi(() => api.upcoming());
+  const { data, error, loading, retrying, retry } = useApi(() => api.upcoming());
   const { health } = useHealth();
   const now = useNow();
   const upcoming = data ? notYetKickedOff(data, now) : null;
@@ -55,7 +56,7 @@ export function ForecastsPage() {
           preliminary = may change until the freeze · frozen = sealed official forecast, never
           revised
         </span>
-        {loading && (
+        {loading && !retrying && (
           <div className="grid-2">
             <Skeleton height={150} />
             <Skeleton height={150} />
@@ -63,7 +64,9 @@ export function ForecastsPage() {
             <Skeleton height={150} />
           </div>
         )}
-        {error && <ErrorState retry={retry} />}
+        {(error || retrying) && (
+          <ErrorState retry={retry} retrying={retrying} what="upcoming fixtures" />
+        )}
         {upcoming && upcoming.length === 0 && (
           <EmptyState title="No upcoming fixtures with forecasts yet">
             {health?.schedule_fresh === false
@@ -78,7 +81,7 @@ export function ForecastsPage() {
       {upcoming &&
         upcoming.length > 0 &&
         groupByDay(upcoming).map((g) => (
-          <div key={g.day} className="entry">
+          <Entry key={g.day}>
             <header className="entry-strap">
               <span className="strap-label">{g.day}</span>
               <span className="strap-rule" aria-hidden />
@@ -89,13 +92,14 @@ export function ForecastsPage() {
               </span>
             </header>
             <div className="entry-body">
-              <div className="grid-2 grid-3-wide">
+              {/* the one licensed stagger surface: cards land 60ms apart on scroll-in */}
+              <div className="grid-2 grid-3-wide settle-stagger">
                 {g.items.map((m) => (
                   <FixtureCard key={m.match_id} m={m} timeOnly />
                 ))}
               </div>
             </div>
-          </div>
+          </Entry>
         ))}
     </div>
   );

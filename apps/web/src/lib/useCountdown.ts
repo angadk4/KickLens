@@ -1,5 +1,7 @@
-// Client-side countdown to a fixed target — zero API traffic; ticks once per second.
-import { useEffect, useState } from "react";
+// Client-side countdown to a fixed target — zero API traffic; ticks once per second on the
+// SHARED clock (lib/clock.ts), so N mounted countdowns cost one interval, not N.
+import { useMemo } from "react";
+import { useNow } from "./useRelativeTime";
 
 export type Countdown = {
   d: number;
@@ -9,9 +11,9 @@ export type Countdown = {
   expired: boolean;
 };
 
-function diff(targetMs: number | null): Countdown {
+function diff(targetMs: number | null, now: number): Countdown {
   if (targetMs === null) return { d: 0, h: 0, m: 0, s: 0, expired: false };
-  const ms = targetMs - Date.now();
+  const ms = targetMs - now;
   if (ms <= 0) return { d: 0, h: 0, m: 0, s: 0, expired: true };
   const s = Math.floor(ms / 1000);
   return {
@@ -25,14 +27,7 @@ function diff(targetMs: number | null): Countdown {
 
 export function useCountdown(target: Date | null): Countdown {
   const targetMs = target ? target.getTime() : null;
-  const [state, setState] = useState<Countdown>(() => diff(targetMs));
-
-  useEffect(() => {
-    setState(diff(targetMs));
-    if (targetMs === null) return;
-    const id = setInterval(() => setState(diff(targetMs)), 1000);
-    return () => clearInterval(id);
-  }, [targetMs]);
-
-  return state;
+  // no target → interval 0 → useNow never subscribes (the old null guard, kept)
+  const now = useNow(targetMs === null ? 0 : 1000);
+  return useMemo(() => diff(targetMs, now), [targetMs, now]);
 }

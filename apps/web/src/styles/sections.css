@@ -1,0 +1,41 @@
+/* Section registers — barely perceptible, and each one has a stated job. NOT a colour
+   per page: theming everything is how theming becomes decoration.
+
+   ADMISSION RULE: a register may move surface (--bg-*) and line (--line-*, --strap-rule)
+   tokens ONLY. No colour literals in this file, ever — "no hue outside the system" must
+   stay checkable by grep. New registers need a job description here, not just a selector.
+
+   The four registers:
+   - BOARD (default)  /, forecasts, record, match, ratings, performance, calibration —
+     moves NOTHING; the live surfaces are the identity.
+   - REFERENCE        methodology, engineering — the only two pages with no live data:
+     every number is a static, dated fact. Paper darkens a step, rules crispen.
+   - FINE PRINT       sections that LIMIT claims — they must not look like claim surfaces.
+   - PROOF            proof-bearing sections — the machined edge (--line-strong) already
+     means "official" on .card.stamped; the strap rule borrows exactly that. */
+
+/* ---- reference: the two documentation pages ---- */
+[data-page="methodology"],
+[data-page="engineering"] {
+  --bg-1: var(--bg-ref);
+  --line: var(--line-doc);
+  /* --strap-rule aliases --line at :root, where it resolved BEFORE this override —
+     re-point it here or the register never reaches the strap rules */
+  --strap-rule: var(--line-doc);
+}
+
+/* ---- fine print: claim-limiting sections read quieter than the board ---- */
+#what-we-won-t-claim,
+#incidents,
+#restraint {
+  --bg-1: var(--bg-0);
+}
+
+/* ---- proof: the strap rule takes the machined edge ---- */
+#proof,
+#trust-but-verify,
+#live-record,
+#lineage,
+#match {
+  --strap-rule: var(--line-strong);
+}

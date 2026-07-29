@@ -303,6 +303,15 @@ export function HomePage() {
                   ? `touch-once · CI [${nats(testM.log_loss_ci95[0])}, ${nats(testM.log_loss_ci95[1])}]`
                   : "touch-once"
               }
+              detail={
+                // same payload, same scope+n — figures the tile fetched and threw away
+                [
+                  typeof testM.rps === "number" ? `rps ${nats(testM.rps)}` : null,
+                  typeof testM.brier === "number" ? `brier ${nats(testM.brier)}` : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ") || undefined
+              }
             />
           ) : (
             <Skeleton height={130} />
@@ -315,6 +324,11 @@ export function HomePage() {
               scope="test"
               n={testM.n ?? null}
               sub="one sealed run · champion frozen before it"
+              detail={
+                typeof testM.accuracy === "number"
+                  ? `accuracy ${(testM.accuracy * 100).toFixed(1)}% · diagnostic only`
+                  : undefined
+              }
             />
           ) : (
             <Skeleton height={130} />
@@ -327,6 +341,14 @@ export function HomePage() {
               scope="dev"
               n={devM.n ?? null}
               sub="2018–2024 walk-forward, leak-tested"
+              detail={
+                [
+                  typeof devM.rps === "number" ? `rps ${nats(devM.rps)}` : null,
+                  typeof devM.brier === "number" ? `brier ${nats(devM.brier)}` : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ") || undefined
+              }
             />
           ) : (
             <Skeleton height={130} />
@@ -368,7 +390,8 @@ export function HomePage() {
             shown.length > 0 ? (
               <div className="grid-2">
                 {shown.map((m) => (
-                  <FixtureCard key={m.match_id} m={m} />
+                  /* tilt is licensed to these four cards only — the board's signature */
+                  <FixtureCard key={m.match_id} m={m} tilt />
                 ))}
               </div>
             ) : (

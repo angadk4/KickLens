@@ -5,21 +5,41 @@
 import { Link } from "react-router-dom";
 import type { UpcomingMatch } from "../../api";
 import { Badge } from "../../components/ui/Badge";
+import { CardDetail } from "../../components/ui/CardDetail";
 import { HashBadge } from "../../components/ui/HashBadge";
 import { ProbBar } from "../../components/ui/ProbBar";
 import { cutoffOf, kickoffLocal, teamName, timeLocal } from "../../lib/format";
 import { IMMINENT_KICKOFF_MIN } from "../../lib/matchPhase";
 import { useNow } from "../../lib/useRelativeTime";
+import { useTilt } from "../../lib/useTilt";
 
-export function FixtureCard({ m, timeOnly = false }: { m: UpcomingMatch; timeOnly?: boolean }) {
+function inWords(mins: number): string {
+  return mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`;
+}
+
+export function FixtureCard({
+  m,
+  timeOnly = false,
+  tilt = false,
+}: {
+  m: UpcomingMatch;
+  timeOnly?: boolean;
+  /** pointer tilt — licensed to the FOUR home board cards only (docs/motion.md) */
+  tilt?: boolean;
+}) {
   const now = useNow(30_000); // the imminence cue counts down without a refetch
+  const tiltHandlers = useTilt<HTMLAnchorElement>();
   const f = m.forecast;
   const cutoff = cutoffOf(m.kickoff_utc);
   const cutoffPassed = cutoff.getTime() <= now;
   const minsToKickoff = Math.floor((new Date(m.kickoff_utc).getTime() - now) / 60_000);
   const state = f?.type === "official-frozen" ? "stamped" : f ? "pencilled" : "";
   return (
-    <Link to={`/match/${m.match_id}`} className={`card fixture-card ${state}`}>
+    <Link
+      to={`/match/${m.match_id}`}
+      className={`card fixture-card ${state}${tilt ? " card-tilt" : ""}`}
+      {...(tilt ? tiltHandlers : {})}
+    >
       <div className="teams">
         <span className="matchup">
           {teamName(m.home)} <span className="vs">vs</span> {teamName(m.away)}
@@ -47,15 +67,18 @@ export function FixtureCard({ m, timeOnly = false }: { m: UpcomingMatch; timeOnl
                   className="chip"
                   title="Forecast sealed at kickoff−3h — the match starts soon"
                 >
-                  kicks off in{" "}
-                  {minsToKickoff >= 60
-                    ? `${Math.floor(minsToKickoff / 60)}h ${minsToKickoff % 60}m`
-                    : `${minsToKickoff}m`}
+                  kicks off in {inWords(minsToKickoff)}
                 </span>
               )}
+            {/* the hint chips carry no tabIndex: a focusable span nested inside the card
+                Link would be a nested-interactive violation — title covers AT */}
             {f.type !== "official-frozen" &&
               (!cutoffPassed ? (
-                <span className="chip" title="When the official forecast freezes">
+                <span
+                  className="chip hint"
+                  title="When the official forecast freezes"
+                  data-hint="When the official forecast freezes — sealed at kickoff−3h, hashed, and anchored publicly."
+                >
                   {/* drop the day ONLY when the freeze shares the kickoff's UTC day —
                       the day headings group by UTC, so the check must agree with them
                       (parse → toISOString: never assume the API string's offset form).
@@ -72,14 +95,25 @@ export function FixtureCard({ m, timeOnly = false }: { m: UpcomingMatch; timeOnl
                 </span>
               ) : (
                 <span
-                  className="chip"
+                  className="chip hint"
                   title="Inputs locked; the official forecast anchors at the next hourly run"
+                  data-hint="Inputs locked at kickoff−3h; the official forecast anchors at the next hourly run."
                 >
                   freeze pending
                 </span>
               ))}
             {f.forecast_hash && <HashBadge hash={f.forecast_hash} />}
           </div>
+          {/* the held-back line: numbers this card already computed and used to discard.
+              Inside the imminent window the chip above owns the countdown — no duplicate. */}
+          {f.type === "official-frozen" && (
+            <CardDetail>
+              sealed {timeLocal(cutoff.toISOString())}
+              {minsToKickoff > IMMINENT_KICKOFF_MIN && (
+                <> · kicks off in {inWords(minsToKickoff)}</>
+              )}
+            </CardDetail>
+          )}
         </>
       ) : (
         <div className="meta">

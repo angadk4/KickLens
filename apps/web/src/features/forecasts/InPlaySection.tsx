@@ -7,6 +7,7 @@
 import { Link } from "react-router-dom";
 import { useUpcoming } from "../../components/layout/UpcomingContext";
 import { Badge } from "../../components/ui/Badge";
+import { CardDetail } from "../../components/ui/CardDetail";
 import { HashBadge } from "../../components/ui/HashBadge";
 import { ProbBar } from "../../components/ui/ProbBar";
 import { Section } from "../../components/ui/Section";
@@ -65,12 +66,14 @@ export function InPlaySection() {
               />
               <div className="meta">
                 <Badge kind="frozen" title="Official — immutable, hashed, publicly anchored" />
-                <span className="chip" title={label.title}>
+                <span className="chip">
                   {phase === "in-play" && <span className="pulse-dot" aria-hidden />}{" "}
                   {label.text}
                 </span>
                 {m.forecast.forecast_hash && <HashBadge hash={m.forecast.forecast_hash} />}
               </div>
+              {/* the phase explanation, promoted out of a title= attribute nobody hovers */}
+              <CardDetail>{label.title}</CardDetail>
             </Link>
           );
         })}

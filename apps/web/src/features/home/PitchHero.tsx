@@ -2,7 +2,11 @@
 // at the center spot because everything here happens before kickoff. The chalk draws
 // itself ONCE per browser session (the site's single orchestrated motion moment);
 // reduced motion and later visits render the finished pitch instantly.
+// THE BALL sits on the center spot (it replaced the spot dot — a filled dot inside a
+// stroked ring read as a bullseye) and arrives as the cascade's final beat. Geometry
+// lives in lib/pitchBall (unit-tested: it must never crowd the countdown's band).
 import { useMemo, type ReactNode } from "react";
+import { BALL_CX, BALL_CY, BALL_R, seamPath } from "../../lib/pitchBall";
 
 const DRAWN_KEY = "kl-hero-drawn";
 
@@ -39,7 +43,20 @@ export function PitchHero({
             pathLength={1}
             transform="rotate(-90 150 150)"
           />
-          <circle className="ph-spot" cx="150" cy="150" r="3.5" />
+          {/* inner g carries the hover roll (transition) — kept separate from any future
+              transform animation on the outer g: on one element the animation wins */}
+          <g className="ph-ball">
+            <g className="ph-ball-roll">
+              <circle
+                className="ph-ball-line"
+                cx={BALL_CX}
+                cy={BALL_CY}
+                r={BALL_R}
+                pathLength={1}
+              />
+              <path className="ph-ball-seam" d={seamPath()} pathLength={1} />
+            </g>
+          </g>
         </svg>
         {top && <div className="ph-top">{top}</div>}
         {bottom && <div className="ph-bottom">{bottom}</div>}

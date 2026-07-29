@@ -8,6 +8,21 @@
   padding: 0 var(--space-4) var(--space-8);
 }
 
+/* Route transition: enter-only settle on the fresh <main> a navigation mounts (App.tsx
+   keys it by pathname; first paint never gets the class). Transform/opacity only — the
+   document's height never changes, so ScrollRestoration lands where it should. From-only
+   keyframe, no fill-mode: a zeroed animation (reduced motion) IS the final state. */
+.route-enter {
+  animation: route-enter var(--dur-reveal) var(--ease-out);
+}
+
+@keyframes route-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
 /* ---- nav: night-air glass; float shadow only after scroll ---- */
 
 .topnav {
@@ -204,12 +219,33 @@
   background: rgba(227, 121, 106, 0.08);
   border: 1px solid rgba(227, 121, 106, 0.4);
   color: var(--danger);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+/* the ball out of play beyond the touchline — the error banner's mark (states.tsx) */
+.banner .es-mark {
+  flex: 0 0 40px;
+  width: 40px;
+  height: 24px;
+  margin-top: 2px;
+  opacity: 0.8;
+}
+
+.banner .es-mark .skb-line {
+  stroke: currentColor;
 }
 
 .banner.stale {
   background: rgba(208, 165, 69, 0.07);
   border: 1px solid rgba(208, 165, 69, 0.4);
   color: var(--warn);
+}
+
+/* a banner announces itself once — the settle keyframe reused, never gating the message */
+.banner-in {
+  animation: settle var(--dur-reveal) var(--ease-out);
 }
 
 /* ---- the page + section straps (the gutter is dead — long live the strap) ---- */
@@ -355,7 +391,7 @@
   grid-template-columns: 1fr 1fr;
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
-  background: linear-gradient(180deg, #18241d, var(--bg-1));
+  background: linear-gradient(180deg, var(--bg-card-top), var(--bg-1));
   box-shadow: var(--edge-hi);
   overflow: hidden;
 }
@@ -424,7 +460,7 @@
 .rail {
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
-  background: linear-gradient(180deg, #18241d, var(--bg-1));
+  background: linear-gradient(180deg, var(--bg-card-top), var(--bg-1));
   padding: var(--space-4);
   display: grid;
   gap: 0;
@@ -683,14 +719,37 @@
 }
 
 .pitch-hero.expired .ph-circle {
-  stroke: rgba(232, 237, 230, 0.55);
+  stroke: var(--chalk-lit);
 }
 
-.ph-spot {
-  fill: rgba(232, 237, 230, 0.5);
+/* THE BALL on the center spot (pitch-art mark #2, lib/pitchBall geometry): outline plus
+   one meridian seam — at r=10 a panelled football blobs, a seam is what reads. It rolls
+   a quarter-turn when the pointer rests on the ring (Tier 1; the ring is the hover
+   surface because .ph-top/.ph-bottom cover the center) and presses flat on :active.
+   No ambient loop: home's Tier-0 budget is spent (docs/motion.md). */
+.ph-ball-line,
+.ph-ball-seam {
+  fill: none;
+  stroke: var(--chalk-spot);
+  stroke-width: 1.5;
+  stroke-linecap: round;
 }
 
-/* the one orchestrated moment: line → circle → spot, once per session.
+.ph-ball-roll {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform var(--dur-slow) var(--ease-out);
+}
+
+.ph-cell:hover .ph-ball-roll {
+  transform: rotate(90deg);
+}
+
+.ph-cell:active .ph-ball-roll {
+  transform: rotate(90deg) scale(0.94);
+}
+
+/* the one orchestrated moment: line → circle → spot → ball, once per session (1600ms).
    Only the chalk STROKES animate — content paints instantly. */
 .pitch-hero:not(.drawn) .ph-circle {
   stroke-dasharray: 1;
@@ -698,8 +757,16 @@
   animation: ph-draw 700ms var(--ease-out) 300ms both;
 }
 
-.pitch-hero:not(.drawn) .ph-spot {
-  animation: ph-spot 200ms var(--ease-out) 1000ms both;
+.pitch-hero:not(.drawn) .ph-ball-line {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: ph-draw 450ms var(--ease-out) 1000ms both;
+}
+
+.pitch-hero:not(.drawn) .ph-ball-seam {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: ph-draw 220ms var(--ease-out) 1380ms both;
 }
 
 @keyframes ph-draw {
@@ -1036,8 +1103,8 @@ a.ticker-item:hover {
   text-decoration: none;
 }
 
-.btn:active {
-  transform: scale(0.98);
+.btn:active:not(:disabled):not(.busy) {
+  transform: scale(0.98); /* .busy is aria-disabled (still focusable) — no press feedback */
 }
 
 .btn.primary {
@@ -1046,7 +1113,7 @@ a.ticker-item:hover {
   border: 1px solid var(--ink);
 }
 
-.btn.primary:hover {
+.btn.primary:hover:not(:disabled) {
   background: #fff;
   border-color: #fff;
 }
@@ -1056,8 +1123,45 @@ a.ticker-item:hover {
   color: var(--ink);
 }
 
-.btn.ghost:hover {
+.btn.ghost:hover:not(:disabled) {
   border-color: var(--ink);
+}
+
+.btn.sm {
+  padding: 2px var(--space-3);
+  font-size: var(--text-xs);
+  border: 1px solid rgba(232, 237, 230, 0.4);
+  color: var(--ink);
+}
+
+/* Disabled = visibly out of play. Before this rule, HashProof's "Computing…" rendered
+   full-ink with cursor:pointer — a live-looking CTA that ignored you. */
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Busy = disabled + a spinner, but legible: the button is doing something, not out of play. */
+.btn.busy {
+  opacity: 0.85;
+  cursor: progress;
+}
+
+/* The spinner exists only while a request is in flight — a Tier-1 state transition, not
+   an ambient loop (docs/motion.md). Transform-only. */
+.btn .spinner {
+  width: 0.85em;
+  height: 0.85em;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+  border-top-color: transparent;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ---- home board geometry (visual-QA pass at 1440px + 390px) ----

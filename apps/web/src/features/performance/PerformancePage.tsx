@@ -4,6 +4,8 @@
 import { api, type MetricsPayload, type Scope } from "../../api";
 import { BaselineLadder, type LadderRow } from "../../components/charts/BaselineLadder";
 import { ConfidenceChart } from "../../components/charts/ConfidenceChart";
+import { CountUp } from "../../components/ui/CountUp";
+import { Entry } from "../../components/ui/Entry";
 import { ScopeChip } from "../../components/ui/ScopeChip";
 import { Section } from "../../components/ui/Section";
 import { EmptyState, ErrorState, Skeleton } from "../../components/ui/states";
@@ -116,7 +118,9 @@ function ladderRows(scope: Scope, m: MetricsPayload): LadderRow[] {
 }
 
 function ScopePanel({ scope, label, blurb, emptyNote }: (typeof SCOPES)[number]) {
-  const { data, error, notFound, loading, retry } = useApi(() => api.performance(scope));
+  const { data, error, notFound, loading, retrying, retry } = useApi(() =>
+    api.performance(scope),
+  );
   const m = data?.metrics;
   const ladder = m ? ladderRows(scope, m) : [];
   // ONE small-sample standard site-wide: below MIN_N_BUCKET_DETAIL the live buckets hold a
@@ -128,7 +132,7 @@ function ScopePanel({ scope, label, blurb, emptyNote }: (typeof SCOPES)[number])
   const biggestBucket = buckets.length > 0 ? Math.max(...buckets.map((b) => b.n)) : 0;
   const hasCharts = ladder.length > 0 || showBuckets;
   return (
-    <div className="entry">
+    <Entry>
       <header className="entry-strap">
         <span className="strap-label">{scope}</span>
         <span className="strap-rule" aria-hidden />
@@ -150,8 +154,10 @@ function ScopePanel({ scope, label, blurb, emptyNote }: (typeof SCOPES)[number])
             <h2>{label}</h2>
             <ScopeChip scope={scope} n={m?.n ?? null} />
           </header>
-          {loading && <Skeleton height={90} />}
-          {error && <ErrorState retry={retry} />}
+          {loading && !retrying && <Skeleton height={90} />}
+          {(error || retrying) && (
+            <ErrorState retry={retry} retrying={retrying} what={`${scope} performance`} />
+          )}
           {notFound && (
             <EmptyState title="No data recorded for this scope">{emptyNote}</EmptyState>
           )}
@@ -188,7 +194,15 @@ function ScopePanel({ scope, label, blurb, emptyNote }: (typeof SCOPES)[number])
                         typeof m[key] === "number" && (
                           <div className="metric" key={key}>
                             <dt>{label2}</dt>
-                            <dd>{fmt(m[key])}</dd>
+                            {/* log loss alone counts up — it is the page's decider; 16
+                                simultaneous count-ups would read as a slot machine */}
+                            <dd>
+                              {key === "log_loss" ? (
+                                <CountUp value={m[key]} format={fmt} />
+                              ) : (
+                                fmt(m[key])
+                              )}
+                            </dd>
                           </div>
                         ),
                     )}
@@ -245,7 +259,7 @@ function ScopePanel({ scope, label, blurb, emptyNote }: (typeof SCOPES)[number])
           </div>
         </section>
       </div>
-    </div>
+    </Entry>
   );
 }
 

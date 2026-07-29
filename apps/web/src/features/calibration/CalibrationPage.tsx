@@ -3,6 +3,7 @@
 // and reliability diagrams where per-bucket data exists.
 import { api, type CalibrationScope } from "../../api";
 import { ReliabilityDiagram } from "../../components/charts/ReliabilityDiagram";
+import { Entry } from "../../components/ui/Entry";
 import { ScopeChip } from "../../components/ui/ScopeChip";
 import { Section } from "../../components/ui/Section";
 import { EmptyState, ErrorState, Skeleton } from "../../components/ui/states";
@@ -149,7 +150,7 @@ function ClasswiseBars({
 }
 
 export function CalibrationPage() {
-  const { data, error, loading, retry } = useApi(() => api.calibration());
+  const { data, error, loading, retrying, retry } = useApi(() => api.calibration());
   const barMax = sharedScaleMax([data?.dev, data?.test, data?.live]);
   return (
     <div className="page">
@@ -163,8 +164,10 @@ export function CalibrationPage() {
       >
         <DotDemo />
       </Section>
-      {loading && <Skeleton height={200} />}
-      {error && <ErrorState retry={retry} />}
+      {loading && !retrying && <Skeleton height={200} ball label="loading calibration…" />}
+      {(error || retrying) && (
+        <ErrorState retry={retry} retrying={retrying} what="calibration" />
+      )}
       {data &&
         (["dev", "test", "live"] as const).map((scope) => {
           const s: CalibrationScope | undefined = data[scope];
@@ -172,7 +175,7 @@ export function CalibrationPage() {
           // dev/test are never gated (large sealed n); live earns its curves at n≥30
           const showDetail = scope !== "live" || (s?.n ?? 0) >= MIN_N_BUCKET_DETAIL;
           return (
-            <div key={scope} className="entry">
+            <Entry key={scope}>
               <header className="entry-strap">
                 <span className="strap-label">{scope}</span>
                 <span className="strap-rule" aria-hidden />
@@ -225,7 +228,7 @@ export function CalibrationPage() {
                   )}
                 </section>
               </div>
-            </div>
+            </Entry>
           );
         })}
     </div>

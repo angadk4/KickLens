@@ -45,7 +45,14 @@ export function ConfidenceChart({
               );
             }}
           />
-          <Bar dataKey="log_loss" name="log loss" fill={C.home} radius={[4, 4, 0, 0]} />
+          {/* isAnimationActive={false} everywhere: Recharts' grow-in re-serializes `d` per frame */}
+          <Bar
+            dataKey="log_loss"
+            name="log loss"
+            fill={C.home}
+            radius={[4, 4, 0, 0]}
+            isAnimationActive={false}
+          />
         </BarChart>
       </ResponsiveContainer>
       <figcaption>Log loss by max-probability bucket (n varies per bucket).</figcaption>

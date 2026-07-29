@@ -3,6 +3,8 @@
 import { Link, useParams } from "react-router-dom";
 import { api } from "../../api";
 import { Badge } from "../../components/ui/Badge";
+import { CardDetail } from "../../components/ui/CardDetail";
+import { GoalMark } from "../../components/ui/GoalMark";
 import { ProbBar } from "../../components/ui/ProbBar";
 import { Section } from "../../components/ui/Section";
 import { EmptyState, ErrorState, Skeleton } from "../../components/ui/states";
@@ -21,10 +23,10 @@ export function MatchPage() {
   const verify = useApi(() => api.verification(matchId), [matchId]);
   const now = useNow(); // phase chip ages honestly while the tab stays open
 
-  if (detail.loading)
+  if (detail.loading && !detail.retrying)
     return (
       <div className="page">
-        <Skeleton height={220} />
+        <Skeleton height={220} ball label="loading match details…" />
       </div>
     );
   if (detail.notFound)
@@ -35,10 +37,10 @@ export function MatchPage() {
         </EmptyState>
       </div>
     );
-  if (detail.error || !detail.data)
+  if (detail.error || detail.retrying || !detail.data)
     return (
       <div className="page">
-        <ErrorState retry={detail.retry} />
+        <ErrorState retry={detail.retry} retrying={detail.retrying} what="match details" />
       </div>
     );
 
@@ -67,6 +69,7 @@ export function MatchPage() {
     <div className="page">
       <Section
         lead
+        id="match" /* stable anchor: the eyebrow is dynamic, slugify would drift per match */
         eyebrow={`match #${m.match_id} · season ${m.season}${m.neutral_site ? " · neutral site" : ""}`}
         title={`${teamName(m.home)} vs ${teamName(m.away)}`}
         description={
@@ -98,16 +101,28 @@ export function MatchPage() {
             </div>
             <ProbBar pHome={current.p_home} pDraw={current.p_draw} pAway={current.p_away} />
             {current.grade && (
-              <div className="meta">
-                <span className="chip">log loss {nats(current.grade.log_loss)}</span>
-                <span className="chip">rps {nats(current.grade.rps)}</span>
-                <span className="chip">brier {nats(current.grade.brier)}</span>
-                <Badge
-                  kind={current.grade.correct ? "ok" : "none"}
-                  label={current.grade.correct ? "✓ top pick hit" : "top pick missed"}
-                />
-              </div>
+              <>
+                <div className="meta">
+                  <span className="chip">log loss {nats(current.grade.log_loss)}</span>
+                  <span className="chip">rps {nats(current.grade.rps)}</span>
+                  <span className="chip">brier {nats(current.grade.brier)}</span>
+                  {/* neutral on purpose: the goal mark carries the continuous truth */}
+                  <Badge
+                    kind="none"
+                    label={current.grade.correct ? "✓ top pick hit" : "top pick missed"}
+                  />
+                </div>
+                {/* the ball at e^−log loss — the chip above, drawn from the SAME stored
+                    grade, so the two can never disagree even mid-regrade */}
+                <GoalMark p={Math.exp(-current.grade.log_loss)} />
+              </>
             )}
+            {/* provenance the card always carried but never showed */}
+            <CardDetail>
+              {current.created_utc && <>frozen {kickoffUTC(current.created_utc)} · </>}
+              {current.cutoff_utc && <>cutoff {kickoffUTC(current.cutoff_utc)} · </>}
+              id #{current.prediction_id}
+            </CardDetail>
           </div>
         ) : m.draft ? (
           <div className="card fixture-card pencilled">

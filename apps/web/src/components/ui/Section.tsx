@@ -1,6 +1,9 @@
 // A board section: the strap (eyebrow breaking a full-width rule, metadata sitting on
 // the rule's right) replaces v4's margin gutter. Same props; optional id for the TOC.
+// Every section settles on first scroll-in (lib/reveal.ts) — sections visible at page
+// load never animate, so the reveal is felt only where scrolling actually happens.
 import type { ReactNode } from "react";
+import { useSettle } from "../../lib/reveal";
 
 export function slugify(s: string): string {
   return s
@@ -30,8 +33,9 @@ export function Section({
   lead?: boolean;
 }) {
   const anchor = id ?? (eyebrow ? slugify(eyebrow) : undefined);
+  const settleRef = useSettle<HTMLElement>();
   return (
-    <section className={`entry${lead ? " lead" : ""}`} id={anchor}>
+    <section ref={settleRef} className={`entry${lead ? " lead" : ""}`} id={anchor}>
       {(eyebrow || meta) && (
         <header className="entry-strap">
           {eyebrow && <span className="strap-label">{eyebrow}</span>}

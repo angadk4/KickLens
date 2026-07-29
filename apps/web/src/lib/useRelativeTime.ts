@@ -1,6 +1,7 @@
-// "2h ago"-style stamps that stay fresh on a 60s tick. Relative sugar never replaces
+// "2h ago"-style stamps that stay fresh on a shared tick. Relative sugar never replaces
 // the verifiable timestamp — render the absolute UTC time in a title attribute.
-import { useEffect, useState } from "react";
+import { useCallback, useSyncExternalStore } from "react";
+import { clockNow, subscribeClock } from "./clock";
 
 export function relTime(iso: string | null | undefined, now = Date.now()): string {
   if (!iso) return "—";
@@ -15,15 +16,21 @@ export function relTime(iso: string | null | undefined, now = Date.now()): strin
   return `${Math.floor(h / 24)}d ago`;
 }
 
+const FROZEN = Date.now(); // ms <= 0 → "never tick": a stable snapshot, no subscription
+
 /** The shared wall-clock tick: anything derived from "how long since/until" re-renders on
-    this with ZERO network — it's how phase labels age past boundaries in an open tab. */
+    this with ZERO network — and, since lib/clock.ts, with zero timers of its own. Every
+    call site with the same interval shares ONE setInterval (was: one per call site). */
 export function useNow(intervalMs = 60_000): number {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), intervalMs);
-    return () => clearInterval(id);
-  }, [intervalMs]);
-  return now;
+  const subscribe = useCallback(
+    (cb: () => void) => (intervalMs > 0 ? subscribeClock(intervalMs, cb) : () => {}),
+    [intervalMs],
+  );
+  const snapshot = useCallback(
+    () => (intervalMs > 0 ? clockNow(intervalMs) : FROZEN),
+    [intervalMs],
+  );
+  return useSyncExternalStore(subscribe, snapshot, snapshot);
 }
 
 export function useRelativeTime(iso: string | null | undefined): string {

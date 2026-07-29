@@ -7,6 +7,7 @@ import { Section } from "../../components/ui/Section";
 import { EmptyState, ErrorState, Skeleton } from "../../components/ui/states";
 import { compactInt, dateShort, teamName } from "../../lib/format";
 import { useApi } from "../../lib/useApi";
+import { useMediaQuery } from "../../lib/useMediaQuery";
 
 function FormStr({ form }: { form: string }) {
   return (
@@ -21,9 +22,11 @@ function FormStr({ form }: { form: string }) {
 }
 
 export function RatingsPage() {
-  const { data, error, notFound, loading, retry } = useApi(() => api.ratings(40));
+  const { data, error, notFound, loading, retrying, retry } = useApi(() => api.ratings(40));
   const [selected, setSelected] = useState<number | null>(null);
   const selectedId = selected ?? data?.teams[0]?.team_id ?? null;
+  // live-subscribing hook, not a render-time matchMedia read (unsafe + never updates)
+  const canHover = useMediaQuery("(hover: hover)");
 
   return (
     <div className="page">
@@ -41,8 +44,12 @@ export function RatingsPage() {
             : "Replay of the model's own rating engine over every completed regular-season match."
         }
       >
-        {loading && <Skeleton height={300} />}
-        {error && <ErrorState retry={retry} />}
+        {loading && !retrying && (
+          <Skeleton height={300} ball label="replaying every rated match…" />
+        )}
+        {(error || retrying) && (
+          <ErrorState retry={retry} retrying={retrying} what="the ratings" />
+        )}
         {notFound && (
           <EmptyState title="Ratings are not available yet">
             The ratings endpoint publishes with the next API deploy — nothing is shown that
@@ -59,10 +66,7 @@ export function RatingsPage() {
             <div style={{ display: "grid", gap: "var(--space-3)", minWidth: 0 }}>
             <p className="blurb">
               Select any row to highlight its trajectory
-              {typeof window !== "undefined" &&
-              window.matchMedia("(hover: hover)").matches
-                ? " — or hover any line on the chart."
-                : "."}{" "}
+              {canHover ? " — or hover any line on the chart." : "."}{" "}
               {data.teams.some((t) => t.provisional) &&
                 '"Provisional" = fewer than 10 career matches rated. '}
               Δ last 5 includes any start-of-season regression inside the window.
@@ -82,18 +86,28 @@ export function RatingsPage() {
                 </thead>
                 <tbody>
                   {data.teams.map((t) => (
+                    /* row click stays as a convenience for pointer users; the BUTTON in the
+                       team cell is the real control — a bare <tr onClick> is unreachable by
+                       keyboard, and role="button" on a <tr> would destroy its cell semantics */
                     <tr
                       key={t.team_id}
                       onClick={() => setSelected(t.team_id)}
-                      style={{
-                        cursor: "pointer",
-                        background:
-                          t.team_id === selectedId ? "var(--bg-2)" : undefined,
-                      }}
+                      className={t.team_id === selectedId ? "row-pinned" : undefined}
+                      style={{ cursor: "pointer" }}
                     >
                       <td className="num">{t.rank}</td>
                       <td>
-                        {teamName(t.team)}
+                        <button
+                          type="button"
+                          className="row-pick"
+                          aria-pressed={t.team_id === selectedId}
+                          onClick={(e) => {
+                            e.stopPropagation(); // one selection event, not two
+                            setSelected(t.team_id);
+                          }}
+                        >
+                          {teamName(t.team)}
+                        </button>
                         {t.provisional && (
                           <span className="chip" style={{ marginLeft: 8 }}>
                             provisional

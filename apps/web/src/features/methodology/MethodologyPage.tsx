@@ -60,7 +60,7 @@ function tidy(s: string): string {
 }
 
 export function MethodologyPage() {
-  const { data, error, loading, retry } = useApi(() => api.methodology());
+  const { data, error, loading, retrying, retry } = useApi(() => api.methodology());
   const versions = useApi(() => api.modelVersions());
 
   return (
@@ -85,8 +85,12 @@ export function MethodologyPage() {
         </div>
       </Section>
 
-      {loading && <Skeleton height={240} />}
-      {error && <ErrorState retry={retry} />}
+      {loading && !retrying && (
+        <Skeleton height={240} ball label="loading the frozen methodology…" />
+      )}
+      {(error || retrying) && (
+        <ErrorState retry={retry} retrying={retrying} what="the methodology" />
+      )}
       {data && (
         <>
           <Section

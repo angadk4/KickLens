@@ -1,13 +1,20 @@
 // Fetch-once data hook. Deliberately NO polling anywhere (Neon scale-to-zero: the browser
-// cache + Cache-Control headers do the work). `retry` is for explicit user action only.
-import { useCallback, useEffect, useState } from "react";
+// cache + Cache-Control headers do the work). `retry` is for explicit user action only;
+// `refresh` is the SILENT programmatic refetch — it must never raise `retrying`, or a
+// routine background refresh renders a false "API unreachable" banner.
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export type ApiState<T> = {
   data: T | null;
   error: boolean;
   notFound: boolean;
   loading: boolean;
+  /** a USER-triggered retry is in flight — the error banner stays up (busy, not blank)
+      instead of vanishing into a skeleton and reappearing seconds later on a cold start */
+  retrying: boolean;
   retry: () => void;
+  /** programmatic refetch (new grades landed, etc.) — no banner, no retrying state */
+  refresh: () => void;
 };
 
 export function useApi<T>(fn: () => Promise<T>, deps: unknown[] = []): ApiState<T> {
@@ -16,6 +23,8 @@ export function useApi<T>(fn: () => Promise<T>, deps: unknown[] = []): ApiState<
   const [notFound, setNotFound] = useState(false);
   const [loading, setLoading] = useState(true);
   const [tick, setTick] = useState(0);
+  // true only between a retry() click and that request settling — the retrying flag's gate
+  const userRetry = useRef(false);
 
   useEffect(() => {
     let alive = true;
@@ -32,7 +41,10 @@ export function useApi<T>(fn: () => Promise<T>, deps: unknown[] = []): ApiState<
         else setError(true);
       })
       .finally(() => {
-        if (alive) setLoading(false);
+        if (alive) {
+          setLoading(false);
+          userRetry.current = false;
+        }
       });
     return () => {
       alive = false;
@@ -40,6 +52,10 @@ export function useApi<T>(fn: () => Promise<T>, deps: unknown[] = []): ApiState<
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tick, ...deps]);
 
-  const retry = useCallback(() => setTick((t) => t + 1), []);
-  return { data, error, notFound, loading, retry };
+  const retry = useCallback(() => {
+    userRetry.current = true;
+    setTick((t) => t + 1);
+  }, []);
+  const refresh = useCallback(() => setTick((t) => t + 1), []);
+  return { data, error, notFound, loading, retrying: loading && userRetry.current, retry, refresh };
 }

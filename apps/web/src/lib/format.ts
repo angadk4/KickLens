@@ -68,6 +68,13 @@ export function compactInt(n: number): string {
   return n.toLocaleString();
 }
 
+/** Integer formatter safe for mid-animation values: count-ups feed fractional numbers
+    through their formatter every frame — round FIRST, then add thousands separators
+    (a bare toFixed(0) rendered 1234, not 1,234). */
+export function countInt(n: number): string {
+  return Math.round(n).toLocaleString();
+}
+
 /** Display-name normalization: raw provider strings never leak to the screen. */
 const TEAM_NAMES: Record<string, string> = {
   "Atlanta Utd": "Atlanta United",

@@ -13,6 +13,7 @@ import {
 } from "recharts";
 import type { TeamRating } from "../../api";
 import { teamName } from "../../lib/format";
+import { useMediaQuery } from "../../lib/useMediaQuery";
 import { ChartTooltip } from "./ChartTooltip";
 import { C, axisProps, gridProps } from "./theme";
 
@@ -26,6 +27,8 @@ export function EloHistory({
   const [hoverId, setHoverId] = useState<number | null>(null);
   const [labelPos, setLabelPos] = useState<{ x: number; y: number } | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
+  // live-subscribing hook, not a render-time matchMedia read (unsafe + never updates)
+  const canHover = useMediaQuery("(hover: hover)");
 
   // union of dates across teams → one row per date, one column per team id
   const dates = useMemo(
@@ -137,7 +140,7 @@ export function EloHistory({
       <figcaption>
         {selected ? teamName(selected.team) : "Selected team"} Elo trajectory vs the rest of
         the league (faint) —{" "}
-        {typeof window !== "undefined" && window.matchMedia("(hover: hover)").matches
+        {canHover
           ? "hover any line to preview, select a row to pin."
           : "select a row in the table to change the highlighted team."}
       </figcaption>

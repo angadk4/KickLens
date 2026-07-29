@@ -1,9 +1,11 @@
 // The live record — graded official forecasts only. Its empty state is a designed feature:
 // the record starts at zero and nothing is ever back-filled.
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../../api";
 import { Badge } from "../../components/ui/Badge";
+import { CardDetail } from "../../components/ui/CardDetail";
+import { GoalMark } from "../../components/ui/GoalMark";
 import { HashBadge } from "../../components/ui/HashBadge";
 import { ProbBar } from "../../components/ui/ProbBar";
 import { ScopeChip } from "../../components/ui/ScopeChip";
@@ -11,6 +13,7 @@ import { Section } from "../../components/ui/Section";
 import { EmptyState, ErrorState, Skeleton } from "../../components/ui/states";
 import { useUpcoming } from "../../components/layout/UpcomingContext";
 import { dateShort, kickoffLocal, nats, teamName } from "../../lib/format";
+import { goalThreshold } from "../../lib/goalMark";
 import { useApi } from "../../lib/useApi";
 import { InPlaySection } from "../forecasts/InPlaySection";
 
@@ -40,14 +43,26 @@ function SealChip() {
 const RESULT_LABEL = { H: "home win", D: "draw", A: "away win" } as const;
 
 export function RecordPage() {
-  const { data, error, loading, retry } = useApi(() => api.completed());
+  const { data, error, loading, retrying, retry, refresh } = useApi(() => api.completed());
   // shared context: one fetch for upcoming + in-play, and the derived next-freeze instant
   const { list, inPlay, nextCutoff, totalGraded } = useUpcoming();
   // the record list is fetch-once; when the polled context sees new grades land, refetch —
-  // a card leaving the in-play band must APPEAR in the record, not just vanish from above
+  // a card leaving the in-play band must APPEAR in the record, not just vanish from above.
+  // refresh(), NOT retry(): this is a healthy background sync, and retry() would flash a
+  // false "API unreachable" banner. The ref fires ONCE per new count — if the refetch is
+  // served by a still-fresh HTTP cache entry the effect must not tight-loop against it.
+  const syncedAt = useRef<number | null>(null);
   useEffect(() => {
-    if (totalGraded !== null && data && totalGraded > data.total_graded) retry();
-  }, [totalGraded, data, retry]);
+    if (
+      totalGraded !== null &&
+      data &&
+      totalGraded > data.total_graded &&
+      syncedAt.current !== totalGraded
+    ) {
+      syncedAt.current = totalGraded;
+      refresh();
+    }
+  }, [totalGraded, data, refresh]);
   // official forecasts already frozen but not yet graded — sealed upcoming AND kicked-off
   // (the in-play band), so a matchday empty state counts every sealed forecast
   const frozenAwaiting =
@@ -70,8 +85,12 @@ export function RecordPage() {
           </>
         }
       >
-        {loading && <Skeleton height={160} />}
-        {error && <ErrorState retry={retry} />}
+        {loading && !retrying && (
+          <Skeleton height={160} ball label="loading the graded record…" />
+        )}
+        {(error || retrying) && (
+          <ErrorState retry={retry} retrying={retrying} what="the graded record" />
+        )}
         {data && data.total_graded === 0 && (
           <>
             {frozenAwaiting > 0 && (
@@ -111,14 +130,24 @@ export function RecordPage() {
                 </span>
               )}
               <span className="chip">newest first</span>
-              <span className="chip" title="ln(3) — guessing ⅓/⅓/⅓ every match">
+              <span
+                className="chip hint"
+                tabIndex={0} /* the popover reveals on :focus-visible — keyboard-reachable */
+                title="ln(3) — guessing ⅓/⅓/⅓ every match"
+                data-hint="ln(3) — the log loss of guessing ⅓/⅓/⅓ every match. Scores below it mean the model knew something."
+              >
                 1.0986 = knew-nothing baseline
               </span>
               <SealChip />
             </div>
             <p className="blurb" style={{ fontSize: "var(--text-xs)" }}>
               Small live samples are extremely noisy — judge this record in months, not
-              matchdays.
+              matchdays. The goal mouth on each card plots p(actual): the probability the
+              frozen forecast gave to the result that happened (= e<sup>−log loss</sup>, the
+              same number as the chip). Every card gets the identical mark — a hit at 36%
+              and a miss at 34% look almost the same, because they almost are. The ball
+              reaches the net only from {(Math.floor(goalThreshold() * 1000) / 10).toFixed(1)}%
+              up.
             </p>
             <div className="grid-2">
               {data.items.map((it) => (
@@ -137,12 +166,23 @@ export function RecordPage() {
                     {typeof it.rps === "number" && (
                       <span className="chip">rps {nats(it.rps)}</span>
                     )}
+                    {/* both outcomes neutral: the ✓/✗ words stay, the colour verdict is
+                        gone — the goal mark below carries the continuous truth instead */}
                     <Badge
-                      kind={it.correct ? "ok" : "none"}
+                      kind="none"
                       label={it.correct ? "✓ top pick hit" : "top pick missed"}
                     />
                     <HashBadge hash={it.forecast_hash} />
                   </div>
+                  {/* the same mark on every card: the ball at e^−log loss — derived from
+                      the STORED grade (the chip's own number), so mark and chip can never
+                      disagree, even inside a result-correction regrade window. decorative:
+                      50 repeated aria sentences would bloat every link's accessible name */}
+                  <GoalMark p={Math.exp(-it.log_loss)} decorative />
+                  {/* brier arrives on every graded item and was never rendered anywhere */}
+                  {typeof it.brier === "number" && (
+                    <CardDetail>brier {nats(it.brier)} · graded automatically</CardDetail>
+                  )}
                 </Link>
               ))}
             </div>

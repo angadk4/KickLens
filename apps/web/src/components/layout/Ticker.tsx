@@ -5,32 +5,25 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { shortHash, teamName } from "../../lib/format";
-import { useRelativeTime } from "../../lib/useRelativeTime";
+import { useMediaQuery } from "../../lib/useMediaQuery";
+import { useNow, useRelativeTime } from "../../lib/useRelativeTime";
 import { useHealth } from "./HealthContext";
 import { useUpcoming } from "./UpcomingContext";
 
-function FreezeIn({ cutoff }: { cutoff: Date }) {
-  // per-minute text — the hero owns seconds
-  const [, force] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => force((n) => n + 1), 60_000);
-    return () => clearInterval(id);
-  }, []);
+// per-minute text — the hero owns seconds. `now` comes from the ONE shared clock: this
+// used to be a component with its own setInterval, one per non-frozen ticker item (≤6).
+function freezeIn(cutoff: Date, now: number): string {
   // floor, not round: the ticker must never disagree upward with the hero's seconds
-  const mins = Math.max(0, Math.floor((cutoff.getTime() - Date.now()) / 60_000));
+  const mins = Math.max(0, Math.floor((cutoff.getTime() - now) / 60_000));
   const h = Math.floor(mins / 60);
   // past cutoff = locked, awaiting the next hourly run's anchor — not literally "now"
-  return (
-    <>
-      {mins <= 0
-        ? "freeze pending"
-        : h >= 48
-          ? `freezes in ${Math.floor(h / 24)}d ${h % 24}h` // days read better than "68h"
-          : h > 0
-            ? `freezes in ${h}h ${mins % 60}m`
-            : `freezes in ${mins}m`}
-    </>
-  );
+  return mins <= 0
+    ? "freeze pending"
+    : h >= 48
+      ? `freezes in ${Math.floor(h / 24)}d ${h % 24}h` // days read better than "68h"
+      : h > 0
+        ? `freezes in ${h}h ${mins % 60}m`
+        : `freezes in ${mins}m`;
 }
 
 export function Ticker() {
@@ -39,18 +32,22 @@ export function Ticker() {
   const { upcoming } = useUpcoming();
   const { health } = useHealth();
   const ingested = useRelativeTime(health?.last_ingest);
+  const now = useNow();
   const ref = useRef<HTMLElement>(null);
   const [running, setRunning] = useState(false);
-  const reduced =
-    typeof window !== "undefined" &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  // live-subscribing: flipping the OS setting takes effect immediately — both the old
+  // one-shot .matches read AND framer's useReducedMotion freeze the choice at mount
+  const reduced = useMediaQuery("(prefers-reduced-motion: reduce)");
 
   useEffect(() => {
     const el = ref.current;
     if (!el || reduced || typeof IntersectionObserver === "undefined") return;
     const io = new IntersectionObserver(([e]) => setRunning(!!e?.isIntersecting));
     io.observe(el);
-    return () => io.disconnect();
+    return () => {
+      io.disconnect();
+      setRunning(false);
+    };
   }, [reduced]);
 
   const items = useMemo(() => {
@@ -68,7 +65,7 @@ export function Ticker() {
           ) : (
             <>
               {teamName(m.home)} vs {teamName(m.away)} —{" "}
-              <FreezeIn cutoff={new Date(new Date(m.kickoff_utc).getTime() - 3 * 3600 * 1000)} />
+              {freezeIn(new Date(new Date(m.kickoff_utc).getTime() - 3 * 3600 * 1000), now)}
             </>
           )}
         </Link>,
@@ -82,7 +79,7 @@ export function Ticker() {
       );
     }
     return out;
-  }, [upcoming, health, ingested]);
+  }, [upcoming, health, ingested, now]);
 
   if (items.length === 0) return null;
 

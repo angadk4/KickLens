@@ -4,6 +4,7 @@
 // compact separators, ASCII), so TextEncoder(utf-8) reproduces the hashed bytes.
 // The server only supplied the document — the proof runs on the visitor's machine.
 import { useEffect, useRef, useState } from "react";
+import { useMediaQuery } from "../../lib/useMediaQuery";
 
 type Phase = "idle" | "computing" | "revealing" | "match" | "mismatch";
 
@@ -33,9 +34,9 @@ export function HashProof({
   const computedRef = useRef<string>("");
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const supported = typeof crypto !== "undefined" && !!crypto.subtle;
-  const reduced =
-    typeof window !== "undefined" &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  // live-subscribing (useMediaQuery — framer's hook and a one-shot .matches read both
+  // freeze the OS setting at mount)
+  const reduced = useMediaQuery("(prefers-reduced-motion: reduce)");
 
   useEffect(() => () => {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -101,7 +102,14 @@ export function HashProof({
   return (
     <div className="prover">
       <span className="pv-caption">verify in this browser — no server, no trust</span>
-      <button type="button" className="btn primary" onClick={run} disabled={phase === "computing" || phase === "revealing"}>
+      <button
+        type="button"
+        className={`btn primary${phase === "computing" ? " busy" : ""}`}
+        onClick={run}
+        disabled={phase === "computing" || phase === "revealing"}
+        aria-busy={phase === "computing" || phase === "revealing" || undefined}
+      >
+        {phase === "computing" && <span className="spinner" aria-hidden />}
         {phase === "idle" ? "Recompute SHA-256" : done ? "Recompute again" : "Computing…"}
       </button>
       <div className="pv-steps">
