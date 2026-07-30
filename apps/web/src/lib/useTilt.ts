@@ -36,6 +36,10 @@ export function useTilt<T extends HTMLElement>() {
         const py = (clientY - r.top) / r.height - 0.5;
         el.style.setProperty("--tilt-x", `${(py * -2 * MAX_DEG).toFixed(2)}deg`);
         el.style.setProperty("--tilt-y", `${(px * 2 * MAX_DEG).toFixed(2)}deg`);
+        // unitless twins, −1 … 1, for anything that needs to scale a LENGTH by the tilt
+        // (the inner parallax). calc() cannot reliably divide one angle by another.
+        el.style.setProperty("--tilt-nx", (px * 2).toFixed(3));
+        el.style.setProperty("--tilt-ny", (py * 2).toFixed(3));
       });
     },
     [active],
@@ -46,6 +50,8 @@ export function useTilt<T extends HTMLElement>() {
     const el = e.currentTarget;
     el.style.removeProperty("--tilt-x");
     el.style.removeProperty("--tilt-y");
+    el.style.removeProperty("--tilt-nx");
+    el.style.removeProperty("--tilt-ny");
     el.style.willChange = "";
   }, []);
 

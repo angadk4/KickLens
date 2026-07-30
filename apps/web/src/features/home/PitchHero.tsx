@@ -1,14 +1,21 @@
 // The signature: a chalk center circle straddling the halfway line — the countdown sits
 // at the center spot because everything here happens before kickoff. The chalk draws
-// itself ONCE per browser session (the site's single orchestrated motion moment);
-// reduced motion and later visits render the finished pitch instantly.
+// itself on arrival (the orchestrated moment, 1100ms); reduced motion renders the
+// finished pitch instantly via the global killswitch.
+//
+// It used to be gated to once per browser session by a sessionStorage read-THEN-write
+// inside a useMemo. StrictMode double-invokes that factory, so pass 2 read the flag pass 1
+// had just written, `drawn` came back true, and the cascade SUPPRESSED ITSELF on every dev
+// reload — the site's one moment was invisible on the machine building it. The gate is
+// gone: it animates chalk strokes only (content paints instantly), it is one route of ten,
+// and an animation nobody ever sees is not a feature. lib/oncePerSession.ts holds the
+// correct read-in-render / write-in-effect pattern for where a real gate IS needed.
+//
 // THE BALL sits on the center spot (it replaced the spot dot — a filled dot inside a
 // stroked ring read as a bullseye) and arrives as the cascade's final beat. Geometry
 // lives in lib/pitchBall (unit-tested: it must never crowd the countdown's band).
-import { useMemo, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { BALL_CX, BALL_CY, BALL_R, seamPath } from "../../lib/pitchBall";
-
-const DRAWN_KEY = "kl-hero-drawn";
 
 export function PitchHero({
   expired = false,
@@ -21,17 +28,8 @@ export function PitchHero({
   /** content below the line (the fixture) */
   bottom?: ReactNode;
 }) {
-  const drawn = useMemo(() => {
-    try {
-      if (sessionStorage.getItem(DRAWN_KEY)) return true;
-      sessionStorage.setItem(DRAWN_KEY, "1");
-      return false;
-    } catch {
-      return true; // storage unavailable → skip the animation, show the finished pitch
-    }
-  }, []);
   return (
-    <div className={`pitch-hero${drawn ? " drawn" : ""}${expired ? " expired" : ""}`}>
+    <div className={`pitch-hero${expired ? " expired" : ""}`}>
       <div className="hw-line" aria-hidden />
       <div className="ph-cell">
         <svg className="ph-svg" viewBox="0 0 300 300" aria-hidden>

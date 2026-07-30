@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { NavLink, Link, useLocation } from "react-router-dom";
+import { FlapNumber } from "../ui/FlapNumber";
 import { useCountdown } from "../../lib/useCountdown";
 import { useHealth } from "./HealthContext";
 import { useUpcoming } from "./UpcomingContext";
 
 /** ⏱ next-freeze mini-countdown — the nav's live pulse (hidden on home: the hero owns it).
-    During a matchday the freeze may be days away while games run NOW — the live state wins. */
+    During a matchday the freeze may be days away while games run NOW — the live state wins.
+    The digits flap, so every route (not just home) has one thing visibly ticking; the
+    `.nf-label` is dropped below 720px so the countdown itself can finally be shown there. */
 function NavFreeze() {
   const { nextCutoff, inPlay } = useUpcoming();
   const cd = useCountdown(nextCutoff);
@@ -16,7 +19,9 @@ function NavFreeze() {
         className="nav-freeze freezing"
         title="Games between kickoff and the record — sealed forecasts awaiting results"
       >
-        matchday · {inPlay.length} running
+        <span className="nf-label">matchday · </span>
+        <FlapNumber value={inPlay.length} pad={1} label="matches running" />
+        <span className="nf-label"> running</span>
       </Link>
     );
   if (!nextCutoff) return null;
@@ -26,12 +31,26 @@ function NavFreeze() {
         freeze pending
       </Link>
     );
-  const pad = (n: number) => String(n).padStart(2, "0");
-  const text =
-    cd.d > 0 ? `${cd.d}d ${pad(cd.h)}:${pad(cd.m)}` : `${pad(cd.h)}:${pad(cd.m)}:${pad(cd.s)}`;
   return (
     <Link to="/forecasts" className="nav-freeze" title="Next official freeze (kickoff−3h)">
-      next freeze {text}
+      <span className="nf-label">next freeze </span>
+      {cd.d > 0 ? (
+        <>
+          <FlapNumber value={cd.d} pad={1} label="days" />
+          <span className="nf-sep">d </span>
+          <FlapNumber value={cd.h} label="hours" />
+          <span className="nf-sep">:</span>
+          <FlapNumber value={cd.m} label="minutes" />
+        </>
+      ) : (
+        <>
+          <FlapNumber value={cd.h} label="hours" />
+          <span className="nf-sep">:</span>
+          <FlapNumber value={cd.m} label="minutes" />
+          <span className="nf-sep">:</span>
+          <FlapNumber value={cd.s} label="seconds" />
+        </>
+      )}
     </Link>
   );
 }
@@ -145,7 +164,10 @@ export function TopNav() {
         {pathname !== "/" && <NavFreeze />}
         <span className="health-dot" title={`system status: ${dotLabel}`}>
           <span className={`dot ${dotClass}`} aria-hidden />
-          {dotLabel}
+          {/* the word collapses below 720px to make room for the ticking countdown; the
+              dot keeps the title, and the label stays in the DOM for screen readers */}
+          <span className="hd-text">{dotLabel}</span>
+          <span className="sr-only">{dotLabel}</span>
         </span>
       </div>
     </div>

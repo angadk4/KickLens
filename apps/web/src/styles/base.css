@@ -10,6 +10,41 @@ html {
   -webkit-text-size-adjust: 100%;
 }
 
+/* TIER 5 pointer properties, written by lib/pointerLight.ts (the ONE writer). Registering
+   them buys two things: the engine knows the type so it can skip re-parsing on every
+   pointer frame, and --pl becomes INTERPOLATABLE, which is what lets the lamp fade out over
+   400ms when the pointer leaves the window instead of snapping off. Unregistered would
+   still work — it would just be untyped and un-transitionable. */
+@property --px {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0.5;
+}
+
+@property --py {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0.5;
+}
+
+@property --pxn {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+
+@property --pyn {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+
+@property --pl {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
@@ -23,45 +58,111 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* the floodlight banks: two composited layers drifting imperceptibly per-frame,
-   unmistakably per-minute — the pitch breathes. transform-only, GPU-cheap. */
+/* THE FLOODLIGHT BANKS.
+   These used to DRIFT: translate3d(2.2%, 1.2%) over 96s. Measured, that is 39px of travel
+   at 0.41px/s — 0.0068px per frame — across a gradient whose alpha ramps only 0.075 over
+   630px, so the local change was ≈1 of 255 code values ACROSS THE ENTIRE 96-SECOND SWEEP.
+   It was below the 8-bit quantization floor: not subtle, absent. And between them the two
+   drifts held the whole ambient budget while the hero ball sat still.
+   Both are deleted. Lights don't move — their pools brighten and dim as the air moves — so
+   we animate OPACITY instead: a 30% modulation of a large smooth field is ~2.0 code values
+   per second, roughly 180× the old rate, and it reads. Still composited-only (opacity +
+   transform on an already-promoted layer), still zero main-thread paint, still no
+   scroll-triggered repaint (the failure the body comment above memorializes).
+   --fl-gain is set per route by lib/floodGain.ts. */
 .floodlights {
   position: fixed;
-  inset: 0;
+  inset: -8% 0; /* room for the scroll parallax to move without exposing an edge */
   z-index: -1;
   pointer-events: none;
   background: linear-gradient(180deg, #121c16 0, var(--bg-0) 340px);
+  /* Tier 4 depth parallax: the lights sit ABOVE you, so you walk under them as you scroll.
+     On the container only — the pools inside keep opacity (the breath) and their own
+     transform (the pointer parallax), so nothing competes for one property. */
+  animation: fl-parallax linear both;
+  animation-timeline: scroll(root block);
+}
+
+@keyframes fl-parallax {
+  to {
+    transform: translate3d(0, 7vh, 0);
+  }
 }
 
 .floodlights::before,
-.floodlights::after {
+.floodlights::after,
+.fl-haze {
   content: "";
   position: absolute;
   inset: -12% -12% auto;
   height: 70vh;
-  will-change: transform;
+  will-change: opacity, transform; /* slot 1 of the 2 static will-change slots */
 }
 
 .floodlights::before {
-  background: radial-gradient(900px 480px at 18% 12%, rgba(245, 239, 217, 0.075), transparent 70%);
-  animation: drift-a var(--dur-drift) var(--ease-in-out) infinite alternate;
+  background: radial-gradient(1100px 620px at 18% 12%, rgba(245, 239, 217, 0.11), transparent 70%);
+  opacity: var(--fl-gain, 1);
+  animation: fl-breath var(--dur-breath) var(--ease-in-out) infinite alternate;
 }
 
 .floodlights::after {
-  background: radial-gradient(720px 420px at 82% 8%, rgba(245, 239, 217, 0.055), transparent 70%);
-  animation: drift-b calc(var(--dur-drift) * 1.37) var(--ease-in-out) infinite alternate;
+  background: radial-gradient(860px 500px at 82% 8%, rgba(245, 239, 217, 0.085), transparent 70%);
+  opacity: var(--fl-gain, 1);
+  /* counter-phased so the sky doesn't pulse as one slab: the result reads as haze moving
+     through two beams, which is what actually happens on a floodlit pitch */
+  animation: fl-breath var(--dur-breath) var(--ease-in-out) -2.9s infinite alternate;
 }
 
-@keyframes drift-a {
-  to {
-    transform: translate3d(2.2%, 1.2%, 0);
+/* a third, softer layer gives the top 340px a DIRECTION (light from up-left) instead of
+   a flat vignette */
+.fl-haze {
+  background: linear-gradient(168deg, rgba(245, 239, 217, 0.05), transparent 42%);
+  opacity: var(--fl-gain, 1);
+  animation: fl-breath calc(var(--dur-breath) * 1.3) var(--ease-in-out) -1.4s infinite alternate;
+}
+
+/* from-only, so the implied `to` is each layer's own opacity (= --fl-gain, full). That
+   matters for reduced motion: with no fill mode the element falls back to its own value, so
+   the static state is FULL brightness — the honest one — rather than the dim end of a breath
+   the viewer never sees. */
+@keyframes fl-breath {
+  from {
+    opacity: calc(var(--fl-gain, 1) * 0.7);
   }
 }
 
-@keyframes drift-b {
-  to {
-    transform: translate3d(-1.8%, 0.9%, 0);
-  }
+/* Pointer parallax on the pools: TRANSFORM on an already-composited layer, so zero repaint.
+   14px of travel on an 1100px pool is subtle per pixel but reads as "the light shifted",
+   because the whole field moves coherently. --pxn/--pyn default to 0, so on touch and
+   under reduced motion (where the listener is never attached) the pools sit centred. */
+.floodlights::before,
+.floodlights::after {
+  translate: calc(var(--pxn) * 14px) calc(var(--pyn) * 8px);
+}
+
+/* THE LAMP: a warm pool that follows the cursor, so chalk brightens as if lit. It is a
+   PRE-RASTERIZED gradient that gets translated — never a gradient whose `at` position
+   moves, which would repaint every frame. No mix-blend-mode: it would force the whole
+   stacking context through a blend pass and fight .topnav's backdrop-filter.
+   Contrast, measured: at alpha 0.055 this takes --bg-1/--ink from 13.9:1 to 12.3:1 — far
+   above AA. z-index 0 keeps it under the nav (50) and under .shell content. */
+.pitch-lamp {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 520px;
+  height: 520px;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(circle, rgba(245, 239, 217, 0.055), transparent 68%);
+  opacity: calc(var(--pl) * var(--fl-gain, 1));
+  transform: translate3d(
+    calc(var(--px) * 100vw - 260px),
+    calc(var(--py) * 100vh - 260px),
+    0
+  );
+  transition: opacity 400ms var(--ease-out);
+  will-change: transform, opacity; /* slot 2 of 2 — the ration is now fully spent */
 }
 
 h1,
@@ -194,5 +295,24 @@ code,
     transition-duration: 0.01ms !important;
     transition-delay: 0ms !important;
     scroll-behavior: auto !important;
+    /* LOAD-BEARING for Tier 4. A scroll-driven animation's progress comes from POSITION,
+       not time, so zeroing duration/delay/iteration-count above does nothing to it — this
+       line is the only thing that stops one. Reverting the timeline to `auto` (the document
+       timeline) with a 0.01ms duration lands the animation at its end state immediately,
+       which for every Tier-4 keyframe here is the final, drawn state. Any new
+       animation-timeline rule is silently un-killable without this. */
+    animation-timeline: auto !important;
+  }
+
+  /* Two Tier-4 animations whose END state is NOT the right static state, so the blanket
+     guard above is not sufficient on its own:
+     - the yard line would land at scaleX(1) — a full progress bar claiming you are at the
+       bottom of a page you just opened. A progress indicator IS motion; its honest reduced
+       state is absent.
+     - the floodlight parallax would leave the whole backdrop shifted 7vh down.
+     Both revert to their base state instead. */
+  .topnav::after,
+  .floodlights {
+    animation: none !important;
   }
 }

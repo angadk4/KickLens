@@ -1,8 +1,18 @@
-// The goal mark's honesty guardrails. These two assertions earn their keep: the
+// The goal mark's honesty guardrails. The first two assertions earn their keep: the
 // knew-nothing baseline and a coin flip must NEVER ring the net — if someone lowers the
 // threshold until the record looks celebratory, this test fails first.
 import { describe, expect, it } from "vitest";
-import { ballX, GM_AXIS_X0, GM_GOAL_X, goalThreshold, isGoal, pActual } from "./goalMark";
+import {
+  ballX,
+  GM_AXIS_X0,
+  GM_BASELINE_P,
+  GM_GOAL_X,
+  goalThreshold,
+  isGoal,
+  pActual,
+  travel,
+  travelStart,
+} from "./goalMark";
 
 describe("goalMark", () => {
   it("GUARDRAIL: the knew-nothing baseline (p=1/3) never rings the net", () => {
@@ -38,6 +48,32 @@ describe("goalMark", () => {
 
   it("a strong-but-honest forecast just short of the bar stays out of the net", () => {
     expect(isGoal(0.6)).toBe(false);
-    expect(isGoal(0.66)).toBe(true);
+    expect(isGoal(0.68)).toBe(true);
+  });
+
+  // ---- the entrance cannot flatter any single forecast ----
+
+  it("GUARDRAIL: every card's roll starts at the SAME baseline tick", () => {
+    // a per-card origin could be chosen to make any given forecast look like progress
+    expect(travelStart()).toBeCloseTo(ballX(GM_BASELINE_P), 12);
+    expect(travelStart()).toBeCloseTo(ballX(1 / 3), 12);
+  });
+
+  it("GUARDRAIL: equidistant p's on either side of the baseline travel equal distances", () => {
+    const d = 0.15;
+    expect(Math.abs(travel(GM_BASELINE_P + d))).toBeCloseTo(
+      Math.abs(travel(GM_BASELINE_P - d)),
+      12,
+    );
+  });
+
+  it("travel is signed by whether the forecast beat the baseline, and zero AT it", () => {
+    expect(travel(GM_BASELINE_P)).toBeCloseTo(0, 12);
+    expect(travel(0.6)).toBeGreaterThan(0);
+    expect(travel(0.2)).toBeLessThan(0);
+  });
+
+  it("the baseline tick is always outside the goal mouth", () => {
+    expect(travelStart()).toBeLessThan(GM_GOAL_X);
   });
 });

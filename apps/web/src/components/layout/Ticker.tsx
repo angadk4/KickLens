@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { shortHash, teamName } from "../../lib/format";
+import { tickerDuration } from "../../lib/ticker";
 import { useMediaQuery } from "../../lib/useMediaQuery";
 import { useNow, useRelativeTime } from "../../lib/useRelativeTime";
 import { useHealth } from "./HealthContext";
@@ -34,21 +35,12 @@ export function Ticker() {
   const ingested = useRelativeTime(health?.last_ingest);
   const now = useNow();
   const ref = useRef<HTMLElement>(null);
+  const setRef = useRef<HTMLSpanElement>(null);
   const [running, setRunning] = useState(false);
+  const [setWidth, setSetWidth] = useState(0);
   // live-subscribing: flipping the OS setting takes effect immediately — both the old
   // one-shot .matches read AND framer's useReducedMotion freeze the choice at mount
   const reduced = useMediaQuery("(prefers-reduced-motion: reduce)");
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el || reduced || typeof IntersectionObserver === "undefined") return;
-    const io = new IntersectionObserver(([e]) => setRunning(!!e?.isIntersecting));
-    io.observe(el);
-    return () => {
-      io.disconnect();
-      setRunning(false);
-    };
-  }, [reduced]);
 
   const items = useMemo(() => {
     const out: React.ReactNode[] = [];
@@ -81,18 +73,52 @@ export function Ticker() {
     return out;
   }, [upcoming, health, ingested, now]);
 
-  if (items.length === 0) return null;
+  const hasItems = items.length > 0;
+
+  // `hasItems` is in the dep array and it is LOAD-BEARING. The component returns null until
+  // the shared fetch resolves, so at mount `ref.current` is null and the observer was never
+  // created — and with a `[reduced]`-only dep array the effect never re-ran once the section
+  // finally rendered. Result: `running` stayed false forever and THE TICKER NEVER SCROLLED
+  // ON FIRST LOAD. Measured, not theorised: .devtools/motion.sh reported 7 ticker items, no
+  // `.running` class, and no `ticker-scroll` animation 6s after load.
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || !hasItems || reduced || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(([e]) => setRunning(!!e?.isIntersecting));
+    io.observe(el);
+    return () => {
+      io.disconnect();
+      setRunning(false);
+    };
+  }, [reduced, hasItems]);
+
+  // one measurement of the first set, re-taken on resize/font swap — the same idiom
+  // BaselineLadder and ProbBar already use. No loop, no per-frame work.
+  useEffect(() => {
+    const el = setRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => setSetWidth(el.scrollWidth));
+    ro.observe(el);
+    setSetWidth(el.scrollWidth);
+    return () => ro.disconnect();
+  }, [hasItems]);
+
+  if (!hasItems) return null;
 
   return (
     <section
       ref={ref}
       className={`ticker${running ? " running" : ""}`}
       aria-label="Upcoming freezes"
-      style={{ ["--ticker-dur" as string]: `${Math.max(40, items.length * 12)}s` }}
+      // duration from the MEASURED set width, so the crawl runs at a constant px/s
+      // regardless of how many items there are or how long their text is (lib/ticker.ts)
+      style={{ ["--ticker-dur" as string]: `${tickerDuration(setWidth)}s` }}
     >
       {/* SR + no-JS + reduced-motion: the plain row IS the content */}
       <div className="ticker-track">
-        <span className="ticker-set">{items}</span>
+        <span className="ticker-set" ref={setRef}>
+          {items}
+        </span>
         {running && (
           <span className="ticker-set" aria-hidden>
             {items /* duplicated set for the seamless loop */}

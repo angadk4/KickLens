@@ -51,14 +51,28 @@
   --chalk-line: rgba(232, 237, 230, 0.35); /* every chalk stroke */
   --chalk-lit: rgba(232, 237, 230, 0.55); /* a stroke under a passed deadline (expired hero) */
   --chalk-spot: rgba(232, 237, 230, 0.5); /* the only filled chalk mark: a spot */
-  --chalk-ghost: rgba(232, 237, 230, 0.09); /* chalk at rest — the empty-state arc */
+  --chalk-ghost: rgba(232, 237, 230, 0.09); /* chalk at rest — the empty-state arc ONLY */
+  /* The goal mark used --chalk-ghost and was therefore invisible: 0.09 composites to a
+     19-of-255 delta on --bg-1, i.e. below the 3:1 graphics-contrast floor. 0.38 clears it
+     and still reads as "at rest / not yet earned" against --chalk-lit's 0.55. */
+  --chalk-mark: rgba(232, 237, 230, 0.38);
+  --chalk-net: rgba(232, 237, 230, 0.2); /* a net IS fainter than a post — representational */
 
   /* Elevation: the "machined edge" is SEMANTIC (officials only); floats are the
-     only drop shadows — layered, colored from the bg family, never black */
+     only drop shadows — layered, and led by a chalk rim (see below) */
   --edge-hi: inset 0 1px 0 rgba(232, 237, 230, 0.05);
+  /* On a #0f1813 page a dark shadow is arithmetically invisible: the old value
+     rgba(4,8,6,0.35) is DARKER than the background, so the entire card-hover "float" and
+     the nav-scroll cue faded in a ~4-of-255 delta spread over 24px of blur. On dark UI
+     elevation reads through EDGE CONTRAST, so the load-bearing layer here is the 1px chalk
+     rim (+~18 codes on the card's edge); the black layers only add depth beneath it.
+     This knowingly departs from the old "never black" note, which was written for light
+     surfaces — on near-black, black is the only thing darker. No `inset`: the inset light
+     edge (--edge-hi) means "official" on .card.stamped and hover must not borrow it. */
   --shadow-float:
-    0 1px 2px rgba(4, 8, 6, 0.5),
-    0 8px 24px rgba(4, 8, 6, 0.35);
+    0 0 0 1px rgba(232, 237, 230, 0.08),
+    0 2px 4px rgba(0, 0, 0, 0.55),
+    0 16px 40px rgba(0, 0, 0, 0.45);
 
   /* Type — Bricolage Grotesque (ink-trapped; condensed caps = the scoreboard voice,
      rationed to wordmark/hero/section h2/matchups/verdicts) + IBM Plex Mono (every
@@ -106,20 +120,41 @@
   /* Liveness — alias only, NO new hue: dots ≤10px and the literal word "live" */
   --live: var(--success);
 
-  /* Motion — the budget is AUTHORED in docs/motion.md (tiers, loop cap, hard rules,
-     the decision gate). Summary: transform/opacity only; content never animation-gated
-     (base state = final state); reduced motion renders the final state; ambient loops
-     capped at 4 per page (home is at 4/4 — adding one means deleting one). */
+  /* Motion — the budget is AUTHORED in docs/motion.md (tiers, the PERCEPTIBILITY FLOOR,
+     hard rules, the decision gate). Summary: transform/opacity only; content never
+     animation-gated (base state = final state); reduced motion renders the final state.
+     Every amplitude below was re-measured after the first pass shipped at or under the
+     perception threshold and read as "nothing is moving" — the old values are kept in
+     comments because the reasoning is the point. */
   --dur-fast: 150ms;
   --dur-med: 250ms;
   --dur-slow: 500ms;
-  --dur-tick: 240ms; /* countdown seconds roll */
-  --dur-drift: 96s; /* floodlight ambient loop */
-  --dur-reveal: 250ms; /* Tier-2 entrance — one value, one gesture */
-  --settle-rise: 8px; /* the reveal's travel; the route-enter uses 3/4 of it */
-  --lift: -2px; /* card hover lift — small enough not to slip the cursor */
-  --tilt-max: 3deg; /* opt-in pointer-tilt ceiling (mono numerals soften past this) */
-  --stagger: 60ms; /* one stagger step; max 3 steps */
+  --dur-reveal: 400ms; /* was 250ms: expo-out spent it all inside the last 10% of travel */
+  --settle-rise: 16px; /* was 8px — a 2% displacement on a 400px section reads as static */
+  --lift: -6px; /* was -2px ≈ below JND; needs the a.card::before hit-extender */
+  --tilt-max: 5deg; /* was 3deg = ±2-4px of corner shift; parallax carries the rest */
+  --stagger: 90ms; /* was 60ms — at 60×3 the steps fused into one event */
+
+  /* Press: everything pressable sinks 1.5px and shrinks 3% fast, then returns slower with
+     one small overshoot. Fast in / slow out is what makes a control feel mechanical. */
+  --dur-press: 70ms;
+  --dur-release: 190ms;
+  --press-y: 1.5px;
+  --press-scale: 0.97;
+
+  /* Split-flap scoreboard digits (lib/flap.ts + FlapNumber). --flap-h is 1.12em, not 1em:
+     at line-height 1 a 1em window clips IBM Plex Mono's digit cap on some rasterizers. */
+  --flap-h: 1.12em;
+  --dur-flap: 190ms;
+  --ease-flap: cubic-bezier(0.45, 0.03, 0.2, 1);
+
+  /* The floodlights breathe on this instead of drifting (see base.css for the arithmetic
+     that killed the drift). --fl-gain is written per route by lib/floodGain.ts. */
+  --dur-breath: 7s;
+  --fl-gain: 1;
+
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-press: cubic-bezier(0.4, 0, 1, 1); /* accelerate INTO the press */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1); /* one ~7% overshoot on release */
 }

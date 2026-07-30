@@ -4,11 +4,13 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Outlet, ScrollRestoration, useLocation } from "react-router-dom";
 import { api, type Health } from "./api";
+import { Floodlights } from "./components/layout/Floodlights";
 import { HealthBanners } from "./components/layout/HealthBanners";
 import { HealthContext } from "./components/layout/HealthContext";
 import { SiteFooter } from "./components/layout/SiteFooter";
 import { TopNav } from "./components/layout/TopNav";
 import { UpcomingProvider } from "./components/layout/UpcomingContext";
+import { usePointerLight } from "./lib/usePointerLight";
 
 // Route transition: pure-CSS enter-only on a fresh <main> per pathname (the key is set by
 // App). First paint never animates — the flag flips after the first mount, so only actual
@@ -32,6 +34,8 @@ export default function App() {
   const [health, setHealth] = useState<Health | null>(null);
   const [apiDown, setApiDown] = useState(false);
   const { pathname } = useLocation();
+  // the ONE Tier-5 pointer writer for the whole app (lib/pointerLight.ts)
+  usePointerLight();
 
   useEffect(() => {
     api
@@ -47,7 +51,8 @@ export default function App() {
   return (
     <HealthContext.Provider value={{ health, apiDown }}>
       <UpcomingProvider>
-        <div className="floodlights" aria-hidden />
+        <Floodlights page={page} />
+        <div className="pitch-lamp" aria-hidden />
         <TopNav />
         <div className="shell" data-page={page}>
           {/* banners live in a leaf: their relative-time tick must not re-render pages */}

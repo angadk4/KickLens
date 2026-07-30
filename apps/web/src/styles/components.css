@@ -24,15 +24,24 @@
   animation: none; /* the children carry the motion — no double rise */
 }
 
-.settled .settle-stagger > * {
+.settled.settle-stagger {
+  animation: none; /* same, when Reveal is itself the stagger host */
+}
+
+/* Both a descendant AND a self selector: <Reveal className="settle-stagger"> puts .settled
+   and .settle-stagger on the SAME element, which the descendant form silently misses. */
+.settled .settle-stagger > *,
+.settled.settle-stagger > * {
   animation: settle var(--dur-reveal) var(--ease-out) backwards;
 }
 
-.settled .settle-stagger > :nth-child(2) {
+.settled .settle-stagger > :nth-child(2),
+.settled.settle-stagger > :nth-child(2) {
   animation-delay: var(--stagger);
 }
 
-.settled .settle-stagger > :nth-child(n + 3) {
+.settled .settle-stagger > :nth-child(n + 3),
+.settled.settle-stagger > :nth-child(n + 3) {
   animation-delay: calc(2 * var(--stagger));
 }
 
@@ -85,7 +94,7 @@ a.card {
   transition:
     border-color var(--dur-fast) var(--ease-out),
     box-shadow var(--dur-fast) var(--ease-out),
-    transform var(--dur-fast) var(--ease-out);
+    transform var(--dur-release) var(--ease-spring);
 }
 
 a.card::after {
@@ -99,9 +108,23 @@ a.card::after {
   transition: opacity var(--dur-fast) var(--ease-out);
 }
 
+/* The hit-extender: at --lift: -6px the card moves out from under a cursor resting near its
+   bottom edge, which starts a hover/un-hover flicker loop. A pseudo-element of the anchor
+   counts as the anchor's own hit area, so this keeps the pointer "inside" through the lift.
+   Required — remove it and -6px flickers. */
+a.card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 calc(var(--lift) * -1) 0;
+  pointer-events: auto;
+}
+
 a.card:hover,
 a.card:focus-visible {
-  transform: translateY(var(--lift));
+  /* the 0.6% growth is deliberate: the card expands TOWARD the cursor, which is what makes
+     a 6px lift safe where a plain translate would slip out from under it */
+  transform: translateY(var(--lift)) scale(1.006);
+  transition-duration: var(--dur-med);
 }
 
 a.card:hover::after,
@@ -110,7 +133,10 @@ a.card:focus-visible::after {
 }
 
 a.card:active {
-  transform: translateY(0); /* pressing puts it back on the board */
+  /* the clunk: fast in on --ease-press, then released slowly with one small overshoot */
+  transform: translateY(-1px) scale(0.985);
+  transition-duration: var(--dur-press);
+  transition-timing-function: var(--ease-press);
 }
 
 /* pointer tilt (lib/useTilt) — licensed to the four home board cards only. Custom-property
@@ -118,12 +144,27 @@ a.card:active {
    the existing transform transition smooths each pointer sample. */
 a.card.card-tilt:hover,
 a.card.card-tilt:focus-visible {
-  transform: perspective(600px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg))
-    translateY(var(--lift));
+  transform: perspective(720px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg))
+    translateY(var(--lift)) scale(1.006);
 }
 
 a.card.card-tilt:active {
-  transform: translateY(0);
+  transform: translateY(-1px) scale(0.985);
+}
+
+/* Inner parallax: the matchup rides 3px against the tilt. Parallax buys far more perceived
+   depth per degree than rotation does, which is what lets the tilt stay at 5deg instead of
+   the 8deg+ that starts resampling the tabular numerals soft. */
+a.card.card-tilt .matchup {
+  transition: transform var(--dur-release) var(--ease-spring);
+}
+
+a.card.card-tilt:hover .matchup {
+  transform: translate3d(
+    calc(var(--tilt-nx, 0) * 3px),
+    calc(var(--tilt-ny, 0) * 3px),
+    0
+  );
 }
 
 /* ---- the held-back detail line (CardDetail): always in the DOM, slot reserved.
@@ -300,20 +341,45 @@ a.card.card-tilt:active {
 
 .badge.frozen {
   /* the seal — flat gold, straight, no metallic tricks. Lands once. */
+  position: relative;
   color: var(--gold);
   border: 1.5px solid var(--gold);
   background: color-mix(in srgb, var(--gold) 8%, transparent);
   animation: stamp-in var(--dur-med) var(--ease-out) 120ms both;
 }
 
+/* the strike ring: scale 1.06 on a 70px badge was 4px of growth, which reads as a fade,
+   not a stamp. The expanding ring is what makes it land. One-shot, no fill. */
+.badge.frozen::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  border: 1.5px solid var(--gold);
+  opacity: 0;
+  pointer-events: none;
+  animation: stamp-ring 420ms var(--ease-out) 120ms;
+}
+
 @keyframes stamp-in {
   from {
     opacity: 0;
-    transform: scale(1.06);
+    transform: scale(1.16);
   }
   to {
     opacity: 1;
     transform: scale(1);
+  }
+}
+
+@keyframes stamp-ring {
+  from {
+    opacity: 0.85;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.18);
   }
 }
 
@@ -637,14 +703,18 @@ a.card.card-tilt:active {
   background: var(--bg-1);
 }
 
+/* The band was --bg-2 over --bg-1: a 7-of-255 peak contrast, i.e. correct motion carrying
+   nothing you could see. Chalk at 0.08 is ~17 codes and it reads as LIGHT PASSING OVER,
+   which is what light does in this design system. Slower too: 1.4s across a 400px card was
+   285px/s, a strobe. */
 .skeleton::after {
   content: "";
   position: absolute;
   inset: 0 auto 0 0;
-  width: 50%;
-  background: linear-gradient(90deg, transparent, var(--bg-2), transparent);
+  width: 40%;
+  background: linear-gradient(90deg, transparent, rgba(232, 237, 230, 0.08), transparent);
   transform: translateX(-100%);
-  animation: sweep 1.4s linear infinite;
+  animation: sweep 1.9s linear infinite;
 }
 
 @keyframes sweep {
@@ -712,22 +782,51 @@ a.card.card-tilt:active {
 
 /* ---- the graded-card goal mark: the ball at p(actual) before a goal mouth — the same
         mark on every card (symmetric by construction; lib/goalMark guardrails keep the
-        net honest). Draws on first scroll-in; base state is the finished mark. ---- */
+        net honest). Draws on first scroll-in; base state is the finished mark.
+        It shipped at 92×24 with the ground, frame and net all at --chalk-ghost (0.09 =
+        19/255 on --bg-1, below the 3:1 graphics floor) so it was invisible. Now it is a
+        1-D chart with a scale: --chalk-mark for structure, --chalk-net for the netting,
+        --ink-muted for the datum, and a tick at the ⅓ baseline. ---- */
 .goal-mark {
-  width: 92px;
-  height: 24px;
+  width: 132px;
+  height: 40px;
   display: block;
+  overflow: visible;
 }
 
 .goal-mark .gm-stroke {
   fill: none;
-  stroke: var(--chalk-ghost);
+  stroke: var(--chalk-mark);
   stroke-width: 1.5;
   stroke-linecap: round;
 }
 
+.goal-mark .gm-net {
+  stroke: var(--chalk-net); /* netting is genuinely fainter than a post */
+}
+
+/* the datum is the most legible thing in the mark — it is the only thing that VARIES */
 .goal-mark .gm-ball {
-  fill: var(--chalk-spot);
+  fill: var(--ink-muted);
+}
+
+.goal-mark .gm-tick {
+  stroke: var(--chalk-mark);
+  stroke-width: 1;
+}
+
+.goal-mark .gm-tick-label,
+.goal-mark .gm-value {
+  fill: var(--ink-faint);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  text-anchor: middle;
+}
+
+.goal-mark .gm-value {
+  fill: var(--ink-muted);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
 }
 
 /* only a ball that actually reached the mouth brightens the net — earned, not given */
@@ -746,8 +845,13 @@ a.card.card-tilt:active {
   animation: gm-in 450ms var(--ease-out);
 }
 
-.goal-mark.gm-live .gm-ball {
-  animation: gm-ball-in 300ms var(--ease-out);
+/* The ball ROLLS IN FROM THE ⅓ TICK: --gm-from is set per card to −travel(p), so a
+   forecast that beat the baseline rolls forward and one that lost rolls backward. Same
+   duration, same easing, same distance for equally-good and equally-bad forecasts —
+   the direction is the datum, and no outcome is rewarded with more motion. */
+.goal-mark.gm-live .gm-ball,
+.goal-mark.gm-live .gm-value {
+  animation: gm-ball-in 520ms var(--ease-out);
 }
 
 @keyframes gm-in {
@@ -759,29 +863,33 @@ a.card.card-tilt:active {
 @keyframes gm-ball-in {
   from {
     opacity: 0;
-    transform: translateX(-6px);
+    transform: translateX(var(--gm-from, 0px));
   }
 }
 
-/* the ripple: a one-shot nudge of the net, only on gm-goal, only after the draw */
+/* The ripple: a one-shot rotation of the net about the crossbar tip, only on gm-goal.
+   CAPPED DELIBERATELY, and the cap is the point: this is the ONLY motion in the app that
+   fires on a favourable outcome, and it is permitted only because a net moving when a ball
+   hits it is physics, not applause. It was 1.8px of translate (invisible); rotating about
+   the top reads as a net taking a ball rather than a panel sliding sideways. */
 .goal-mark.gm-live.gm-goal .gm-net {
   transform-box: fill-box;
-  transform-origin: center;
+  transform-origin: top left;
   animation:
     gm-in 450ms var(--ease-out),
-    gm-ripple 500ms var(--ease-out) 500ms;
+    gm-ripple 520ms var(--ease-out) 480ms;
 }
 
 @keyframes gm-ripple {
   0%,
   100% {
-    transform: translateX(0);
+    transform: rotate(0);
   }
   40% {
-    transform: translateX(1.8px);
+    transform: rotate(2.2deg);
   }
   70% {
-    transform: translateX(-0.9px);
+    transform: rotate(-1deg);
   }
 }
 
@@ -1008,7 +1116,15 @@ a.card.card-tilt:active {
   letter-spacing: 0.04em;
   padding: var(--space-1) var(--space-3);
   border-radius: var(--r-sm);
-  animation: stamp-in 350ms var(--ease-out);
+  animation: verdict-in 350ms var(--ease-out);
+}
+
+/* the verdict lands harder than a badge — it is the payoff of the whole prover */
+@keyframes verdict-in {
+  from {
+    opacity: 0;
+    transform: scale(1.2);
+  }
 }
 
 .prover .pv-verdict.holds {
@@ -1754,5 +1870,15 @@ a.card.card-tilt:active {
 
 .nf-spot {
   fill: var(--chalk-spot);
-  animation: ph-spot 200ms var(--ease-out);
+  animation: nf-spot-in 200ms var(--ease-out);
+}
+
+/* moved here from layout.css, where it was named ph-spot and had no hero consumer left */
+@keyframes nf-spot-in {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+    transform-origin: center;
+    transform-box: fill-box;
+  }
 }

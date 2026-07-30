@@ -6,6 +6,7 @@ import { Badge } from "../../components/ui/Badge";
 import { CardDetail } from "../../components/ui/CardDetail";
 import { GoalMark } from "../../components/ui/GoalMark";
 import { ProbBar } from "../../components/ui/ProbBar";
+import { Reveal } from "../../components/ui/Reveal";
 import { Section } from "../../components/ui/Section";
 import { EmptyState, ErrorState, Skeleton } from "../../components/ui/states";
 import { kickoffLocal, kickoffUTC, nats, teamName, voidPhrase } from "../../lib/format";
@@ -223,7 +224,11 @@ export function MatchPage() {
         {(verify.error || verify.notFound) && (
           <p className="blurb">Verification payload unavailable right now.</p>
         )}
-        {verify.data && <VerificationPanel v={verify.data} />}
+        {verify.data && (
+          <Reveal>
+            <VerificationPanel v={verify.data} />
+          </Reveal>
+        )}
       </Section>
     </div>
   );

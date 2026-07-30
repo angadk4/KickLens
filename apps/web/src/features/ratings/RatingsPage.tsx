@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { api } from "../../api";
 import { EloHistory } from "../../components/charts/EloHistory";
+import { Reveal } from "../../components/ui/Reveal";
 import { Section } from "../../components/ui/Section";
 import { EmptyState, ErrorState, Skeleton } from "../../components/ui/states";
 import { compactInt, dateShort, teamName } from "../../lib/format";
@@ -71,7 +72,11 @@ export function RatingsPage() {
                 '"Provisional" = fewer than 10 career matches rated. '}
               Δ last 5 includes any start-of-season regression inside the window.
             </p>
-            <div className="table-scroll">
+            {/* Reveal on the table, not the page's single above-the-fold <Section>: that
+                skip decision meant this page could never animate anything. NOT wrapping
+                .ratings-chart — a new grid item there would create a containing block and
+                break its position:sticky. */}
+            <Reveal className="table-scroll">
               <table className="data-table">
                 <thead>
                   <tr>
@@ -134,7 +139,7 @@ export function RatingsPage() {
                   ))}
                 </tbody>
               </table>
-            </div>
+            </Reveal>
             </div>
             {/* the rail: sticky beside the table on wide screens, so the trajectory stays
                 with whatever row is being read rather than ending 900px above the table's

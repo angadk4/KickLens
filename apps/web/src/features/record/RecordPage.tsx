@@ -8,6 +8,7 @@ import { CardDetail } from "../../components/ui/CardDetail";
 import { GoalMark } from "../../components/ui/GoalMark";
 import { HashBadge } from "../../components/ui/HashBadge";
 import { ProbBar } from "../../components/ui/ProbBar";
+import { Reveal } from "../../components/ui/Reveal";
 import { ScopeChip } from "../../components/ui/ScopeChip";
 import { Section } from "../../components/ui/Section";
 import { EmptyState, ErrorState, Skeleton } from "../../components/ui/states";
@@ -144,12 +145,16 @@ export function RecordPage() {
               Small live samples are extremely noisy — judge this record in months, not
               matchdays. The goal mouth on each card plots p(actual): the probability the
               frozen forecast gave to the result that happened (= e<sup>−log loss</sup>, the
-              same number as the chip). Every card gets the identical mark — a hit at 36%
-              and a miss at 34% look almost the same, because they almost are. The ball
-              reaches the net only from {(Math.floor(goalThreshold() * 1000) / 10).toFixed(1)}%
-              up.
+              same number as the chip). The tick marked ⅓ is what a knew-nothing guess would
+              have given, so the ball's position against it says whether the forecast beat
+              guessing — and its roll starts there on every card, so nothing is flattered.
+              Every card gets the identical mark: a hit at 36% and a miss at 34% look almost
+              the same, because they almost are. The ball reaches the net only from{" "}
+              {(Math.floor(goalThreshold() * 1000) / 10).toFixed(1)}% up.
             </p>
-            <div className="grid-2">
+            {/* Reveal, not the page's single <Section>: that Section starts above the fold,
+                so its one skip decision meant NOTHING on this page could ever animate. */}
+            <Reveal className="grid-2 settle-stagger">
               {data.items.map((it) => (
                 <Link key={it.match_id} to={`/match/${it.match_id}`} className="card fixture-card stamped">
                   <div className="teams">
@@ -185,7 +190,7 @@ export function RecordPage() {
                   )}
                 </Link>
               ))}
-            </div>
+            </Reveal>
           </>
         )}
       </Section>

@@ -23,6 +23,7 @@ export function CountUp({
   const ref = useRef<HTMLSpanElement>(null);
   const formatRef = useRef(format);
   formatRef.current = format; // latest formatter without re-triggering the animation
+  const fromRef = useRef<number | null>(null); // where the last count ended
   const reduced = useMediaQuery("(prefers-reduced-motion: reduce)");
 
   useEffect(() => {
@@ -35,13 +36,16 @@ export function CountUp({
     if (reduced) return;
     let controls: ReturnType<typeof animate> | null = null;
     const run = () => {
-      controls = animate(0, value, {
+      // count from the PREVIOUS value, not from zero: on an increment (23 → 24) restarting
+      // at zero reads as a slot machine rather than a number ticking up.
+      controls = animate(fromRef.current ?? 0, value, {
         duration: 0.8,
         ease: [0.16, 1, 0.3, 1],
         onUpdate: (v) => {
           el.textContent = formatRef.current(v);
         },
       });
+      fromRef.current = value;
     };
     let off: (() => void) | null = null;
     if (startOnView) {

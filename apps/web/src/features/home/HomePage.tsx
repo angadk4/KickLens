@@ -6,6 +6,7 @@ import { api } from "../../api";
 import { useHealth } from "../../components/layout/HealthContext";
 import { Ticker } from "../../components/layout/Ticker";
 import { useUpcoming } from "../../components/layout/UpcomingContext";
+import { FlapNumber } from "../../components/ui/FlapNumber";
 import { Section } from "../../components/ui/Section";
 import { StatTile } from "../../components/ui/StatTile";
 import { EmptyState, Skeleton } from "../../components/ui/states";
@@ -96,17 +97,23 @@ function Hero() {
                   <div className="fp-head">
                     <span className="pulse-dot" aria-hidden /> matchday
                   </div>
-                  {/* reuses the countdown unit styling — the board's numeric voice */}
+                  {/* reuses the countdown unit styling — the board's numeric voice. The
+                      counters FLAP when the slate moves: this is the matchday hero's
+                      heartbeat, which previously had no recurring motion at all. */}
                   <div className="countdown">
                     {nLive > 0 && (
                       <span className="unit">
-                        <span className="value">{String(nLive).padStart(2, "0")}</span>
+                        <span className="value">
+                          <FlapNumber value={nLive} label="in play" />
+                        </span>
                         <span className="label">in play</span>
                       </span>
                     )}
                     {nAwaiting > 0 && (
                       <span className="unit">
-                        <span className="value">{String(nAwaiting).padStart(2, "0")}</span>
+                        <span className="value">
+                          <FlapNumber value={nAwaiting} label="awaiting result" />
+                        </span>
                         <span className="label">awaiting</span>
                       </span>
                     )}
@@ -116,6 +123,9 @@ function Hero() {
                 !cd.expired ? (
                   <>
                     <div className="fp-head">next official freeze in</div>
+                    {/* aria-live stays OFF: a per-second live region is hostile. Every unit
+                        flaps on its own clock, so the whole board is mechanical rather than
+                        one blinking seconds digit. */}
                     <div className="countdown" aria-live="off">
                       {(() => {
                         const units = [
@@ -128,15 +138,10 @@ function Hero() {
                         return units.map((u) => {
                           const zero = leading && u.v === 0;
                           if (u.v !== 0) leading = false;
-                          const isSec = u.l === "sec";
                           return (
                             <span key={u.l} className={`unit ${zero ? "zero" : ""}`}>
-                              <span
-                                // re-keying the seconds span replays the roll — the heartbeat
-                                key={isSec ? cd.s : undefined}
-                                className={`value${isSec ? " roll" : ""}`}
-                              >
-                                {String(u.v).padStart(2, "0")}
+                              <span className="value">
+                                <FlapNumber value={u.v} label={u.l} />
                               </span>
                               <span className="label">{u.l}</span>
                             </span>

@@ -40,6 +40,30 @@
   box-shadow: var(--shadow-float);
 }
 
+/* The yard line: how far down a long page you are. Tier 4, decorative, chalk → ink.
+   NEVER gold — progress is not officialness. It answers a question readers of
+   /methodology and /engineering are genuinely asking. */
+.topnav::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  width: 100%;
+  height: 1px;
+  background: var(--ink);
+  opacity: 0.5;
+  transform-origin: left center;
+  transform: scaleX(0);
+  animation: yard-line linear both;
+  animation-timeline: scroll(root block);
+}
+
+@keyframes yard-line {
+  to {
+    transform: scaleX(1);
+  }
+}
+
 .topnav-inner {
   max-width: var(--shell-max);
   margin: 0 auto;
@@ -162,9 +186,33 @@
   .health-dot {
     margin-left: auto;
   }
-  .nav-freeze {
+  /* The countdown used to be display:none here, so the majority of traffic saw NOTHING
+     ticking anywhere on any interior route. It stays: the prose label drops, the flapping
+     digits remain, and the health dot gives up its word (the dot + its title still say it,
+     and an .sr-only twin keeps it announced). */
+  .nav-freeze .nf-label {
     display: none;
   }
+  .health-dot .hd-text {
+    display: none;
+  }
+  .nav-freeze {
+    --flap-track: 0.06em;
+  }
+}
+
+.health-dot .hd-text + .sr-only {
+  display: none; /* only ONE of the two is ever exposed; below 720px they swap */
+}
+
+@media (max-width: 719px) {
+  .health-dot .hd-text + .sr-only {
+    display: initial;
+  }
+}
+
+.nav-freeze .nf-sep {
+  opacity: 0.55;
 }
 
 .health-dot {
@@ -179,6 +227,7 @@
 
 .health-dot .dot,
 .pulse-dot {
+  position: relative;
   width: 8px;
   height: 8px;
   border-radius: var(--r-full);
@@ -186,14 +235,35 @@
   animation: pulse 2s var(--ease-in-out) infinite;
 }
 
+/* "One pulse means something" survives — but that one pulse was an 8×8px dot changing
+   alpha, i.e. 64px² of a ~1.3M px² viewport. The expanding halo makes the same single
+   heartbeat visible from across the page. Transform/opacity on a pseudo: ~zero cost. */
+.health-dot .dot::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: inherit;
+  animation: pulse-halo 2s var(--ease-out) infinite;
+}
+
+.health-dot .dot.bad,
+.health-dot .dot.stale {
+  animation: none;
+}
+
+.health-dot .dot.bad::before,
+.health-dot .dot.stale::before {
+  animation: none;
+  opacity: 0; /* a degraded system does not get a heartbeat */
+}
+
 .health-dot .dot.bad {
   background: var(--danger);
-  animation: none;
 }
 
 .health-dot .dot.stale {
   background: var(--warn);
-  animation: none;
 }
 
 @keyframes pulse {
@@ -203,6 +273,17 @@
   }
   50% {
     opacity: 0.4;
+  }
+}
+
+@keyframes pulse-halo {
+  from {
+    transform: scale(1);
+    opacity: 0.55;
+  }
+  to {
+    transform: scale(2.75);
+    opacity: 0;
   }
 }
 
@@ -310,11 +391,37 @@
   color: var(--ink-faint);
 }
 
+/* ---- TIER 4: SCROLL-LINKED. Every section's strap rule draws itself as the section
+        enters the viewport. This is the highest-coverage motion in the app — it fires on
+        every <Section> and <Entry> on all ten routes, including /record and /ratings, with
+        zero per-page work and zero JavaScript.
+        Why CSS scroll timelines and not framer's useScroll or a scroll listener: a listener
+        does main-thread work on every scroll event (base.css:16 memorializes why that is
+        forbidden here), useScroll costs ~6 kB and moves reduced motion into JS, and an
+        UNSUPPORTED scroll timeline simply does not run — which leaves the base state, which
+        rule 2 already requires to be the final state. Non-support is the correct rendering,
+        so no @supports guard is needed.
+        `entry` range only: progress is 0 exactly when the element's first pixel appears, so
+        there is no load flash, and anything already fully in view is past the range (no
+        fill ⇒ final state). `cover` would flash.
+        Tier 4 is aria-hidden decorative elements ONLY — a scroll timeline scrubs backwards,
+        so content driven by one would un-reveal on scroll-up, which is content gated behind
+        animation. .strap-rule is already an aria-hidden flex filler. ---- */
 .strap-rule {
   flex: 1;
   height: 1px;
   background: var(--strap-rule);
   min-width: var(--space-6);
+  transform-origin: left center;
+  animation: strap-draw linear both;
+  animation-timeline: view();
+  animation-range: entry 0% entry 55%;
+}
+
+@keyframes strap-draw {
+  from {
+    transform: scaleX(0);
+  }
 }
 
 .entry-body {
@@ -668,8 +775,8 @@
   pointer-events: none;
 }
 
-.pitch-hero:not(.drawn) .hw-line {
-  animation: hw-draw 600ms var(--ease-out) both;
+.pitch-hero .hw-line {
+  animation: hw-draw 450ms var(--ease-out) both;
 }
 
 @keyframes hw-draw {
@@ -749,24 +856,26 @@
   transform: rotate(90deg) scale(0.94);
 }
 
-/* the one orchestrated moment: line → circle → spot → ball, once per session (1600ms).
-   Only the chalk STROKES animate — content paints instantly. */
-.pitch-hero:not(.drawn) .ph-circle {
+/* The orchestrated moment: line → circle → ball → seam, 1100ms, on EVERY arrival (the
+   session gate is gone — see PitchHero.tsx). Only the chalk STROKES animate; content
+   paints instantly, so nothing is gated behind it. Retimed from 1600ms so a return
+   visit is never a wait. */
+.pitch-hero .ph-circle {
   stroke-dasharray: 1;
   stroke-dashoffset: 1;
-  animation: ph-draw 700ms var(--ease-out) 300ms both;
+  animation: ph-draw 500ms var(--ease-out) 250ms both;
 }
 
-.pitch-hero:not(.drawn) .ph-ball-line {
+.pitch-hero .ph-ball-line {
   stroke-dasharray: 1;
   stroke-dashoffset: 1;
-  animation: ph-draw 450ms var(--ease-out) 1000ms both;
+  animation: ph-draw 320ms var(--ease-out) 700ms both;
 }
 
-.pitch-hero:not(.drawn) .ph-ball-seam {
+.pitch-hero .ph-ball-seam {
   stroke-dasharray: 1;
   stroke-dashoffset: 1;
-  animation: ph-draw 220ms var(--ease-out) 1380ms both;
+  animation: ph-draw 200ms var(--ease-out) 900ms both;
 }
 
 @keyframes ph-draw {
@@ -775,18 +884,8 @@
   }
 }
 
-@keyframes ph-spot {
-  from {
-    opacity: 0;
-    transform: scale(0.4);
-    transform-origin: center;
-    transform-box: fill-box;
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
+/* @keyframes ph-spot lived here and had ZERO hero consumers — the hero's spot became the
+   ball. It now sits beside its only real consumer, .nf-spot on the 404 (components.css). */
 
 /* content straddles the line precisely: top half above, fixture below */
 .ph-top {
@@ -854,20 +953,43 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* the seconds roll — the site's heartbeat (seconds unit only) */
-.countdown .value.roll {
-  animation: sec-roll var(--dur-tick) var(--ease-out);
+/* `sec-roll` lived here: a keyed remount that replayed a 240ms translateY on the seconds
+   span only. It has been replaced by FlapNumber (per-digit split-flap strips), which
+   animates EVERY unit on its own clock instead of blinking one. Net code reduction. */
+
+/* ---- split-flap scoreboard digits (components/ui/FlapNumber.tsx + lib/flap.ts) ----
+   Each column is a fixed em box with overflow:hidden holding a 0-9 strip that is
+   TRANSLATED to the right cell. Because the box is sized in em and every host carries
+   tabular-nums, this can never change layout. The transform is written during render, so
+   the digit is already correct with zero animation and the transition is the only motion —
+   which is why the reduced-motion killswitch (an !important transition-duration) stops it
+   for free, with no JS involved. Duration comes from lib/flap.ts and is proportional to
+   the distance travelled: a scoreboard moves the minimum distance at a mechanical rate.
+   0.6em is IBM Plex Mono's exact digit advance (already asserted as MONO_ADV in
+   components/charts/BaselineLadder.tsx). */
+.flap {
+  display: inline-flex;
+  font-variant-numeric: tabular-nums;
 }
 
-@keyframes sec-roll {
-  from {
-    transform: translateY(0.35em);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
+.flap-col {
+  display: block;
+  width: calc(0.6em + var(--flap-track, 0em));
+  height: var(--flap-h);
+  overflow: hidden;
+}
+
+.flap-strip {
+  display: block;
+  transform: translateY(calc(var(--d, 0) * -1 * var(--flap-h)));
+  transition: transform var(--flap-dur, 0ms) var(--ease-flap);
+}
+
+.flap-cell {
+  display: block;
+  height: var(--flap-h);
+  line-height: var(--flap-h);
+  text-align: center;
 }
 
 .countdown .label {
@@ -1084,6 +1206,7 @@ a.ticker-item:hover {
 /* ---- buttons: chalk is the interactive voice ---- */
 
 .btn {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
@@ -1096,7 +1219,21 @@ a.ticker-item:hover {
     background var(--dur-fast) var(--ease-out),
     color var(--dur-fast) var(--ease-out),
     border-color var(--dur-fast) var(--ease-out),
-    transform var(--dur-fast) var(--ease-out);
+    transform var(--dur-release) var(--ease-spring);
+}
+
+/* The plinth: a 2px ledge under the button that the button sits ON and sinks INTO when
+   pressed. `scale(0.98)` alone was 3.6px of width change on a 180px button — inferred, not
+   felt. A keycap is felt. Composited (transform + the pseudo's own static shadow). */
+.btn::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: rgba(4, 8, 6, 0.55);
+  transform: translateY(2px);
+  transition: transform var(--dur-release) var(--ease-spring);
 }
 
 .btn:hover {
@@ -1104,7 +1241,15 @@ a.ticker-item:hover {
 }
 
 .btn:active:not(:disabled):not(.busy) {
-  transform: scale(0.98); /* .busy is aria-disabled (still focusable) — no press feedback */
+  /* fast IN on --ease-press; the release above is slower with one small overshoot */
+  transform: translateY(var(--press-y)) scale(var(--press-scale));
+  transition-duration: var(--dur-press);
+  transition-timing-function: var(--ease-press);
+}
+
+.btn:active:not(:disabled):not(.busy)::before {
+  transform: translateY(0); /* the ledge closes up as the cap sinks */
+  transition-duration: var(--dur-press);
 }
 
 .btn.primary {
