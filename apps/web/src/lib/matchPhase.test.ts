@@ -2,10 +2,13 @@
 // "in play". Every boundary is pinned here with an injected clock — no mocked Date needed.
 import { describe, expect, it } from "vitest";
 import {
+  basisNote,
   IN_PLAY_TRUST_MIN,
+  isLiveNow,
   LIKELY_FT_MIN,
   matchPhase,
   notYetKickedOff,
+  phaseBasis,
 } from "./matchPhase";
 import { dateShort, dayHeading } from "./format";
 
@@ -92,5 +95,64 @@ describe("UTC date coherence", () => {
     // 02:30 UTC = the previous evening in US timezones; both helpers must say Jul 23
     expect(dayHeading(KO)).toBe("THU, JUL 23");
     expect(dateShort(KO)).toBe("Jul 23, 2026");
+  });
+});
+
+describe("isLiveNow — the only licence to say LIVE", () => {
+  it("ONLY in-play earns the word", () => {
+    expect(isLiveNow("in-play")).toBe(true);
+  });
+
+  it("result-pending does NOT: it means expected full time has passed", () => {
+    expect(isLiveNow("result-pending")).toBe(false);
+  });
+
+  it("nothing else does either", () => {
+    for (const p of [
+      "upcoming",
+      "upcoming-frozen",
+      "awaiting-grade",
+      "graded",
+      "postponed",
+      "cancelled",
+      "abandoned",
+      "voided",
+    ] as const) {
+      expect(isLiveNow(p)).toBe(false);
+    }
+  });
+});
+
+describe("phaseBasis / basisNote — how do we know?", () => {
+  it("a provider signal is provider-confirmed", () => {
+    expect(phaseBasis({ status: "in_play" })).toBe("provider");
+    expect(phaseBasis({ status: "final" })).toBe("provider");
+  });
+
+  it("a stale 'scheduled' is CLOCK-inferred — the case nobody ever admits", () => {
+    expect(phaseBasis({ status: "scheduled" })).toBe("clock");
+    expect(phaseBasis({ status: null })).toBe("clock");
+    expect(phaseBasis({})).toBe("clock");
+  });
+
+  it("the note never claims a confirmation it doesn't have", () => {
+    expect(basisNote("scheduled")).toContain("inferred from the clock");
+    expect(basisNote("scheduled")).not.toContain("confirmed");
+    expect(basisNote("in_play")).toContain("provider-confirmed");
+    expect(basisNote(undefined)).toContain("clock");
+  });
+
+  it("HONESTY: the note describes OUR INGEST, never what a third party's feed did", () => {
+    // the browser sees only what our sweep wrote; "the provider has not updated" would assert
+    // something about them when the truth might be that our own job did not run
+    for (const s of ["scheduled", "in_play", "final", null, undefined]) {
+      expect(basisNote(s)).not.toContain("provider has not");
+      expect(basisNote(s)).not.toContain("provider reports");
+    }
+    expect(basisNote("scheduled")).toContain("ingested");
+  });
+
+  it("a stored 'final' says the GRADE is not written — the result already is", () => {
+    expect(basisNote("final")).toContain("grade not yet written");
   });
 });

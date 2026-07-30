@@ -85,10 +85,11 @@ a.card.stamped:hover {
   box-shadow: inset 0 1px 0 rgba(232, 237, 230, 0.08);
 }
 
-/* ---- card lift: -2px on hover, home again on press. The float shadow rides a ::after
-        pseudo-element faded by OPACITY (composited) — box-shadow interpolation repaints,
-        and would collide with .stamped's inset edge above. -2px is deliberate: a bigger
-        lift slides the card out from under the cursor and flickers at grid edges. ---- */
+/* ---- card lift: --lift (-6px) on hover, plus a 0.6% growth so the card expands TOWARD the
+        cursor rather than sliding out from under it, and home again on press. The float
+        shadow rides a ::after pseudo faded by OPACITY (composited) — box-shadow interpolation
+        repaints, and would collide with .stamped's inset edge above. It shipped at -2px
+        first, which measured out below the just-noticeable difference. ---- */
 a.card {
   position: relative;
   transition:
@@ -111,12 +112,19 @@ a.card::after {
 /* The hit-extender: at --lift: -6px the card moves out from under a cursor resting near its
    bottom edge, which starts a hover/un-hover flicker loop. A pseudo-element of the anchor
    counts as the anchor's own hit area, so this keeps the pointer "inside" through the lift.
-   Required — remove it and -6px flickers. */
+   Required — remove it and -6px flickers.
+   TWO details that are easy to get backwards and were, first time:
+   1. `bottom: var(--lift)` — --lift is NEGATIVE (-6px), so this EXTENDS the box downward.
+      Writing `calc(var(--lift) * -1)` would inset it by 6px and shrink the hit area instead.
+   2. `z-index: -1` — an absolutely-positioned pseudo paints ABOVE the element's normal-flow
+      content, so without this it would cover the card's own text and swallow pointer events
+      from the .hint chips and text selection. Behind the content it still hit-tests in the
+      6px strip below the card, where nothing else is painted. */
 a.card::before {
   content: "";
   position: absolute;
-  inset: 0 0 calc(var(--lift) * -1) 0;
-  pointer-events: auto;
+  inset: 0 0 var(--lift) 0;
+  z-index: -1;
 }
 
 a.card:hover,
@@ -137,6 +145,19 @@ a.card:active {
   transform: translateY(-1px) scale(0.985);
   transition-duration: var(--dur-press);
   transition-timing-function: var(--ease-press);
+}
+
+/* A row that JUST ARRIVED — a grade landing while you watch, or a newly paged-in row. A
+   chalk-edge brighten and nothing else: no colour, so it cannot read as a verdict on the
+   forecast inside it. One shot, no fill. */
+.card.landed {
+  animation: landed 900ms var(--ease-out);
+}
+
+@keyframes landed {
+  from {
+    border-color: var(--chalk-lit);
+  }
 }
 
 /* pointer tilt (lib/useTilt) — licensed to the four home board cards only. Custom-property
@@ -778,6 +799,314 @@ a.card.card-tilt:hover .matchup {
   to {
     transform: rotate(360deg);
   }
+}
+
+/* ---- "YOUR CALL" (components/ui/YourCall.tsx). Deliberately NOT dressed as evidence: no
+        --scope-* colour, no ScopeChip, a literal "not on the record" tag, and it sits on
+        --bg-0 inside a plain --line border so it reads as a sandbox beside the page's
+        evidence panels rather than one of them. ---- */
+.your-call {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--bg-0);
+}
+
+.yc-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.yc-tag {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ink-faint);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--r-sm);
+  padding: 2px var(--space-2);
+}
+
+.yc-fixture {
+  font-stretch: var(--stretch-display);
+  font-weight: 700;
+  margin-right: auto;
+}
+
+.yc-bar {
+  display: flex;
+  gap: 2px;
+  height: 1.9rem;
+  border-radius: var(--r-sm);
+  overflow: hidden;
+}
+
+.yc-bar.ghost {
+  opacity: 0.55; /* the model's bar sits behind yours, visibly a comparison not a claim */
+}
+
+/* NO transition on flex-grow: that is a layout property (rule 1), it would run on every one of
+   the ~100 slider steps in a drag, and lagging behind the thumb is wrong for a direct
+   manipulation control anyway — the bar should be exactly where the finger is. */
+.yc-seg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--bg-0);
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.yc-seg.home {
+  background: var(--home);
+}
+
+.yc-seg.draw {
+  background: var(--draw);
+}
+
+.yc-seg.away {
+  background: var(--away);
+}
+
+/* the two real controls: native ranges, visually reduced to a chalk thumb on a chalk rail */
+.yc-cuts {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.yc-cuts input[type="range"] {
+  width: 100%;
+  height: 18px;
+  background: none;
+  cursor: ew-resize;
+  accent-color: var(--ink);
+}
+
+.yc-cuts input[type="range"]:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+  border-radius: var(--r-sm);
+}
+
+.yc-conditional,
+.yc-scores {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  margin: 0;
+}
+
+.yc-conditional div,
+.yc-scores div {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.yc-conditional dt,
+.yc-scores dt {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-faint);
+}
+
+.yc-conditional dd,
+.yc-scores dd {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+.yc-reveal {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.yc-line {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--ink-muted);
+  line-height: 1.65;
+}
+
+.yc-dim {
+  color: var(--ink-faint);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.yc-scope {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+}
+
+/* ---- THE DAILY-SEAL STRIP (components/ui/SealStrip.tsx). 90 calendar days of
+        tamper-evidence. Cells fill left→right at 14ms each — a >3-step stagger, licensed by
+        docs/motion.md because THE STEPS ARE THE DATA and the total stays under 1400ms.
+        `backwards` fill is safe here for the same reason the existing stagger's is: the
+        keyframe is from-only, so the base state is the finished cell. ---- */
+.seal-strip {
+  margin: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.ss-cells {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+
+.ss-cell {
+  width: 8px;
+  height: 20px;
+  border-radius: 1px;
+  border: 1px solid var(--chalk-ghost);
+  animation: ss-in 260ms var(--ease-out) backwards;
+  animation-delay: calc(var(--i, 0) * 14ms);
+}
+
+.ss-cell.sealed {
+  /* gold is licensed: a Merkle root IS the officialness artifact */
+  border-color: color-mix(in srgb, var(--gold) 55%, transparent);
+  background: color-mix(in srgb, var(--gold) 22%, transparent);
+}
+
+/* not yet due, not missed: a root is committed at 12:00 UTC the day AFTER, so the newest one or
+   two cells are always awaiting theirs. Dashed = "pending", which is a different statement from
+   an empty cell's "no forecast was issued". */
+.ss-cell.pending {
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--gold) 35%, transparent);
+}
+
+@keyframes ss-in {
+  from {
+    opacity: 0;
+    transform: scaleY(0.3);
+  }
+}
+
+.seal-strip figcaption {
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+  line-height: 1.6;
+  max-width: 720px;
+}
+
+/* ---- THE FIELD LEDGER (components/ui/FieldLedger.tsx): the 11 values the hash is taken
+        over, in canonical = hash order. ---- */
+.field-ledger {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.field-ledger dl {
+  margin: 0;
+  display: grid;
+  gap: 1px;
+}
+
+.fl-row {
+  display: grid;
+  grid-template-columns: 1.2em minmax(0, 12em) minmax(0, 1fr);
+  gap: var(--space-2);
+  align-items: baseline;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  padding: 2px 0;
+  color: var(--ink-faint);
+  transition: color var(--dur-fast) var(--ease-out);
+}
+
+.fl-row.on {
+  color: var(--ink-muted);
+}
+
+.fl-row .fl-mark {
+  color: var(--ink-faint);
+}
+
+.fl-row.on .fl-mark {
+  color: var(--gold); /* the hashed document is the officialness artifact */
+}
+
+.fl-row dt {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.fl-row dd {
+  margin: 0;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.field-ledger.pending .fl-row dd {
+  color: var(--ink-faint);
+}
+
+/* ---- THE EQUALISER: the "on air" mark (components/ui/Equaliser.tsx). Three bars, three
+        DIFFERENT durations — layout.css:645 already established that three synchronised
+        pulses read as decoration. Base state is a static stepped 3-bar glyph, so under
+        reduced motion it reads as a mark, not a block. --live, never gold. It is rendered
+        only where matchPhase.isLiveNow() is true. ---- */
+.eq {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 1.5px;
+  width: 11px;
+  height: 10px;
+}
+
+.eq i {
+  width: 2px;
+  background: var(--live);
+  transform-origin: bottom;
+  /* each bar overrides this below — three different durations, because three synchronised
+     pulses read as decoration (the rule layout.css:645 already established) */
+  animation: eq 1.15s var(--ease-in-out) infinite alternate;
+}
+
+.eq i:nth-child(1) {
+  height: 6px;
+  animation-duration: 1.15s;
+}
+
+.eq i:nth-child(2) {
+  height: 10px;
+  animation-duration: 0.86s;
+}
+
+.eq i:nth-child(3) {
+  height: 8px;
+  animation-duration: 1.42s;
+}
+
+@keyframes eq {
+  from {
+    transform: scaleY(0.4);
+  }
+}
+
+/* a live card gets a --live edge and nothing else: the card's CONTENT is not changing, and
+   the motion standard says the change carries the motion */
+.fixture-card.live-edge {
+  border-left: 2px solid var(--live);
 }
 
 /* ---- the graded-card goal mark: the ball at p(actual) before a goal mouth — the same

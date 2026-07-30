@@ -815,6 +815,11 @@
   inset: 0;
   width: 100%;
   height: 100%;
+  /* z-index 2 so a kicked ball is visible where it crosses the copy lanes; pointer-events
+     none is MANDATORY with that — a raised full-size SVG would otherwise eat text selection
+     across the whole ring. The 40px .ph-ball-hit button is the only interactive surface. */
+  z-index: 2;
+  pointer-events: none;
 }
 
 .ph-circle {
@@ -829,32 +834,280 @@
   stroke: var(--chalk-lit);
 }
 
-/* THE BALL on the center spot (pitch-art mark #2, lib/pitchBall geometry): outline plus
-   one meridian seam — at r=10 a panelled football blobs, a seam is what reads. It rolls
-   a quarter-turn when the pointer rests on the ring (Tier 1; the ring is the hover
-   surface because .ph-top/.ph-bottom cover the center) and presses flat on :active.
-   No ambient loop: home's Tier-0 budget is spent (docs/motion.md). */
+/* THE BALL (pitch-art mark #2, lib/pitchBall geometry). r=16 → 32px at the desktop size,
+   up from 20px, because the constraint was never "space around the spot": .ph-top is
+   anchored bottom:50% and .ph-bottom top:50%, so the copy limits the ball VERTICALLY and
+   not at all horizontally. Along the halfway line it has a corridor ~9× its own diameter.
+
+   Outline + meridian seam + equator + a fixed floodlit crescent. Two arcs, because ONE
+   rotating arc on a circle is nearly rotationally symmetric — the previous ball's only
+   motion was a hover rotation and it read as completely static.
+
+   Three nested transform layers, because two animations both writing `transform` on one
+   element do not compose (the later one wins outright):
+     .ph-ball-roll  — ambient translateX along the line
+     .ph-beat       — the 1s bounce + contact squash
+     .ph-ball       — what JS writes when the ball is kicked
+     .ph-ball-spin  — ambient rotation, phase-locked to the roll
+   `.ph-kicked` on the cell suspends the two ambient loops so JS owns the transform. */
 .ph-ball-line,
-.ph-ball-seam {
+.ph-ball-seam,
+.ph-ball-lit {
   fill: none;
   stroke: var(--chalk-spot);
   stroke-width: 1.5;
   stroke-linecap: round;
 }
 
-.ph-ball-roll {
+.ph-ball-lit {
+  stroke: var(--chalk-hi);
+  stroke-width: 2;
+}
+
+.ph-ball-roll,
+.ph-beat,
+.ph-ball,
+.ph-ball-spin {
   transform-box: fill-box;
   transform-origin: center;
-  transition: transform var(--dur-slow) var(--ease-out);
 }
 
-.ph-cell:hover .ph-ball-roll {
-  transform: rotate(90deg);
+/* Ambient roll. --ph-roll and the rotation MUST agree: rollDegrees(48, 16) = 171.887°, and
+   a unit test pins this literal against that function. Desync makes the ball skid. */
+.ph-cell:not(.ph-kicked) .ph-ball-roll {
+  animation: ph-roll-x var(--dur-ball) var(--ease-in-out) infinite;
 }
 
-.ph-cell:active .ph-ball-roll {
-  transform: rotate(90deg) scale(0.94);
+.ph-cell:not(.ph-kicked) .ph-ball-spin {
+  /* identical duration, delay, easing and keyframe percentages — they start in the same
+     style recalculation and stay locked */
+  animation: ph-roll-r var(--dur-ball) var(--ease-in-out) infinite;
 }
+
+.ph-cell:not(.ph-kicked) .ph-beat {
+  animation: ph-beat var(--dur-beat) var(--ease-out) var(--beat-phase, 0ms) infinite;
+}
+
+@keyframes ph-roll-x {
+  0%,
+  10% {
+    transform: translateX(0);
+  }
+  34%,
+  44% {
+    transform: translateX(calc(-1 * var(--ph-roll)));
+  }
+  68%,
+  78% {
+    transform: translateX(var(--ph-roll));
+  }
+  96%,
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes ph-roll-r {
+  0%,
+  10% {
+    transform: rotate(0);
+  }
+  34%,
+  44% {
+    transform: rotate(-171.887deg);
+  }
+  68%,
+  78% {
+    transform: rotate(171.887deg);
+  }
+  96%,
+  100% {
+    transform: rotate(0);
+  }
+}
+
+/* alternate would ease symmetrically; an explicit contact squash at 34% is what reads as
+   weight landing on the line */
+@keyframes ph-beat {
+  0% {
+    transform: translateY(0) scale(1);
+  }
+  14% {
+    transform: translateY(calc(-1 * var(--ph-beat))) scale(0.985, 1.015);
+  }
+  34% {
+    transform: translateY(0) scale(1.03, 0.94);
+  }
+  48%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* The kickable control: a transparent target that TRACKS the ball, so the focus ring travels
+   with it. ≥24px for WCAG 2.2 target size. touch-action:none or the browser steals the drag.
+
+   IT MUST ALSO TRACK THE AMBIENT ROLL. JS only writes this element's transform during a kick,
+   so with the ambient animation on the SVG alone the ball visibly rolled ±48 units while the
+   button stayed pinned at the centre — clicking the ball you could see MISSED it. So the button
+   runs the same two ambient loops, suspended by the same `.ph-kicked` class, and the amplitudes
+   are expressed as fractions of --ph-size to convert viewBox units to CSS px:
+     48 / 300 = 0.16   (must equal --ph-roll)
+     7 / 300  = 0.02333 (must equal --ph-beat)
+   A test pins --ph-roll to lib/pitchBall's ROLL_X; keep these fractions in step with it. */
+.ph-ball-hit {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 40px;
+  height: 40px;
+  margin: -20px 0 0 -20px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  cursor: grab;
+  touch-action: none;
+  z-index: 3;
+}
+
+/* Two animations cannot both write one property, so the roll uses the standalone `translate`
+   property and the bounce uses `transform` — both composited, and JS only ever writes
+   `transform`, which is safe because `.ph-kicked` suspends both of these first. */
+.ph-cell:not(.ph-kicked) .ph-ball-hit {
+  animation:
+    ph-hit-x var(--dur-ball) var(--ease-in-out) infinite,
+    ph-hit-y var(--dur-beat) var(--ease-out) var(--beat-phase, 0ms) infinite;
+}
+
+@keyframes ph-hit-x {
+  0%,
+  10% {
+    translate: 0;
+  }
+  34%,
+  44% {
+    translate: calc(var(--ph-size) * -0.16);
+  }
+  68%,
+  78% {
+    translate: calc(var(--ph-size) * 0.16);
+  }
+  96%,
+  100% {
+    translate: 0;
+  }
+}
+
+@keyframes ph-hit-y {
+  0% {
+    transform: translateY(0);
+  }
+  14% {
+    transform: translateY(calc(var(--ph-size) * -0.02333));
+  }
+  34%,
+  100% {
+    transform: translateY(0);
+  }
+}
+
+.ph-ball-hit:active {
+  cursor: grabbing;
+}
+
+.ph-ball-hit:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+}
+
+/* The hover hop replaces the old invisible rotate-a-circle: visible, Tier 1, with a focus twin.
+   It gets its OWN layer (.ph-hop) rather than sharing .ph-ball, because JS writes an inline
+   `transform` on .ph-ball during and after a kick — an inline style beats a stylesheet rule, so
+   putting the hop there left it permanently dead from the first kick onward. */
+.ph-hop {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform var(--dur-med) var(--ease-spring);
+}
+
+.ph-cell:not(.ph-kicked):has(.ph-ball-hit:hover) .ph-hop,
+.ph-cell:not(.ph-kicked):has(.ph-ball-hit:focus-visible) .ph-hop {
+  transform: translateY(-5px);
+}
+
+/* Anchored to the cell's BOTTOM, not offset from the centre. At `top: calc(50% + 34px)` these
+   landed directly on top of .ph-bottom's fixture copy — .ph-bottom starts at top:50% with 24px
+   of padding, so its first line begins ~24px below centre and its second ~40px. The ring's
+   radius is 148 units, so 8% from the bottom is comfortably inside the chalk and clear of the
+   two lines of copy above it. */
+.ph-hint,
+.ph-rally {
+  position: absolute;
+  left: 50%;
+  bottom: 8%;
+  transform: translateX(-50%);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: 0.08em;
+  color: var(--ink-faint);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.ph-rally {
+  font-variant-numeric: tabular-nums;
+}
+
+/* The labelled redraw control at the ring's 4-o'clock — a real button, not a hidden egg.
+   It is always VISIBLE (faintly), not opacity-0-until-hover: an invisible-but-tappable 28px
+   target sat over the ring on every touch device, where there is no hover to reveal it. Being
+   faint-but-present also makes it discoverable, which was the point. */
+.ph-redraw {
+  position: absolute;
+  right: 8%;
+  bottom: 14%;
+  z-index: 3;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--ink-faint);
+  font-size: var(--text-base);
+  line-height: 1;
+  opacity: 0.4;
+  transition:
+    opacity var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    transform var(--dur-release) var(--ease-spring);
+}
+
+.ph-cell:hover .ph-redraw,
+.ph-redraw:hover,
+.ph-redraw:focus-visible {
+  opacity: 1;
+}
+
+.ph-redraw:hover {
+  color: var(--ink);
+}
+
+.ph-redraw:active {
+  transform: rotate(-140deg);
+  transition-duration: var(--dur-press);
+}
+
+.ph-redraw:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+
+/* The flare lives entirely in --fl-gain: Floodlights.tsx multiplies it for 900ms, and both
+   the base opacity and the fl-breath keyframe already read that variable, so the pools surge
+   and settle with NO new layer, NO second animation on the same property, and no paint-only
+   property (a `filter: brightness` flare would violate rule 1). */
 
 /* The orchestrated moment: line → circle → ball → seam, 1100ms, on EVERY arrival (the
    session gate is gone — see PitchHero.tsx). Only the chalk STROKES animate; content
@@ -888,16 +1141,27 @@
    ball. It now sits beside its only real consumer, .nf-spot on the 404 (components.css). */
 
 /* content straddles the line precisely: top half above, fixture below */
+/* These two paddings ARE the ball's clear band, and lib/pitchBall's BAND_TOP/BAND_BOTTOM
+   (126/174) are derived from them: 150 ∓ 24. Both were widened to --space-5 to fit the
+   bigger ball, and a unit test asserts the band matches these numbers. Change a padding →
+   change the constants → the fitsBand/fitsBeat tripwires re-check the fit. */
 .ph-top {
   position: absolute;
   left: 10%;
   right: 10%;
   bottom: 50%;
-  padding-bottom: var(--space-4);
+  padding-bottom: var(--space-5);
   display: grid;
   gap: var(--space-2);
   justify-items: center;
   text-align: center;
+}
+
+/* THE EXCEPTION: the freeze-pending state stacks three copy blocks in .ph-top and already
+   sits close to the ring's top edge, so it keeps the tighter padding. The ball's bounce apex
+   is 7 units and the band still clears it there. */
+.pitch-hero.expired .ph-top {
+  padding-bottom: var(--space-4);
 }
 
 .ph-bottom {
@@ -905,7 +1169,7 @@
   left: 12%;
   right: 12%;
   top: 50%;
-  padding-top: var(--space-3);
+  padding-top: var(--space-5);
   display: grid;
   gap: 2px;
   justify-items: center;
@@ -1105,6 +1369,98 @@ a.ticker-item:hover {
 
 .ticker-item .t-gold {
   color: var(--gold); /* officialness glyphs only */
+}
+
+/* ---- THE BROADCAST STRAP (components/layout/Takeover.tsx) ----
+   A lower-third that slides in when a witnessed event lands, holds, and leaves. It is a leaf in
+   App, so it exists on every route (it started inside the ticker strip, which meant the only
+   subscriber was unmounted on two pages and whenever the ticker was empty — events landing then
+   were lost).
+   Layout safety (rule 5): .tk-region is a ZERO-HEIGHT always-present live region, and the strap
+   inside it is `position: absolute`, so mounting it cannot reflow the page. The region also has
+   to pre-exist its content or role=status announces unreliably.
+   Gold is licensed for a freeze only; a grade is chalk. */
+.tk-region {
+  position: relative;
+  height: 0;
+}
+
+.tk {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 4;
+  display: grid;
+  align-content: center;
+  gap: 2px;
+  min-height: 52px;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--r-md);
+  background: var(--bg-2);
+  border: 1px solid var(--line-strong);
+  border-left-width: 2px;
+  box-shadow: var(--shadow-float);
+  animation: tk-in var(--tk-in, 380ms) var(--ease-out) both;
+}
+
+.tk.leaving {
+  animation: tk-out var(--tk-out, 260ms) var(--ease-in-out) both;
+}
+
+.tk-head {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+.tk-sub {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tk-official {
+  border-left-color: var(--gold);
+}
+
+.tk-official .tk-head {
+  color: var(--gold); /* the freeze IS the sealing act */
+}
+
+@keyframes tk-in {
+  from {
+    opacity: 0;
+    transform: translateX(-24px);
+  }
+}
+
+@keyframes tk-out {
+  to {
+    opacity: 0;
+    transform: translateX(-24px);
+  }
+}
+
+/* a freshly frozen item enters HOT for 8s: the gold seal strikes once and the text commits */
+.ticker-item.hot {
+  color: var(--ink);
+}
+
+.ticker-item.hot .t-gold {
+  animation: tk-strike 420ms var(--ease-out);
+}
+
+@keyframes tk-strike {
+  40% {
+    transform: scale(1.35);
+  }
 }
 
 /* ---- sticky TOC rail (long info pages) ---- */

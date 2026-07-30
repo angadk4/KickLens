@@ -7,6 +7,7 @@ import { Entry } from "../../components/ui/Entry";
 import { ScopeChip } from "../../components/ui/ScopeChip";
 import { Section } from "../../components/ui/Section";
 import { EmptyState, ErrorState, Skeleton } from "../../components/ui/states";
+import { YourCall } from "../../components/ui/YourCall";
 import {
   ECE_DEV_CHAMPION,
   ECE_DEV_MARKET,
@@ -151,6 +152,9 @@ function ClasswiseBars({
 
 export function CalibrationPage() {
   const { data, error, loading, retrying, retry } = useApi(() => api.calibration());
+  // the last 10 graded matches, so the toy below can step through them by a stated RULE
+  // (most recent first) rather than anyone picking a flattering fixture
+  const recent = useApi(() => api.completed(10));
   const barMax = sharedScaleMax([data?.dev, data?.test, data?.live]);
   return (
     <div className="page">
@@ -164,6 +168,21 @@ export function CalibrationPage() {
       >
         <DotDemo />
       </Section>
+      {/* The toy lives HERE and nowhere else: this is the page about how hard calibration is,
+          and it shares no Section with a live-scope figure. Six firewalls in the component
+          header; the caveat and scope note are enforced by lib/yourCall, not by this markup. */}
+      {recent.data && recent.data.items.length > 0 && (
+        <Section
+          eyebrow="Your call"
+          title="What would you have said?"
+          description="Set your own three probabilities for a match that has already been graded,
+          then see what the frozen forecast said and what actually happened. Watch what the
+          numbers do as you drag: being confident and right is rewarded, and being confident and
+          wrong is punished harder. That asymmetry is why calibration is difficult."
+        >
+          <YourCall matches={recent.data.items} />
+        </Section>
+      )}
       {loading && !retrying && <Skeleton height={200} ball label="loading calibration…" />}
       {(error || retrying) && (
         <ErrorState retry={retry} retrying={retrying} what="calibration" />

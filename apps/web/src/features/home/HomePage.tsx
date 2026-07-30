@@ -4,7 +4,6 @@
 import { Link } from "react-router-dom";
 import { api } from "../../api";
 import { useHealth } from "../../components/layout/HealthContext";
-import { Ticker } from "../../components/layout/Ticker";
 import { useUpcoming } from "../../components/layout/UpcomingContext";
 import { FlapNumber } from "../../components/ui/FlapNumber";
 import { Section } from "../../components/ui/Section";
@@ -282,7 +281,8 @@ export function HomePage() {
   return (
     <div className="page board">
       <Hero />
-      <Ticker />
+      {/* the Ticker moved to App.tsx: it is the site's event channel now, so it has to exist
+          on every live-data page, not only here */}
 
       {/* on a matchday, the games in play surface right under the ticker; silent otherwise */}
       <InPlaySection />

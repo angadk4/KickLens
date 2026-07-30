@@ -3,19 +3,21 @@
 // scope + sample size (T-171). One shared upcoming fetch powers all liveness surfaces.
 import { useEffect, useState, type ReactNode } from "react";
 import { Outlet, ScrollRestoration, useLocation } from "react-router-dom";
-import { api, type Health } from "./api";
 import { Floodlights } from "./components/layout/Floodlights";
 import { HealthBanners } from "./components/layout/HealthBanners";
-import { HealthContext } from "./components/layout/HealthContext";
 import { SiteFooter } from "./components/layout/SiteFooter";
+import { Takeover } from "./components/layout/Takeover";
+import { Ticker } from "./components/layout/Ticker";
 import { TopNav } from "./components/layout/TopNav";
 import { UpcomingProvider } from "./components/layout/UpcomingContext";
-import { usePointerLight } from "./lib/usePointerLight";
 
 // Route transition: pure-CSS enter-only on a fresh <main> per pathname (the key is set by
 // App). First paint never animates — the flag flips after the first mount, so only actual
 // navigations get the settle. Also the app's first <main> landmark (a11y fix).
 let firstLoadDone = false;
+
+/** No live crawl on the two pages whose every number is a static, dated fact. */
+const REFERENCE_PAGES = new Set(["methodology", "engineering"]);
 
 function RouteMain({ children }: { children: ReactNode }) {
   // computed once per mount; the pathname key remounts this component on navigation
@@ -31,32 +33,33 @@ function RouteMain({ children }: { children: ReactNode }) {
 }
 
 export default function App() {
-  const [health, setHealth] = useState<Health | null>(null);
-  const [apiDown, setApiDown] = useState(false);
   const { pathname } = useLocation();
-  // the ONE Tier-5 pointer writer for the whole app (lib/pointerLight.ts)
-  usePointerLight();
-
-  useEffect(() => {
-    api
-      .health()
-      .then(setHealth)
-      .catch(() => setApiDown(true));
-  }, []);
 
   // the section-register hook (styles/sections.css) + disambiguates duplicate section
   // ids across pages (home and performance both emit #evidence)
   const page = pathname.split("/")[1] || "home";
 
+  // /health is fetched by UpcomingContext's shared poll now and published through a module
+  // store, so it refreshes on matchday instead of ageing from one mount-time fetch. App does
+  // not read it: subscribing here would re-render every page on every poll.
   return (
-    <HealthContext.Provider value={{ health, apiDown }}>
+    <>
       <UpcomingProvider>
         <Floodlights page={page} />
-        <div className="pitch-lamp" aria-hidden />
         <TopNav />
         <div className="shell" data-page={page}>
           {/* banners live in a leaf: their relative-time tick must not re-render pages */}
           <HealthBanners />
+          {/* the event channel's announcement surface: a leaf on EVERY route, so an event can
+              never land on a page that has nobody listening */}
+          <Takeover />
+          {/* The crawl is the site's event channel, so it has to exist wherever an event
+              could land — a freeze landing while someone reads /record previously had nowhere
+              to go. Excluded on the two REFERENCE pages: styles/sections.css states their job
+              as "the only two pages with no live data", and a live crawl there would
+              contradict a written rule. In document flow, not sticky: a sticky 36px strip
+              under a sticky nav eats 4% of a 390×844 viewport. */}
+          {!REFERENCE_PAGES.has(page) && <Ticker />}
           <RouteMain key={pathname}>
             <Outlet />
           </RouteMain>
@@ -64,6 +67,6 @@ export default function App() {
         </div>
         <ScrollRestoration />
       </UpcomingProvider>
-    </HealthContext.Provider>
+    </>
   );
 }

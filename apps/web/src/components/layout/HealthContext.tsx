@@ -1,11 +1,11 @@
-// One /health fetch at the root, shared everywhere (no polling).
-import { createContext, useContext } from "react";
+// System health, shared everywhere. It is refreshed by the SAME poll that drives the board
+// (UpcomingContext), through a module store — see healthStore.ts for why that is a store and
+// not a provider. The hook name and shape are unchanged, so no call site had to move.
 import type { Health } from "../../api";
+import { useHealthStore } from "./healthStore";
 
 export type HealthState = { health: Health | null; apiDown: boolean };
 
-export const HealthContext = createContext<HealthState>({ health: null, apiDown: false });
-
 export function useHealth(): HealthState {
-  return useContext(HealthContext);
+  return useHealthStore();
 }

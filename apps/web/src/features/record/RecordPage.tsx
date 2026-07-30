@@ -1,6 +1,6 @@
 // The live record — graded official forecasts only. Its empty state is a designed feature:
 // the record starts at zero and nothing is ever back-filled.
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../../api";
 import { Badge } from "../../components/ui/Badge";
@@ -9,6 +9,7 @@ import { GoalMark } from "../../components/ui/GoalMark";
 import { HashBadge } from "../../components/ui/HashBadge";
 import { ProbBar } from "../../components/ui/ProbBar";
 import { Reveal } from "../../components/ui/Reveal";
+import { SealStrip } from "../../components/ui/SealStrip";
 import { ScopeChip } from "../../components/ui/ScopeChip";
 import { Section } from "../../components/ui/Section";
 import { EmptyState, ErrorState, Skeleton } from "../../components/ui/states";
@@ -18,33 +19,19 @@ import { goalThreshold } from "../../lib/goalMark";
 import { useApi } from "../../lib/useApi";
 import { InPlaySection } from "../forecasts/InPlaySection";
 
-/** the latest daily seal, pulled up from the footer to where verifiers look for it */
-function SealChip() {
-  const merkle = useApi(() => api.merkleRoots(1));
-  const latest = merkle.data?.items?.[0];
-  if (!latest) return null;
-  return (
-    <span
-      className="chip"
-      title={latest.committed_at_utc ?? undefined}
-      style={{ color: "var(--gold)", borderColor: "color-mix(in srgb, var(--gold) 45%, transparent)" }}
-    >
-      latest seal {latest.day} ·{" "}
-      {latest.anchor_file_html_url ? (
-        <a href={latest.anchor_file_html_url} target="_blank" rel="noreferrer">
-          merkle {latest.root.slice(0, 12)}… ↗
-        </a>
-      ) : (
-        <>merkle {latest.root.slice(0, 12)}…</>
-      )}
-    </span>
-  );
-}
+/* SealChip lived here — a chip fetching merkleRoots(1) to show the latest daily seal. It has
+   been replaced by <SealStrip/> below, which fetches merkleRoots(90) and whose rightmost cell
+   IS that same latest seal, with its root and commit time in the title. Keeping both meant two
+   requests for the same data and two ways to say one thing. */
 
 const RESULT_LABEL = { H: "home win", D: "draw", A: "away win" } as const;
 
 export function RecordPage() {
-  const { data, error, loading, retrying, retry, refresh } = useApi(() => api.completed());
+  const [limit, setLimit] = useState(50);
+  const { data, error, loading, retrying, retry, refresh } = useApi(
+    () => api.completed(limit),
+    [limit],
+  );
   // shared context: one fetch for upcoming + in-play, and the derived next-freeze instant
   const { list, inPlay, nextCutoff, totalGraded } = useUpcoming();
   // the record list is fetch-once; when the polled context sees new grades land, refetch —
@@ -64,6 +51,44 @@ export function RecordPage() {
       refresh();
     }
   }, [totalGraded, data, refresh]);
+
+  // ---- the grade landing, finally given a visible consequence. The refetch above used to be
+  // completely silent. Rows whose match_id is new since the last render get `.landed`, and
+  // their GoalMark's first-sight draw fires AT THE MOMENT the grade lands — already-built
+  // motion, firing when it means something. Symmetric: `.landed` is a chalk-edge brighten
+  // with no colour, and the GoalMark is symmetric by construction.
+  const seenIds = useRef<Set<number> | null>(null);
+  const [landed, setLanded] = useState<Set<number>>(new Set());
+
+  // ---- pagination by GROWING THE WINDOW, not by offset-appending.
+  // `offset` has existed on the endpoint since day one and was never used, so the record showed
+  // at most 50 rows and printed "showing 50 of N" with no way forward: it visibly could not grow.
+  // But offset paging is wrong here for two reasons, both real: the server orders by kickoff DESC
+  // and NEW ROWS ARRIVE AT THE HEAD, so after a grade lands every later offset shifts by one and
+  // an appended page duplicates one row and skips none-to-several; and `refresh()` re-runs the
+  // ORIGINAL closure (limit 50, offset 0), which would leave already-appended pages stale beside
+  // freshly-fetched head rows. Refetching one growing window keeps the list internally consistent
+  // and makes the grade-landing refresh correct for free.
+  const shown = data?.items ?? [];
+  const pageBusy = loading && !retrying && shown.length > 0;
+
+  // The `.landed` effect watches `shown`, i.e. the fetched page PLUS every paged-in row — it
+  // watched only data.items at first, so paged rows never got the cue the comment promised.
+  const shownKey = shown.map((i) => i.match_id).join(",");
+  useEffect(() => {
+    if (!shownKey) return;
+    const ids = new Set(shownKey.split(",").map(Number));
+    if (seenIds.current === null) {
+      seenIds.current = ids; // first paint is never "landed"
+      return;
+    }
+    const fresh = [...ids].filter((id) => !seenIds.current!.has(id));
+    seenIds.current = ids;
+    if (fresh.length === 0) return;
+    setLanded(new Set(fresh));
+    const t = setTimeout(() => setLanded(new Set()), 900);
+    return () => clearTimeout(t);
+  }, [shownKey]);
   // official forecasts already frozen but not yet graded — sealed upcoming AND kicked-off
   // (the in-play band), so a matchday empty state counts every sealed forecast
   const frozenAwaiting =
@@ -125,9 +150,9 @@ export function RecordPage() {
             >
               <ScopeChip scope="live" n={data.total_graded} />
               {/* the fetch is capped: never let the chip's n imply the list below is all of it */}
-              {data.items.length < data.total_graded && (
+              {shown.length < data.total_graded && (
                 <span className="chip">
-                  showing {data.items.length} of {data.total_graded}
+                  showing {shown.length} of {data.total_graded}
                 </span>
               )}
               <span className="chip">newest first</span>
@@ -139,8 +164,10 @@ export function RecordPage() {
               >
                 1.0986 = knew-nothing baseline
               </span>
-              <SealChip />
             </div>
+            {/* 90 days of daily seals, from the same endpoint the lone SealChip above uses —
+                it just asks for 90 instead of 1. The record's tamper-evidence, countable. */}
+            <SealStrip />
             <p className="blurb" style={{ fontSize: "var(--text-xs)" }}>
               Small live samples are extremely noisy — judge this record in months, not
               matchdays. The goal mouth on each card plots p(actual): the probability the
@@ -155,8 +182,12 @@ export function RecordPage() {
             {/* Reveal, not the page's single <Section>: that Section starts above the fold,
                 so its one skip decision meant NOTHING on this page could ever animate. */}
             <Reveal className="grid-2 settle-stagger">
-              {data.items.map((it) => (
-                <Link key={it.match_id} to={`/match/${it.match_id}`} className="card fixture-card stamped">
+              {shown.map((it) => (
+                <Link
+                  key={it.match_id}
+                  to={`/match/${it.match_id}`}
+                  className={`card fixture-card stamped${landed.has(it.match_id) ? " landed" : ""}`}
+                >
                   <div className="teams">
                     <span className="matchup">
                       {teamName(it.home)} <span style={{ color: "var(--ink-faint)" }}>vs</span>{" "}
@@ -191,6 +222,21 @@ export function RecordPage() {
                 </Link>
               ))}
             </Reveal>
+            {shown.length < data.total_graded && (
+              <button
+                type="button"
+                className={`btn ghost${pageBusy ? " busy" : ""}`}
+                onClick={() => setLimit((n) => n + 50)}
+                aria-disabled={pageBusy || undefined}
+                aria-busy={pageBusy || undefined}
+                style={{ justifySelf: "start" }}
+              >
+                {pageBusy && <span className="spinner" aria-hidden />}
+                {pageBusy
+                  ? "loading…"
+                  : `load the next ${Math.min(50, data.total_graded - shown.length)}`}
+              </button>
+            )}
           </>
         )}
       </Section>

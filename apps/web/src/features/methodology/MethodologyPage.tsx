@@ -7,6 +7,7 @@ import { BaselineLadder } from "../../components/charts/BaselineLadder";
 import { ScopeChip } from "../../components/ui/ScopeChip";
 import { Section } from "../../components/ui/Section";
 import { Toc } from "../../components/ui/Toc";
+import { SealStrip } from "../../components/ui/SealStrip";
 import { ErrorState, Skeleton } from "../../components/ui/states";
 import {
   CHAMPION_VS_B3_DELTA_NATS,
@@ -260,6 +261,8 @@ python -c "import hashlib;print(hashlib.sha256(open('forecast.json','rb').read()
                 <code>anchors/</code>, and check the public history — an edit anywhere breaks
                 one of those three.
               </p>
+              {/* the chain itself, day by day */}
+              <SealStrip />
             </div>
           </Section>
 
@@ -295,6 +298,37 @@ python -c "import hashlib;print(hashlib.sha256(open('forecast.json','rb').read()
                 {data.data}. The system that enforces all of this is documented on{" "}
                 <Link to="/engineering">Engineering</Link>.
               </p>
+              {/* Four server-authored statements the API has always sent and the page never
+                  rendered. They are the project's own words about its own rules, so printing
+                  them verbatim is strictly better than paraphrasing them here. */}
+              <dl className="kv">
+                <dt>cutoff</dt>
+                <dd>{data.cutoff}</dd>
+                <dt>tamper evidence</dt>
+                <dd>{data.tamper_evidence}</dd>
+                <dt>evidence separation</dt>
+                <dd>{data.evidence_separation}</dd>
+                {data.calibration?.method && (
+                  <>
+                    <dt>calibration method</dt>
+                    <dd>
+                      {data.calibration.method}
+                      {data.calibration.param_t !== null
+                        ? ` · T = ${data.calibration.param_t}`
+                        : ""}
+                    </dd>
+                  </>
+                )}
+                {data.baselines && (
+                  <>
+                    <dt>baselines</dt>
+                    <dd>
+                      {data.baselines.note} (scope: {data.baselines.scope}, n=
+                      {data.baselines.n.toLocaleString()})
+                    </dd>
+                  </>
+                )}
+              </dl>
               {data.dataset?.snapshot_hash && (
                 <p
                   className="mono"
@@ -302,6 +336,7 @@ python -c "import hashlib;print(hashlib.sha256(open('forecast.json','rb').read()
                 >
                   training snapshot {data.dataset.snapshot_hash} · {data.dataset.row_count} rows
                   · {data.dataset.date_range_start} → {data.dataset.date_range_end}
+                  {data.dataset.created_utc ? ` · built ${dateShort(data.dataset.created_utc)}` : ""}
                 </p>
               )}
             </div>

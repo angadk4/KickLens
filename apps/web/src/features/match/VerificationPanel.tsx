@@ -4,7 +4,24 @@
 import type { VerifiedForecast, Verification } from "../../api";
 import { Badge } from "../../components/ui/Badge";
 import { dateShort, voidPhrase } from "../../lib/format";
+import { FieldLedger, FieldLedgerPending } from "../../components/ui/FieldLedger";
 import { HashProof } from "./HashProof";
+
+/** The exact key set the server hashes (apps/api/main.py). Used only for the pre-freeze
+    bench, where there are no values yet — so the field NAMES can still be shown. */
+const HASHED_FIELD_NAMES = [
+  "match_id",
+  "fixture_revision",
+  "model_version_id",
+  "calibration_artifact_id",
+  "feature_set_version",
+  "p_home",
+  "p_draw",
+  "p_away",
+  "cutoff_utc",
+  "forecast_creation_utc",
+  "data_freshness_time",
+];
 
 function Forecast({
   f,
@@ -68,15 +85,22 @@ function Forecast({
             )}
           </dl>
 
+          {/* the 11 hashed fields, itemised in canonical (= hash) order. The API has always
+              sent these and the UI always threw them away. */}
+          {f.fields && <FieldLedger fields={f.fields} />}
+
           {f.canonical_json && (
-            <div>
-              <p className="blurb" style={{ marginBottom: "var(--space-2)" }}>
+            <details>
+              <summary className="chip" style={{ cursor: "pointer" }}>
+                the canonical document, byte for byte
+              </summary>
+              <p className="blurb" style={{ margin: "var(--space-3) 0 var(--space-2)" }}>
                 The canonical document below SHA-256-hashes to the stored value. Save it as{" "}
                 <code>forecast.json</code> (bytes exactly as shown), then:
               </p>
               <pre className="codeblock">{f.canonical_json}</pre>
               <pre className="codeblock">{`python -c "import hashlib;print(hashlib.sha256(open('forecast.json','rb').read()).hexdigest())"`}</pre>
-            </div>
+            </details>
           )}
 
           {f.expected_anchor_line && f.anchor_file && (
@@ -144,6 +168,9 @@ export function VerificationPanel({ v }: { v: Verification }) {
               <dt>code commit · lockfile</dt>
               <dd>— lineage baked into the container</dd>
             </dl>
+            {/* the field NAMES are knowable now, and showing them makes the empty bench
+                credible: you can audit what will be hashed before anything is */}
+            <FieldLedgerPending names={HASHED_FIELD_NAMES} />
           </div>
           <div className="prover">
             <span className="pv-caption">verify in this browser — no server, no trust</span>

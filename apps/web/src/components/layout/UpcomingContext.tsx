@@ -14,8 +14,11 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { api, type InPlayItem, type UpcomingMatch } from "../../api";
 import { cutoffOf, freezeRunOf } from "../../lib/format";
+import { boardSnapshot, diffBoard, phaseTransitions, type BoardSnapshot } from "../../lib/liveEvents";
 import { notYetKickedOff } from "../../lib/matchPhase";
 import { useNow } from "../../lib/useRelativeTime";
+import { setHealth } from "./healthStore";
+import { publishLive } from "./liveFeed";
 
 const MATCHDAY_POLL_MS = 180_000;
 
@@ -78,6 +81,11 @@ export function UpcomingProvider({ children }: { children: React.ReactNode }) {
     inPlay: InPlayItem[] | null;
     totalGraded: number | null;
   }>({ list: null, inPlay: null, totalGraded: null });
+  // the previous board projection, for the pure event diff (lib/liveEvents)
+  const prevSnap = useRef<BoardSnapshot | null>(null);
+  // lets a clock-driven kickoff crossing ask for an immediate refetch, debounced
+  const requestLoad = useRef<(() => void) | null>(null);
+  const lastRequested = useRef(0);
 
   useEffect(() => {
     let alive = true;
@@ -91,12 +99,38 @@ export function UpcomingProvider({ children }: { children: React.ReactNode }) {
     const armPoll = (fn: () => void, ms: number) => {
       pollT = setTimeout(fn, Math.min(Math.max(ms, 0), 0x7fffffff));
     };
+    // An in-flight guard. Two paths can call load() at once (an armed timer plus the
+    // kickoff-crossing refetch), and concurrent responses would each diff against — and then
+    // overwrite — prevSnap, so the SAME freeze could be announced twice. One at a time; the
+    // armed timers re-fire anyway, so nothing is lost by skipping.
+    let inFlight = false;
     const load = () => {
-      Promise.allSettled([api.upcoming(), api.inPlay(), api.completed(1)]).then(
-        ([u, ip, c]) => {
+      if (inFlight) return;
+      inFlight = true;
+      // /health rides along: it used to be fetched once at App mount and never again, so
+      // "ingested 4h ago" aged without refreshing on a long-open tab (healthStore.ts).
+      Promise.allSettled([api.upcoming(), api.inPlay(), api.completed(1), api.health()]).then(
+        ([u, ip, c, h]) => {
+          inFlight = false;
           if (!alive) return;
+          // A /health-only failure must NOT claim "API unreachable": three other endpoints
+          // answering is proof the API is up. Blanking health on its own failure also lost the
+          // last-known freshness AND raised the banner, so a single flaky call libelled a
+          // healthy system. Only a total failure means down; otherwise keep what we knew.
+          const healthOk = h.status === "fulfilled";
+          const allFailed =
+            !healthOk &&
+            u.status === "rejected" &&
+            ip.status === "rejected" &&
+            c.status === "rejected";
+          if (healthOk) setHealth({ health: h.value, apiDown: false });
+          else if (allFailed) setHealth({ health: null, apiDown: true });
+          // health is part of the failure count, so a retry gets armed for it too
           const anyFailed =
-            u.status === "rejected" || ip.status === "rejected" || c.status === "rejected";
+            u.status === "rejected" ||
+            ip.status === "rejected" ||
+            c.status === "rejected" ||
+            !healthOk;
           failures.current = anyFailed ? failures.current + 1 : 0;
           // merge, never replace: a transient failure keeps the last-known truth on screen
           // instead of blanking a live board (the data is at worst one poll interval old)
@@ -105,7 +139,21 @@ export function UpcomingProvider({ children }: { children: React.ReactNode }) {
           const totalGraded =
             c.status === "fulfilled" ? c.value.total_graded : latest.current.totalGraded;
           latest.current = { list, inPlay, totalGraded };
+
+          // ---- the event layer. This is a CALLBACK, not a render, so publishing here is
+          // legal. diffBoard returns [] when prevSnap is null, which is the entire "never
+          // announce on page load" rule — and it also makes StrictMode's double load silent,
+          // because the second load produces an identical snapshot.
+          const meta: Record<number, { home: string; away: string; kickoff: string }> = {};
+          for (const m of list ?? []) {
+            meta[m.match_id] = { home: m.home, away: m.away, kickoff: m.kickoff_utc };
+          }
+          const nextSnap = boardSnapshot(list, inPlay, totalGraded);
+          const events = diffBoard(prevSnap.current, nextSnap, meta);
+          prevSnap.current = nextSnap;
+
           setState(latest.current);
+          publishLive(events);
           if (freezeT) clearTimeout(freezeT);
           if (pollT) clearTimeout(pollT);
 
@@ -150,8 +198,10 @@ export function UpcomingProvider({ children }: { children: React.ReactNode }) {
       );
     };
     load();
+    requestLoad.current = load;
     return () => {
       alive = false;
+      requestLoad.current = null;
       if (freezeT) clearTimeout(freezeT);
       if (pollT) clearTimeout(pollT);
     };
@@ -159,6 +209,28 @@ export function UpcomingProvider({ children }: { children: React.ReactNode }) {
 
   // the wall-clock tick that ages `upcoming` past each kickoff with zero network
   const now = useNow();
+
+  // ---- clock-driven events. A kickoff crossing is derivable with zero network, and it is
+  // the one moment nothing else fires: the wake-at-kickoff timer is armed from data captured
+  // at FETCH time, so a tab open across a kickoff could otherwise wait up to a full 3-minute
+  // poll before the in-play band appeared. One extra request, a handful of times a week.
+  const prevNow = useRef<number | null>(null);
+  useEffect(() => {
+    const items = (state.list ?? []).map((m) => ({
+      match_id: m.match_id,
+      kickoff_utc: m.kickoff_utc,
+      frozen: m.forecast?.type === "official-frozen",
+    }));
+    const transitions = phaseTransitions(items, prevNow.current, now);
+    prevNow.current = now;
+    if (transitions.length === 0) return;
+    publishLive(transitions.map((t) => ({ kind: "phase" as const, ...t })));
+    const kickedOff = transitions.some((t) => t.to === "in-play");
+    if (kickedOff && now - lastRequested.current > 30_000) {
+      lastRequested.current = now;
+      requestLoad.current?.();
+    }
+  }, [now, state.list]);
   const value = useMemo<UpcomingState>(() => {
     const next = state.list ? computeNext(state.list) : null;
     return {

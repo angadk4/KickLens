@@ -34,7 +34,12 @@ export function RatingsPage() {
       <Section
         lead
         eyebrow="Power ratings"
-        meta={["replayed on demand", "model inputs"]}
+        // generated_at_utc has always been sent and never shown: a replay's timestamp is
+        // exactly the sort of provenance this site is supposed to surface
+        meta={[
+          data?.generated_at_utc ? `replayed ${dateShort(data.generated_at_utc)}` : "replayed on demand",
+          "model inputs",
+        ]}
         title={`Elo ratings${data?.season ? ` — ${data.season} season` : ""}`}
         description={
           data
@@ -71,6 +76,11 @@ export function RatingsPage() {
               {data.teams.some((t) => t.provisional) &&
                 '"Provisional" = fewer than 10 career matches rated. '}
               Δ last 5 includes any start-of-season regression inside the window.
+            </p>
+            {/* the server describes its own method; printing it verbatim beats the hardcoded
+                paraphrase that used to sit above (and could silently drift from the engine) */}
+            <p className="blurb" style={{ fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
+              {data.method}
             </p>
             {/* Reveal on the table, not the page's single above-the-fold <Section>: that
                 skip decision meant this page could never animate anything. NOT wrapping

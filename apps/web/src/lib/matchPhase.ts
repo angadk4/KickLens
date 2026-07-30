@@ -40,6 +40,42 @@ export type PhaseInput = {
   now?: number;
 };
 
+/** The ONLY predicate licensed to render the word LIVE or the equaliser mark. `result-pending`
+    means "expected full time has passed; the result posts at the next sync" — a game we are no
+    longer willing to claim is being played, so it gets neither. */
+export function isLiveNow(p: MatchPhase): boolean {
+  return p === "in-play";
+}
+
+/** HOW DO WE KNOW? Either the provider told us, or we inferred it from the clock. The site
+    saying which is, itself, the interesting thing — and `InPlayItem.status` is the finest
+    liveness signal in the product and has never been shown. /matches/in-play can only return
+    scheduled | in_play | final. */
+export function phaseBasis(i: Pick<PhaseInput, "status">): "provider" | "clock" {
+  return i.status === "in_play" || i.status === "final" ? "provider" : "clock";
+}
+
+/** One honest sentence per stored status, for the in-play card's detail line.
+    CAREFUL: the browser sees what OUR ingest wrote, never the provider's feed directly. So these
+    sentences may not describe what the provider did — only what we have ingested. Saying "the
+    provider has not updated" would assert something about a third party we cannot observe: our
+    own sweep may simply not have run. The wording below claims only our side of it. */
+export function basisNote(status: string | null | undefined): string {
+  switch (status) {
+    case "in_play":
+      return "a live update has been ingested · provider-confirmed";
+    case "final":
+      // the phase here is awaiting-grade: the RESULT is stored, the GRADE is not
+      return "a final score has been ingested · grade not yet written";
+    case "scheduled":
+      // the row nobody ever shows: our own label says "in play" BY INFERENCE, and this admits
+      // that nothing has confirmed it
+      return "no live update ingested since kickoff · inferred from the clock";
+    default:
+      return "inferred from the clock";
+  }
+}
+
 export function matchPhase(i: PhaseInput): MatchPhase {
   const now = i.now ?? Date.now();
   if (i.voided) return "voided";

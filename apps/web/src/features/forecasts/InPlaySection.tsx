@@ -8,11 +8,12 @@ import { Link } from "react-router-dom";
 import { useUpcoming } from "../../components/layout/UpcomingContext";
 import { Badge } from "../../components/ui/Badge";
 import { CardDetail } from "../../components/ui/CardDetail";
+import { Equaliser } from "../../components/ui/Equaliser";
 import { HashBadge } from "../../components/ui/HashBadge";
 import { ProbBar } from "../../components/ui/ProbBar";
 import { Section } from "../../components/ui/Section";
 import { kickoffUTC, teamName, timeLocal } from "../../lib/format";
-import { matchPhase, phaseLabel } from "../../lib/matchPhase";
+import { basisNote, isLiveNow, matchPhase, phaseLabel } from "../../lib/matchPhase";
 import { useNow } from "../../lib/useRelativeTime";
 
 export function InPlaySection() {
@@ -49,7 +50,7 @@ export function InPlaySection() {
             <Link
               key={m.match_id}
               to={`/match/${m.match_id}`}
-              className="card fixture-card stamped"
+              className={`card fixture-card stamped${isLiveNow(phase) ? " live-edge" : ""}`}
             >
               <div className="teams">
                 <span className="matchup">
@@ -67,13 +68,18 @@ export function InPlaySection() {
               <div className="meta">
                 <Badge kind="frozen" title="Official — immutable, hashed, publicly anchored" />
                 <span className="chip">
-                  {phase === "in-play" && <span className="pulse-dot" aria-hidden />}{" "}
-                  {label.text}
+                  {/* the equaliser is gated on isLiveNow — `result-pending` means "expected
+                      full time has passed", which we will not call live */}
+                  {isLiveNow(phase) && <Equaliser />} {label.text}
                 </span>
                 {m.forecast.forecast_hash && <HashBadge hash={m.forecast.forecast_hash} />}
               </div>
-              {/* the phase explanation, promoted out of a title= attribute nobody hovers */}
-              <CardDetail>{label.title}</CardDetail>
+              {/* the phase explanation, promoted out of a title= attribute nobody hovers —
+                  plus, for the first time, HOW WE KNOW: the raw provider status is the finest
+                  liveness signal in the product and has never been shown */}
+              <CardDetail>
+                {label.title} · {basisNote(m.status)}
+              </CardDetail>
             </Link>
           );
         })}

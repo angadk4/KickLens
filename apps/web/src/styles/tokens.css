@@ -57,6 +57,7 @@
      and still reads as "at rest / not yet earned" against --chalk-lit's 0.55. */
   --chalk-mark: rgba(232, 237, 230, 0.38);
   --chalk-net: rgba(232, 237, 230, 0.2); /* a net IS fainter than a post — representational */
+  --chalk-hi: rgba(232, 237, 230, 0.72); /* the ball's floodlit crescent — the brightest chalk */
 
   /* Elevation: the "machined edge" is SEMANTIC (officials only); floats are the
      only drop shadows — layered, and led by a chalk rim (see below) */
@@ -152,6 +153,14 @@
      that killed the drift). --fl-gain is written per route by lib/floodGain.ts. */
   --dur-breath: 7s;
   --fl-gain: 1;
+
+  /* THE BALL's ambient life. --ph-roll is in viewBox units (the SVG scales it for free at
+     every breakpoint) and is coupled to a rotation in layout.css that lib/pitchBall's
+     rollDegrees() pins by test — change one and the ball skids. */
+  --ph-roll: 48px;
+  --ph-beat: 7px;
+  --dur-ball: 11s;
+  --dur-beat: 1s;
 
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);

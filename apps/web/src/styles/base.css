@@ -10,41 +10,6 @@ html {
   -webkit-text-size-adjust: 100%;
 }
 
-/* TIER 5 pointer properties, written by lib/pointerLight.ts (the ONE writer). Registering
-   them buys two things: the engine knows the type so it can skip re-parsing on every
-   pointer frame, and --pl becomes INTERPOLATABLE, which is what lets the lamp fade out over
-   400ms when the pointer leaves the window instead of snapping off. Unregistered would
-   still work — it would just be untyped and un-transitionable. */
-@property --px {
-  syntax: "<number>";
-  inherits: true;
-  initial-value: 0.5;
-}
-
-@property --py {
-  syntax: "<number>";
-  inherits: true;
-  initial-value: 0.5;
-}
-
-@property --pxn {
-  syntax: "<number>";
-  inherits: true;
-  initial-value: 0;
-}
-
-@property --pyn {
-  syntax: "<number>";
-  inherits: true;
-  initial-value: 0;
-}
-
-@property --pl {
-  syntax: "<number>";
-  inherits: true;
-  initial-value: 0;
-}
-
 body {
   margin: 0;
   min-height: 100vh;
@@ -131,39 +96,10 @@ body {
   }
 }
 
-/* Pointer parallax on the pools: TRANSFORM on an already-composited layer, so zero repaint.
-   14px of travel on an 1100px pool is subtle per pixel but reads as "the light shifted",
-   because the whole field moves coherently. --pxn/--pyn default to 0, so on touch and
-   under reduced motion (where the listener is never attached) the pools sit centred. */
-.floodlights::before,
-.floodlights::after {
-  translate: calc(var(--pxn) * 14px) calc(var(--pyn) * 8px);
-}
-
-/* THE LAMP: a warm pool that follows the cursor, so chalk brightens as if lit. It is a
-   PRE-RASTERIZED gradient that gets translated — never a gradient whose `at` position
-   moves, which would repaint every frame. No mix-blend-mode: it would force the whole
-   stacking context through a blend pass and fight .topnav's backdrop-filter.
-   Contrast, measured: at alpha 0.055 this takes --bg-1/--ink from 13.9:1 to 12.3:1 — far
-   above AA. z-index 0 keeps it under the nav (50) and under .shell content. */
-.pitch-lamp {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 520px;
-  height: 520px;
-  z-index: 0;
-  pointer-events: none;
-  background: radial-gradient(circle, rgba(245, 239, 217, 0.055), transparent 68%);
-  opacity: calc(var(--pl) * var(--fl-gain, 1));
-  transform: translate3d(
-    calc(var(--px) * 100vw - 260px),
-    calc(var(--py) * 100vh - 260px),
-    0
-  );
-  transition: opacity 400ms var(--ease-out);
-  will-change: transform, opacity; /* slot 2 of 2 — the ration is now fully spent */
-}
+/* TIER 5 (a cursor-tracked warm "lamp" over the page, plus a pointer parallax on the pools)
+   was built here and REMOVED — the developer rejected it on sight, 2026-07-29. Recorded in
+   docs/motion.md so it isn't re-proposed. Nothing in the app writes pointer position now, so
+   the second `will-change` slot is free again. */
 
 h1,
 h2,

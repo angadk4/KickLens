@@ -38,9 +38,11 @@ fewer animations; a budget that measures them optimizes for animations you can s
 | **0 — Ambient loop** | infinite, non-interactive | **≤6 concurrently animating elements per page, of which ≤3 may exceed 25% of the viewport** — and every one must clear the perceptibility floor | transform/opacity only; viewport-fixed or IO-gated |
 | **1 — State transition** | hover / press / focus / class flip | uncapped — only one element is hovered at a time | ≤ `--dur-med`; transform/opacity, plus color/border-color at ≤ `--dur-fast`; elevation changes fade a pseudo-element's opacity, never interpolate a shadow |
 | **2 — Entrance** | first appearance or first scroll into view | one reveal per subtree; stagger ≤3 steps × `--stagger` *(exception below)* | ≤ `--dur-reveal`, or longer for self-drawing evidence *(exception below)*; the element must be correct with the animation deleted |
-| **3 — Orchestrated moment** | a multi-beat sequence | **one ambient + one event-driven, per site** | ≤1100ms; the ambient one runs **once per mount of its page**; the event-driven one may fire **only on a verified state transition** |
+| **3 — Orchestrated moment** | a multi-beat sequence | **one ambient + one event-driven, per site** | ≤1100ms for the ambient one, which runs **once per mount of its page**; the event-driven one may fire **only on a verified state transition** and holds ≤5.3s |
 | **4 — Scroll-linked** | progress is a function of scroll position | does **not** consume Tier-0 budget (zero cost when not scrolling, off the main thread when scrolling) | `animation-timeline` only; **`aria-hidden` decorative elements only**; `entry` ranges only |
-| **5 — Pointer-linked** | derived from pointer position | **exactly one global writer** | custom properties on `:root` only; gated on a fine pointer AND reduced motion in JS |
+
+There is no pointer-linked tier. One was built (a cursor-tracked lamp) and rejected — see
+Rejected options.
 
 ### THE PERCEPTIBILITY FLOOR
 
@@ -57,10 +59,25 @@ never kept for subtlety.** The same principle applies to interaction amplitudes:
 ### The current Tier-0 ledger (home)
 
 `fl-breath` ×3 (two floodlight pools + the haze, counter-phased — one gesture, three
-elements) · `pulse` + `pulse-halo` (the single nav health dot) · `ticker-scroll` (home only,
-IO-gated, pauses on hover). **6 elements / 3 gestures.** The two floodlight *drifts* were
-deleted; the pools now breathe on opacity at ~2.0 code values/second instead of translating
-at 0.011.
+elements) · `ph-roll-x` + `ph-roll-r` + `ph-beat` (**THE BALL** — one object, three transform
+layers, because two animations writing `transform` on one element don't compose) · `pulse` +
+`pulse-halo` (the single nav health dot) · `ticker-scroll` (IO-gated, pauses on hover).
+
+That is **9 animating elements / 5 gestures**, over the 6-element cap — and the honest
+resolution is that the cap counts *gestures on distinct objects*, not CSS animations, because
+the ball's three layers are one ball and the floodlights' three are one sky. **5 gestures on
+4 objects.** If a sixth object wants ambient motion, something goes.
+
+The two floodlight *drifts* were deleted to pay for the ball; the pools now breathe on
+opacity at ~2.0 code values/second instead of translating at 0.011. Measured after the fact
+with `.devtools/motion.sh`: **pool swing 8.4 of 255 codes per cycle, ball travel 96.8px per
+9s, ticker 71.6 px/s** — every one of them above the floor, and none of them was before.
+
+### Tier 0 on a matchday
+
+The equaliser (`.eq`, three bars at three different durations) is a **conditional** loop: it
+exists only while `matchPhase.isLiveNow()` is true for some fixture, and it counts against the
+budget only while present.
 
 **Exemptions, stated so they can't be argued later:**
 - Loading placeholders (`.skeleton`, the juggling ball) are exempt from the cap **on the
@@ -92,10 +109,9 @@ at 0.011.
    `.matches` read **nor framer-motion's `useReducedMotion`** qualifies: framer 12's hook reads
    the preference once at mount and never re-renders on change (verified in its source,
    adversarial review 2026-07-27).
-4. **`will-change` is rationed to 2 static elements**, and both are now spent and named:
-   `.floodlights` (its two pool pseudos + the haze) and `.pitch-lamp`. A third requires
-   deleting one. A transient `will-change` set on pointerenter/kick and cleared on
-   leave/sleep does not consume a slot.
+4. **`will-change` is rationed to 2 static elements.** One is spent and named: `.floodlights`
+   (its two pool pseudos + the haze). A transient `will-change` set on pointerenter/kick and
+   cleared on leave/sleep does not consume a slot.
 5. **No motion may cause layout.** Anything that appears on hover has its space reserved
    first (`min-height` under the same media query that enables the hide). Split-flap digits
    live in fixed `em` boxes with `overflow: hidden` for exactly this reason.
@@ -108,10 +124,29 @@ at 0.011.
    inside a render function is double-invoked by StrictMode and will see its own write. Use
    `lib/oncePerSession.ts`.
 
+### The two Tier-3 moments, named
+
+1. **Ambient — the hero chalk cascade** (`.pitch-hero`, 1100ms: line → circle → ball → seam),
+   on every mount of `/`. Replayable on demand via the labelled `↻` control, which is also the
+   permanent answer to "I never saw the hero animation".
+2. **Event-driven — THE SEAL** (`components/layout/Takeover.tsx`, ~2.6s + hold): the gold badge
+   strikes, the hash writes itself at 26ms/char, and the ticker strip runs a lower-third. It
+   may fire **only** from `lib/liveEvents`' pure diffs, which return `[]` when there is no
+   previous snapshot — so it cannot fire on a page load, on a refetch that re-delivers the same
+   state, or on arriving at a page where a frozen forecast happens to exist. What it is allowed
+   to SAY is decided by `lib/liveCopy`, whose tests assert it never claims "just now" (the
+   browser has no creation timestamp, only the cutoff and the publishing run).
+
+**Event ⇒ transient overlay; recency ⇒ persistent chip.** If we did not witness the
+transition, we announce nothing and the card carries "sealed 6m ago" instead. That distinction
+is the honesty spine of the whole broadcast layer.
+
 ### Named exceptions to Tier 2
 
-- **Stagger may exceed 3 steps when the steps ARE the data** (a 90-cell daily-seal strip),
-  total ≤1400ms.
+- **Stagger may exceed 3 steps when the steps ARE the data** — the 90-cell daily-seal strip
+  fills at 14ms/cell (1260ms total, under the 1400ms ceiling). `backwards` fill is safe there
+  for the same reason the 3-step stagger's is: the keyframe is from-only, so the base state is
+  the finished cell.
 - **Duration may exceed `--dur-reveal` for self-drawing evidence** (a chart line drawing
   itself), because the drawing is the information. `GoalMark`'s 450ms already set this
   precedent; it is written down now.
@@ -160,10 +195,50 @@ only add depth beneath it. No `inset` — the inset light edge (`--edge-hi`) mea
   reduced motion into JS, to do what `animation-timeline` does for 0 bytes off the main thread.
 - **A scroll listener** — main-thread work on every scroll event; `base.css` records that
   body-attached fixed gradients "died for it".
-- **`mix-blend-mode` on the pointer lamp** — forces the whole stacking context through a blend
-  pass and fights `.topnav`'s `backdrop-filter`.
+- **A cursor-tracked light (2026-07-29).** Built and removed the same day: a warm 520px pool
+  that followed the pointer so chalk brightened as if lit, plus a 14px parallax on the
+  floodlight pools. The developer rejected it on sight. It was technically clean — one passive
+  listener, one rAF, `@property`-registered custom properties, off for touch and reduced
+  motion — and that is the point of recording it: **"cheap and well-built" is not an argument
+  for keeping something that reads wrong.** A light that chases the cursor makes the page feel
+  like a toy surface rather than a board being read. Do not re-propose. (`mix-blend-mode` was
+  separately rejected for it: it forces the whole stacking context through a blend pass and
+  fights `.topnav`'s `backdrop-filter`.)
 - **Content driven by a scroll timeline** — it scrubs backwards, so content would un-reveal on
   scroll-up. Tier 4 is decorative-only for this reason.
+- **A kick sound.** CSP does permit a same-origin audio file (there is no `media-src`, so it
+  falls back to `default-src 'self'`; `blob:` and generated buffers are blocked). It was
+  designed opt-in and default-off behind a footer toggle, and then declined: lowest delight for
+  the highest risk of reading as unserious on a credibility-first portfolio piece.
+- **A konami / rainbow easter egg.** On a site whose product is credibility, a rainbow is the
+  one thing that reads as unserious, and it breaks the closed palette outright. Turning an
+  easter egg down is itself a signal.
+- **`filter: brightness()` for the floodlight flare** — a paint-only property, so rule 1
+  forbids it. The flare instead multiplies `--fl-gain`, which the existing base opacity and the
+  `fl-breath` keyframe both already read: composited, no new layer, and no second animation
+  competing for the same property.
+- **A minute clock, a live scoreline, goal events, a GOAL lower-third, or an in-play
+  win-probability curve.** The API deliberately omits `home_goals`/`away_goals`/minute from
+  `/matches/in-play` and `/predictions/completed`, so all of these would be inventing data.
+  Nothing in the broadcast layer depends on a backend change.
+
+## The kickable ball — why a rAF is allowed here
+
+`lib/ballPhysics.ts` is pure (no DOM, no framer, no dependency — a WASM engine is CSP-blocked
+anyway) and unit-tested on the invariant that actually matters: **from any state at any speed,
+a stepped ball never leaves the chalk ring**, asserted over 4,000 random states. Where the ring
+and a copy block genuinely conflict, the ring wins, deliberately: escaping the visible circle
+is worse than a one-frame overlap.
+
+The loop runs on framer-motion's **existing shared frameloop** (`frame.update` / `cancelFrame`)
+and cancels itself the frame the ball sleeps — about 2s per kick, then zero steady-state cost.
+`useAnimationFrame` was rejected: it re-schedules forever, so mounting it on home would run a
+60Hz callback for the life of the tab. Damping is exponential and the substep is fixed, so 60Hz
+and 144Hz produce identical trajectories *and* identical collisions.
+
+Reduced motion does not render a half-toy: the hit target is **not rendered at all**, and an
+effect on the live media query cancels an in-flight loop and snaps the ball home — because the
+CSS killswitch provably cannot reach a JS-set transform.
 
 ## Motions that fire only on a favourable outcome
 

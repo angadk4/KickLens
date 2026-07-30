@@ -120,7 +120,10 @@ export function Ticker() {
           {items}
         </span>
         {running && (
-          <span className="ticker-set" aria-hidden>
+          // `inert` as well as aria-hidden: the duplicate carries real <Link>s, so
+          // aria-hidden alone left a set of invisible-but-TABBABLE links in the tab order —
+          // now on every route rather than just home. inert removes them from it entirely.
+          <span className="ticker-set" aria-hidden inert>
             {items /* duplicated set for the seamless loop */}
           </span>
         )}
