@@ -110,8 +110,8 @@ budget only while present.
    the preference once at mount and never re-renders on change (verified in its source,
    adversarial review 2026-07-27).
 4. **`will-change` is rationed to 2 static elements.** One is spent and named: `.floodlights`
-   (its two pool pseudos + the haze). A transient `will-change` set on pointerenter/kick and
-   cleared on leave/sleep does not consume a slot.
+   (its two pool pseudos + the haze). A transient `will-change` set on
+   pointerenter and cleared on leave does not consume a slot.
 5. **No motion may cause layout.** Anything that appears on hover has its space reserved
    first (`min-height` under the same media query that enables the hide). Split-flap digits
    live in fixed `em` boxes with `overflow: hidden` for exactly this reason.
@@ -121,14 +121,19 @@ budget only while present.
    shared clock registry (`lib/clock.ts`). No new `setInterval`, no persistent rAF loop (see
    the transient-rAF exemption above).
 8. **Reads in render, writes in effects.** A `sessionStorage`/`localStorage` read-then-write
-   inside a render function is double-invoked by StrictMode and will see its own write. Use
-   `lib/oncePerSession.ts`.
+   inside a render function is double-invoked by StrictMode and will see its own write — that
+   is precisely how the hero cascade suppressed itself on every dev reload while nobody could
+   see it. Read in a `useState` initialiser; write in a `useEffect`. (`lib/oncePerSession.ts`
+   used to encode this; it was deleted with the ball's toy, which was its only consumer. The
+   rule outlives the helper.)
 
 ### The two Tier-3 moments, named
 
-1. **Ambient — the hero chalk cascade** (`.pitch-hero`, 1100ms: line → circle → ball → seam),
-   on every mount of `/`. Replayable on demand via the labelled `↻` control, which is also the
-   permanent answer to "I never saw the hero animation".
+1. **Ambient — the hero cascade** (`.pitch-hero`, 1100ms: halfway line → centre circle → the
+   ball drops onto the spot), on every mount of `/`. A chalk ball drew itself along its own
+   outline; a solid one cannot, so the fourth beat is a scale-and-fade landing at the same
+   1100ms mark. The `↻` replay control was removed with the rest of the hero's interactivity —
+   the cascade replaying on every mount is what makes it seeable, and that is enough.
 2. **Event-driven — THE SEAL** (`components/layout/Takeover.tsx`, ~2.6s + hold): the gold badge
    strikes, the hash writes itself at 26ms/char, and the ticker strip runs a lower-third. It
    may fire **only** from `lib/liveEvents`' pure diffs, which return `[]` when there is no
@@ -214,31 +219,52 @@ only add depth beneath it. No `inset` — the inset light edge (`--edge-hi`) mea
   one thing that reads as unserious, and it breaks the closed palette outright. Turning an
   easter egg down is itself a signal.
 - **`filter: brightness()` for the floodlight flare** — a paint-only property, so rule 1
-  forbids it. The flare instead multiplies `--fl-gain`, which the existing base opacity and the
-  `fl-breath` keyframe both already read: composited, no new layer, and no second animation
-  competing for the same property.
+  forbade it, and the flare instead multiplied `--fl-gain`, which the base opacity and the
+  `fl-breath` keyframe both already read. *The flare itself is gone* (2026-07-30): it fired on
+  a hard ball strike, and the ball is no longer strikeable. The technique is kept on the record
+  because "multiply a variable both the base rule and the keyframe already read" is the right
+  way to surge a composited layer without a second animation on the same property.
 - **A minute clock, a live scoreline, goal events, a GOAL lower-third, or an in-play
   win-probability curve.** The API deliberately omits `home_goals`/`away_goals`/minute from
   `/matches/in-play` and `/predictions/completed`, so all of these would be inventing data.
   Nothing in the broadcast layer depends on a backend change.
 
-## The kickable ball — why a rAF is allowed here
+## THE BALL — a real one, and deliberately untouchable (2026-07-30)
 
-`lib/ballPhysics.ts` is pure (no DOM, no framer, no dependency — a WASM engine is CSP-blocked
-anyway) and unit-tested on the invariant that actually matters: **from any state at any speed,
-a stepped ball never leaves the chalk ring**, asserted over 4,000 random states. Where the ring
-and a copy block genuinely conflict, the ring wins, deliberately: escaping the visible circle
-is worse than a one-frame overlap.
+The hero ball was, for one day, a physics toy: click, drag, flick or use the keyboard and it
+bounced off the chalk ring and the copy blocks, counted keepy-uppies, and flared the
+floodlights on a hard strike. `lib/ballPhysics.ts` was pure, unit-tested on the invariant that
+a stepped ball never leaves the ring over 4,000 random states, ran on framer-motion's shared
+frameloop, cancelled itself the frame the ball slept, and was correct under reduced motion.
 
-The loop runs on framer-motion's **existing shared frameloop** (`frame.update` / `cancelFrame`)
-and cancels itself the frame the ball sleeps — about 2s per kick, then zero steady-state cost.
-`useAnimationFrame` was rejected: it re-schedules forever, so mounting it on home would run a
-60Hz callback for the life of the tab. Damping is exponential and the substep is fixed, so 60Hz
-and 144Hz produce identical trajectories *and* identical collisions.
+**The developer removed all of it:** *"I dont like the whole keep up all that stuff its gonna
+be hard to get it right. Just keep it non interactive but rolling and bouncing how it already
+is."* Deleted rather than disabled: `lib/ballPhysics.ts`, `lib/flare.ts`, the hit target, the
+hover hop, the hint, the rally counter, the once-per-session self-kick, and the `↻` redraw
+control. The `lib/oncePerSession.ts` helper went with them — it had no other consumer.
 
-Reduced motion does not render a half-toy: the hit target is **not rendered at all**, and an
-effect on the live media query cancels an in-flight loop and snaps the ball home — because the
-CSS killswitch provably cannot reach a JS-set transform.
+Recording it because the lesson generalises, and it is the same one the cursor light taught:
+**a well-built interaction is still the wrong interaction if the object it is attached to is
+not asking to be played with.** The hero is a board being read. An ambient loop earns its place
+by being *legible from across the room*; a toy has to earn a much higher bar — it has to be
+worth getting right, and a keepy-uppie counter on a forecasting record is not.
+
+What survives is the part that was asked for: it **rolls, spins and bounces**, and it is now a
+real black-and-white match ball rather than a chalk drawing of one. That last part is the
+site's **only solid object** — an explicit, size-gated exception to the closed chalk vocabulary,
+written down in `tokens.css` beside the `--ball-*` tokens: solid at ≥24px in the hero only,
+chalk everywhere else (the goal mark's ball is 9 units across, where a patch layout is mush).
+
+The geometry is generated, not eyeballed (`lib/pitchBall.ts`): a truncated icosahedron seen
+face-on at a pentagon, which is exactly six visible black patches. The first attempt WAS
+eyeballed and read as a five-pointed star, because it drew the outer five at full size — on a
+real ball they are tilted 63.435° away from the viewer and foreshorten to 0.447 of their width.
+That one cosine is the difference between a sticker and a sphere.
+
+**The rAF exemption in rule 7 now has no consumer on this page.** It stays in the standard
+because `HashProof`'s one-shot timeout is the same class of thing, but nothing on home holds a
+frame callback any more: the ball is pure CSS, and its travel and rotation cannot desync
+because `PitchHero` writes both onto `.ph-cell` from the same two constants.
 
 ## Motions that fire only on a favourable outcome
 

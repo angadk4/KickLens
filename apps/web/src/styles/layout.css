@@ -815,10 +815,10 @@
   inset: 0;
   width: 100%;
   height: 100%;
-  /* z-index 2 so a kicked ball is visible where it crosses the copy lanes; pointer-events
-     none is MANDATORY with that — a raised full-size SVG would otherwise eat text selection
-     across the whole ring. The 40px .ph-ball-hit button is the only interactive surface. */
-  z-index: 2;
+  /* The hero has NO interactive surface. pointer-events:none is mandatory on a full-size
+     overlay or it eats text selection across the whole ring, and z-index 1 is enough now
+     that nothing can send the ball out of its lane. */
+  z-index: 1;
   pointer-events: none;
 }
 
@@ -835,56 +835,64 @@
 }
 
 /* THE BALL (pitch-art mark #2, lib/pitchBall geometry). r=16 → 32px at the desktop size,
-   up from 20px, because the constraint was never "space around the spot": .ph-top is
-   anchored bottom:50% and .ph-bottom top:50%, so the copy limits the ball VERTICALLY and
-   not at all horizontally. Along the halfway line it has a corridor ~9× its own diameter.
+   because the constraint was never "space around the spot": .ph-top is anchored bottom:50%
+   and .ph-bottom top:50%, so the copy limits the ball VERTICALLY and not at all
+   horizontally. Along the halfway line it has a corridor ~9× its own diameter.
 
-   Outline + meridian seam + equator + a fixed floodlit crescent. Two arcs, because ONE
-   rotating arc on a circle is nearly rotationally symmetric — the previous ball's only
-   motion was a hover rotation and it read as completely static.
+   A REAL black-and-white match ball — a truncated icosahedron seen face-on at a pentagon —
+   not a chalk outline of one. It is the site's only solid object, and the size gate for that
+   exception is written where the tokens are (--ball-* in tokens.css). It replaced an outline
+   plus a meridian and an equator, which at 32px read as a diagram of a ball.
 
-   Three nested transform layers, because two animations both writing `transform` on one
+   Four nested transform layers, because two animations both writing `transform` on one
    element do not compose (the later one wins outright):
      .ph-ball-roll  — ambient translateX along the line
      .ph-beat       — the 1s bounce + contact squash
-     .ph-ball       — what JS writes when the ball is kicked
-     .ph-ball-spin  — ambient rotation, phase-locked to the roll
-   `.ph-kicked` on the cell suspends the two ambient loops so JS owns the transform. */
-.ph-ball-line,
-.ph-ball-seam,
-.ph-ball-lit {
-  fill: none;
-  stroke: var(--chalk-spot);
-  stroke-width: 1.5;
-  stroke-linecap: round;
+     .ph-ball-in    — the cascade's one-shot arrival
+     .ph-ball-spin  — ambient rotation, phase-locked to the roll */
+.ph-ball-skin {
+  fill: var(--ball-white);
 }
 
-.ph-ball-lit {
-  stroke: var(--chalk-hi);
-  stroke-width: 2;
+.ph-ball-patch {
+  fill: var(--ball-black);
+}
+
+.ph-ball-seam {
+  fill: none;
+  stroke: var(--ball-seam);
+  stroke-width: 0.9;
+  stroke-linecap: round;
 }
 
 .ph-ball-roll,
 .ph-beat,
-.ph-ball,
+.ph-ball-in,
 .ph-ball-spin {
-  transform-box: fill-box;
-  transform-origin: center;
+  /* view-box + 50%, NOT fill-box + center: the rim patches are clipped by the outline, and a
+     clipped group's object bounding box is its UNCLIPPED geometry — so fill-box would put the
+     rotation origin off the ball's real centre and the spin would wobble. 50% of the 300-unit
+     viewBox is 150,150, which is the ball's centre exactly. */
+  transform-box: view-box;
+  transform-origin: 50% 50%;
 }
 
-/* Ambient roll. --ph-roll and the rotation MUST agree: rollDegrees(48, 16) = 171.887°, and
-   a unit test pins this literal against that function. Desync makes the ball skid. */
-.ph-cell:not(.ph-kicked) .ph-ball-roll {
+/* Ambient roll. The travel and the rotation MUST agree or the ball skids instead of rolling.
+   They cannot disagree: --ph-roll and --ph-roll-deg are BOTH written onto .ph-cell by
+   PitchHero from lib/pitchBall's ROLL_X and rollDegrees(ROLL_X, BALL_R). This used to be two
+   literals kept in step by a test — deriving one from the other is strictly better than
+   asserting they match. */
+.ph-ball-roll {
   animation: ph-roll-x var(--dur-ball) var(--ease-in-out) infinite;
 }
 
-.ph-cell:not(.ph-kicked) .ph-ball-spin {
+.ph-ball-spin {
   /* identical duration, delay, easing and keyframe percentages — they start in the same
      style recalculation and stay locked */
   animation: ph-roll-r var(--dur-ball) var(--ease-in-out) infinite;
 }
 
-.ph-cell:not(.ph-kicked) .ph-beat {
+.ph-beat {
   animation: ph-beat var(--dur-beat) var(--ease-out) var(--beat-phase, 0ms) infinite;
 }
 
@@ -914,11 +922,11 @@
   }
   34%,
   44% {
-    transform: rotate(-171.887deg);
+    transform: rotate(calc(-1 * var(--ph-roll-deg)));
   }
   68%,
   78% {
-    transform: rotate(171.887deg);
+    transform: rotate(var(--ph-roll-deg));
   }
   96%,
   100% {
@@ -944,173 +952,8 @@
   }
 }
 
-/* The kickable control: a transparent target that TRACKS the ball, so the focus ring travels
-   with it. ≥24px for WCAG 2.2 target size. touch-action:none or the browser steals the drag.
-
-   IT MUST ALSO TRACK THE AMBIENT ROLL. JS only writes this element's transform during a kick,
-   so with the ambient animation on the SVG alone the ball visibly rolled ±48 units while the
-   button stayed pinned at the centre — clicking the ball you could see MISSED it. So the button
-   runs the same two ambient loops, suspended by the same `.ph-kicked` class, and the amplitudes
-   are expressed as fractions of --ph-size to convert viewBox units to CSS px:
-     48 / 300 = 0.16   (must equal --ph-roll)
-     7 / 300  = 0.02333 (must equal --ph-beat)
-   A test pins --ph-roll to lib/pitchBall's ROLL_X; keep these fractions in step with it. */
-.ph-ball-hit {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 40px;
-  height: 40px;
-  margin: -20px 0 0 -20px;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: none;
-  cursor: grab;
-  touch-action: none;
-  z-index: 3;
-}
-
-/* Two animations cannot both write one property, so the roll uses the standalone `translate`
-   property and the bounce uses `transform` — both composited, and JS only ever writes
-   `transform`, which is safe because `.ph-kicked` suspends both of these first. */
-.ph-cell:not(.ph-kicked) .ph-ball-hit {
-  animation:
-    ph-hit-x var(--dur-ball) var(--ease-in-out) infinite,
-    ph-hit-y var(--dur-beat) var(--ease-out) var(--beat-phase, 0ms) infinite;
-}
-
-@keyframes ph-hit-x {
-  0%,
-  10% {
-    translate: 0;
-  }
-  34%,
-  44% {
-    translate: calc(var(--ph-size) * -0.16);
-  }
-  68%,
-  78% {
-    translate: calc(var(--ph-size) * 0.16);
-  }
-  96%,
-  100% {
-    translate: 0;
-  }
-}
-
-@keyframes ph-hit-y {
-  0% {
-    transform: translateY(0);
-  }
-  14% {
-    transform: translateY(calc(var(--ph-size) * -0.02333));
-  }
-  34%,
-  100% {
-    transform: translateY(0);
-  }
-}
-
-.ph-ball-hit:active {
-  cursor: grabbing;
-}
-
-.ph-ball-hit:focus-visible {
-  outline: 2px solid var(--ink);
-  outline-offset: 3px;
-}
-
-/* The hover hop replaces the old invisible rotate-a-circle: visible, Tier 1, with a focus twin.
-   It gets its OWN layer (.ph-hop) rather than sharing .ph-ball, because JS writes an inline
-   `transform` on .ph-ball during and after a kick — an inline style beats a stylesheet rule, so
-   putting the hop there left it permanently dead from the first kick onward. */
-.ph-hop {
-  transform-box: fill-box;
-  transform-origin: center;
-  transition: transform var(--dur-med) var(--ease-spring);
-}
-
-.ph-cell:not(.ph-kicked):has(.ph-ball-hit:hover) .ph-hop,
-.ph-cell:not(.ph-kicked):has(.ph-ball-hit:focus-visible) .ph-hop {
-  transform: translateY(-5px);
-}
-
-/* Anchored to the cell's BOTTOM, not offset from the centre. At `top: calc(50% + 34px)` these
-   landed directly on top of .ph-bottom's fixture copy — .ph-bottom starts at top:50% with 24px
-   of padding, so its first line begins ~24px below centre and its second ~40px. The ring's
-   radius is 148 units, so 8% from the bottom is comfortably inside the chalk and clear of the
-   two lines of copy above it. */
-.ph-hint,
-.ph-rally {
-  position: absolute;
-  left: 50%;
-  bottom: 8%;
-  transform: translateX(-50%);
-  font-family: var(--font-mono);
-  font-size: var(--text-xs);
-  letter-spacing: 0.08em;
-  color: var(--ink-faint);
-  white-space: nowrap;
-  pointer-events: none;
-}
-
-.ph-rally {
-  font-variant-numeric: tabular-nums;
-}
-
-/* The labelled redraw control at the ring's 4-o'clock — a real button, not a hidden egg.
-   It is always VISIBLE (faintly), not opacity-0-until-hover: an invisible-but-tappable 28px
-   target sat over the ring on every touch device, where there is no hover to reveal it. Being
-   faint-but-present also makes it discoverable, which was the point. */
-.ph-redraw {
-  position: absolute;
-  right: 8%;
-  bottom: 14%;
-  z-index: 3;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: none;
-  color: var(--ink-faint);
-  font-size: var(--text-base);
-  line-height: 1;
-  opacity: 0.4;
-  transition:
-    opacity var(--dur-fast) var(--ease-out),
-    color var(--dur-fast) var(--ease-out),
-    transform var(--dur-release) var(--ease-spring);
-}
-
-.ph-cell:hover .ph-redraw,
-.ph-redraw:hover,
-.ph-redraw:focus-visible {
-  opacity: 1;
-}
-
-.ph-redraw:hover {
-  color: var(--ink);
-}
-
-.ph-redraw:active {
-  transform: rotate(-140deg);
-  transition-duration: var(--dur-press);
-}
-
-.ph-redraw:focus-visible {
-  outline: 2px solid var(--ink);
-  outline-offset: 2px;
-}
-
-/* The flare lives entirely in --fl-gain: Floodlights.tsx multiplies it for 900ms, and both
-   the base opacity and the fl-breath keyframe already read that variable, so the pools surge
-   and settle with NO new layer, NO second animation on the same property, and no paint-only
-   property (a `filter: brightness` flare would violate rule 1). */
-
-/* The orchestrated moment: line → circle → ball → seam, 1100ms, on EVERY arrival (the
-   session gate is gone — see PitchHero.tsx). Only the chalk STROKES animate; content
+/* The orchestrated moment: line → circle → the ball arrives, 1100ms, on EVERY arrival (the
+   session gate is gone — see PitchHero.tsx). Only the chalk and the ball animate; content
    paints instantly, so nothing is gated behind it. Retimed from 1600ms so a return
    visit is never a wait. */
 .pitch-hero .ph-circle {
@@ -1119,16 +962,23 @@
   animation: ph-draw 500ms var(--ease-out) 250ms both;
 }
 
-.pitch-hero .ph-ball-line {
-  stroke-dasharray: 1;
-  stroke-dashoffset: 1;
-  animation: ph-draw 320ms var(--ease-out) 700ms both;
+/* The fourth beat. A chalk ball drew itself along its own outline; a REAL ball cannot — it
+   is a solid object, and stroke-dashoffset has nothing to travel along. So it drops onto the
+   spot instead, with the one overshoot --ease-spring gives, and lands at 1100ms exactly
+   where the chalk cascade used to finish. */
+.pitch-hero .ph-ball-in {
+  animation: ph-ball-in 380ms var(--ease-spring) 720ms both;
 }
 
-.pitch-hero .ph-ball-seam {
-  stroke-dasharray: 1;
-  stroke-dashoffset: 1;
-  animation: ph-draw 200ms var(--ease-out) 900ms both;
+@keyframes ph-ball-in {
+  from {
+    opacity: 0;
+    transform: scale(0.35);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 @keyframes ph-draw {
@@ -1157,12 +1007,18 @@
   text-align: center;
 }
 
-/* THE EXCEPTION: the freeze-pending state stacks three copy blocks in .ph-top and already
-   sits close to the ring's top edge, so it keeps the tighter padding. The ball's bounce apex
-   is 7 units and the band still clears it there. */
-.pitch-hero.expired .ph-top {
-  padding-bottom: var(--space-4);
-}
+/* THE EXCEPTION IS GONE (2026-07-30). The freeze-pending state used to keep a tighter 16px
+   padding here, under a comment claiming "the band still clears it there". The comment was
+   arithmetically FALSE: 16px puts the copy's bottom edge at y=134, while the ball's bounce
+   apex reaches 126.76 (150 − 7 − 16×1.015, the squash keyframe's vertical stretch). It never
+   mattered while the ball was a `fill: none` chalk outline at 0.5 alpha — text showed through
+   it. Making the ball SOLID turned that graze into an opaque erasure of a glyph's descender,
+   once per second, on the one hero state that is showing a deadline.
+   Every state now uses the 24px band that lib/pitchBall's BAND_TOP models and fitsBeat
+   certifies, and bandTopFor() makes the coupling executable so a future padding tweak fails a
+   test instead of eating copy. The freeze-pending block simply sits 8px higher.
+   NOT fixed by paint order: dropping .ph-svg's z-index would paint --ink-muted glyphs on top
+   of a near-white ball, trading an occlusion for a contrast failure. */
 
 .ph-bottom {
   position: absolute;

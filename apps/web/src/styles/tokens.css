@@ -47,7 +47,16 @@
      with five licensed placements — the hero center spot, the juggling loader, the
      record goal mouth, out-of-play on an error banner, and at rest on the
      empty-state arc — and there is no sixth. Every mark is a stroke or a spot:
-     never dashed, never textured, never a fill pattern. */
+     never dashed, never textured, never a fill pattern.
+
+     ONE EXCEPTION, and it is size-gated. The hero ball is a real black-and-white
+     match ball (--ball-* below) rather than a chalk outline of one — the developer
+     asked for it directly, and at 32px an outline plus two arcs reads as a diagram
+     of a ball rather than a ball. Every OTHER placement stays chalk, because they
+     are the same noun used as a SYMBOL at symbol size: the goal-mouth ball is 9
+     units across, where a patch layout is mush. The rule, so this stays a decision
+     and not a drift: solid ball at ≥24px and in the hero only; chalk ball
+     everywhere else. */
   --chalk-line: rgba(232, 237, 230, 0.35); /* every chalk stroke */
   --chalk-lit: rgba(232, 237, 230, 0.55); /* a stroke under a passed deadline (expired hero) */
   --chalk-spot: rgba(232, 237, 230, 0.5); /* the only filled chalk mark: a spot */
@@ -57,7 +66,14 @@
      and still reads as "at rest / not yet earned" against --chalk-lit's 0.55. */
   --chalk-mark: rgba(232, 237, 230, 0.38);
   --chalk-net: rgba(232, 237, 230, 0.2); /* a net IS fainter than a post — representational */
-  --chalk-hi: rgba(232, 237, 230, 0.72); /* the ball's floodlit crescent — the brightest chalk */
+
+  /* THE HERO BALL — the site's only solid object (see the size gate above). Not chalk, so
+     deliberately NOT an rgba of the ink: a real ball is opaque and sits ON the pitch rather
+     than being drawn into it. The black is the page's own --bg-0 pushed a shade darker, so
+     the patches read as black without introducing a second black to the palette. */
+  --ball-white: #eef2ec;
+  --ball-black: #0d1410;
+  --ball-seam: rgba(13, 20, 16, 0.38);
 
   /* Elevation: the "machined edge" is SEMANTIC (officials only); floats are the
      only drop shadows — layered, and led by a chalk rim (see below) */
@@ -154,11 +170,11 @@
   --dur-breath: 7s;
   --fl-gain: 1;
 
-  /* THE BALL's ambient life. --ph-roll is in viewBox units (the SVG scales it for free at
-     every breakpoint) and is coupled to a rotation in layout.css that lib/pitchBall's
-     rollDegrees() pins by test — change one and the ball skids. */
-  --ph-roll: 48px;
-  --ph-beat: 7px;
+  /* THE BALL's ambient life — TIMING ONLY. Its geometry (--ph-roll, --ph-roll-deg, --ph-beat)
+     deliberately does NOT live here: PitchHero writes all three onto .ph-cell from
+     lib/pitchBall's ROLL_X / rollDegrees / BEAT_RISE, so the travel and the rotation it
+     implies cannot drift apart. They were two literals in two files kept in step by a unit
+     test; deriving one from the other is better than asserting they match. */
   --dur-ball: 11s;
   --dur-beat: 1s;
 
