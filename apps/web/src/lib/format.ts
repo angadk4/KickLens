@@ -84,6 +84,66 @@ export function teamName(t: string): string {
   return TEAM_NAMES[t] ?? t;
 }
 
+/** Standard club codes, for direct end-of-line labels on the ratings chart. "New England
+    Revolution" is 22 characters — a legend's worth of width per line — while "NE 1712" is
+    eight, which is what makes labelling every compared line affordable at all. */
+const TEAM_CODES: Record<string, string> = {
+  "Atlanta Utd": "ATL",
+  "Austin FC": "ATX",
+  "CF Montreal": "MTL",
+  Charlotte: "CLT",
+  "Chicago Fire": "CHI",
+  "Colorado Rapids": "COL",
+  "Columbus Crew": "CLB",
+  "DC United": "DC",
+  "FC Cincinnati": "CIN",
+  "FC Dallas": "DAL",
+  "Houston Dynamo": "HOU",
+  "Inter Miami": "MIA",
+  "Los Angeles FC": "LAFC",
+  "Los Angeles Galaxy": "LAG",
+  "Minnesota United": "MIN",
+  "Nashville SC": "NSH",
+  "New England Revolution": "NE",
+  "New York City": "NYC",
+  "New York Red Bulls": "RBNY",
+  "Orlando City": "ORL",
+  "Philadelphia Union": "PHI",
+  "Portland Timbers": "POR",
+  "Real Salt Lake": "RSL",
+  "San Diego FC": "SD",
+  "San Jose Earthquakes": "SJ",
+  "Seattle Sounders": "SEA",
+  "Sporting Kansas City": "SKC",
+  "St. Louis City": "STL",
+  "Toronto FC": "TOR",
+  "Vancouver Whitecaps": "VAN",
+};
+
+/** Words that carry no identity, so the fallback never returns "FC" or "CITY". */
+const GENERIC = new Set(["fc", "sc", "cf", "city", "united", "utd", "club", "the"]);
+
+/** A club's short code. The map above WILL drift — MLS added San Diego FC in 2025 — so an
+    unmapped club degrades deterministically (initials of its significant words) rather than
+    rendering blank or throwing. Never longer than 4 characters, so the chart's right margin
+    can be a fixed reservation. */
+export function teamShort(t: string): string {
+  const known = TEAM_CODES[t] ?? TEAM_CODES[teamName(t)];
+  if (known) return known;
+  const words = teamName(t)
+    .replace(/[^A-Za-z ]/g, "")
+    .split(/\s+/)
+    .filter((w) => w && !GENERIC.has(w.toLowerCase()));
+  if (words.length >= 2) {
+    return words
+      .map((w) => w[0]!)
+      .join("")
+      .slice(0, 4)
+      .toUpperCase();
+  }
+  return (words[0] ?? teamName(t)).slice(0, 3).toUpperCase();
+}
+
 /** Human phrase for a Voided event's reason (prediction_event details.reason) so a voided
     forecast reads honestly — "match postponed", not a generic "superseded"/"fixture changed". */
 const VOID_PHRASE: Record<string, string> = {

@@ -1,8 +1,9 @@
 // Forecast-state badges: FROZEN (official, immutable) vs PRELIMINARY (draft) is a
 // first-class honesty distinction — never render probabilities without one.
 // Labels stay SHORT so meta rows never wrap; the explanation rides in `title`.
-// "ok" (green ✓) is gone on purpose: graded cards render hit AND miss neutral — the
-// goal mark carries the continuous p(actual) instead of a coloured verdict.
+// "ok" (green ✓) is gone on purpose: graded cards render hit AND miss neutral — the outcome
+// rule under the probability bar names WHICH result happened and how much probability the
+// frozen forecast gave it, which is continuous, instead of colouring a binary verdict.
 type Kind = "frozen" | "draft" | "voided" | "none";
 
 const LABELS: Record<Kind, string> = {

@@ -426,7 +426,8 @@ a.card.card-tilt:hover .matchup {
 }
 
 /* .badge.ok (green ✓) was removed deliberately: graded cards are neutral both ways —
-   the goal mark plots p(actual) instead of colouring a binary verdict. */
+   the outcome rule under the prob bar names WHICH result happened, and its width is the
+   probability we gave it — a continuous datum, not a coloured verdict. */
 
 /* ---- hash badge ---- */
 
@@ -499,6 +500,58 @@ a.card.card-tilt:hover .matchup {
 
 .probbar .seg.away {
   background: var(--away);
+}
+
+/* The outcome mark on a GRADED card: a rule exactly as wide as the segment that happened.
+   Its WIDTH is the probability, on the bar's own scale — which is the whole reason it is a
+   rule and not a caret, tick or arrow, none of which could be quantitative and all of which
+   read as verdict glyphs. Colour comes from the cell's key class, identical to the segment
+   above, so it says WHICH outcome occurred and can say nothing about whether we were right:
+   a 12% away win and a 71% away win are both clay and differ only in length.
+   It lives in .probbar-wrap, NOT in .probbar — that is overflow:hidden at a fixed 1.9rem. */
+.probbar-outcome {
+  display: grid;
+  gap: var(--space-1);
+}
+
+/* mirrors .probbar exactly: same flex, same 2px gap, and the grow values are literally the
+   bar's own (one segments() call feeds both), so a rule cannot drift off its segment */
+.probbar-marks {
+  display: flex;
+  gap: 2px;
+}
+
+.probbar-marks .oc-cell {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+.probbar-marks .oc-rule {
+  width: 100%;
+  height: 3px;
+  min-width: 2px; /* a 0.2% outcome still shows a hairline rather than vanishing */
+  border-radius: 2px;
+  background: var(--oc-color);
+}
+
+.probbar-marks .oc-cell.home {
+  --oc-color: var(--home);
+}
+
+.probbar-marks .oc-cell.draw {
+  --oc-color: var(--draw);
+}
+
+.probbar-marks .oc-cell.away {
+  --oc-color: var(--away);
+}
+
+.probbar-caption {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .probbar-legend {
@@ -1109,119 +1162,6 @@ a.card.card-tilt:hover .matchup {
   border-left: 2px solid var(--live);
 }
 
-/* ---- the graded-card goal mark: the ball at p(actual) before a goal mouth — the same
-        mark on every card (symmetric by construction; lib/goalMark guardrails keep the
-        net honest). Draws on first scroll-in; base state is the finished mark.
-        It shipped at 92×24 with the ground, frame and net all at --chalk-ghost (0.09 =
-        19/255 on --bg-1, below the 3:1 graphics floor) so it was invisible. Now it is a
-        1-D chart with a scale: --chalk-mark for structure, --chalk-net for the netting,
-        --ink-muted for the datum, and a tick at the ⅓ baseline. ---- */
-.goal-mark {
-  width: 132px;
-  height: 40px;
-  display: block;
-  overflow: visible;
-}
-
-.goal-mark .gm-stroke {
-  fill: none;
-  stroke: var(--chalk-mark);
-  stroke-width: 1.5;
-  stroke-linecap: round;
-}
-
-.goal-mark .gm-net {
-  stroke: var(--chalk-net); /* netting is genuinely fainter than a post */
-}
-
-/* the datum is the most legible thing in the mark — it is the only thing that VARIES */
-.goal-mark .gm-ball {
-  fill: var(--ink-muted);
-}
-
-.goal-mark .gm-tick {
-  stroke: var(--chalk-mark);
-  stroke-width: 1;
-}
-
-.goal-mark .gm-tick-label,
-.goal-mark .gm-value {
-  fill: var(--ink-faint);
-  font-family: var(--font-mono);
-  font-size: 9px;
-  text-anchor: middle;
-}
-
-.goal-mark .gm-value {
-  fill: var(--ink-muted);
-  font-size: 10px;
-  font-variant-numeric: tabular-nums;
-}
-
-/* only a ball that actually reached the mouth brightens the net — earned, not given */
-.goal-mark.gm-goal .gm-net,
-.goal-mark.gm-goal .gm-frame {
-  stroke: var(--chalk-lit);
-}
-
-/* first-sight draw: static dasharray is harmless at offset 0 (the dash covers the whole
-   pathLength=1 path); the class only adds a from-offset animation, no fill mode */
-.goal-mark .gm-stroke {
-  stroke-dasharray: 1;
-}
-
-.goal-mark.gm-live .gm-stroke {
-  animation: gm-in 450ms var(--ease-out);
-}
-
-/* The ball ROLLS IN FROM THE ⅓ TICK: --gm-from is set per card to −travel(p), so a
-   forecast that beat the baseline rolls forward and one that lost rolls backward. Same
-   duration, same easing, same distance for equally-good and equally-bad forecasts —
-   the direction is the datum, and no outcome is rewarded with more motion. */
-.goal-mark.gm-live .gm-ball,
-.goal-mark.gm-live .gm-value {
-  animation: gm-ball-in 520ms var(--ease-out);
-}
-
-@keyframes gm-in {
-  from {
-    stroke-dashoffset: 1;
-  }
-}
-
-@keyframes gm-ball-in {
-  from {
-    opacity: 0;
-    transform: translateX(var(--gm-from, 0px));
-  }
-}
-
-/* The ripple: a one-shot rotation of the net about the crossbar tip, only on gm-goal.
-   CAPPED DELIBERATELY, and the cap is the point: this is the ONLY motion in the app that
-   fires on a favourable outcome, and it is permitted only because a net moving when a ball
-   hits it is physics, not applause. It was 1.8px of translate (invisible); rotating about
-   the top reads as a net taking a ball rather than a panel sliding sideways. */
-.goal-mark.gm-live.gm-goal .gm-net {
-  transform-box: fill-box;
-  transform-origin: top left;
-  animation:
-    gm-in 450ms var(--ease-out),
-    gm-ripple 520ms var(--ease-out) 480ms;
-}
-
-@keyframes gm-ripple {
-  0%,
-  100% {
-    transform: rotate(0);
-  }
-  40% {
-    transform: rotate(2.2deg);
-  }
-  70% {
-    transform: rotate(-1deg);
-  }
-}
-
 /* ---- tables ---- */
 
 .data-table {
@@ -1259,14 +1199,29 @@ a.card.card-tilt:hover .matchup {
   background: var(--bg-2);
 }
 
-/* Pinned ≠ hovered: the pinned row keeps a chalk edge on its lead cell, so it stays
-   identifiable while the pointer wanders (both share the --bg-2 wash). */
-.data-table tr.row-pinned td {
+/* Compared ≠ hovered: a compared row keeps an edge on its lead cell, so it stays identifiable
+   while the pointer wanders (both share the --bg-2 wash). The edge is THAT TEAM'S LINE COLOUR
+   (--slot-color, set inline per row), which is what replaced the sticky chart rail: the row's
+   left edge tells you which line is yours without any eye travel. Falls back to chalk so the
+   rule is still meaningful if a slot colour is ever missing. */
+.data-table tr.row-compared td {
   background: var(--bg-2);
 }
 
-.data-table tr.row-pinned td:first-child {
-  box-shadow: inset 2px 0 0 var(--chalk-line);
+.data-table tr.row-compared td:first-child {
+  box-shadow: inset 2px 0 0 var(--slot-color, var(--chalk-line));
+}
+
+/* …and a swatch inside the button, because .table-scroll can scroll the lead cell's edge
+   right out of view on a narrow screen — the one place the row edge alone would fail */
+.row-pick .rp-swatch {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  margin-right: 6px;
+  vertical-align: baseline;
+  background: var(--slot-color, var(--chalk-line));
 }
 
 /* The keyboard-reachable control inside the team cell — reads as the plain team text;
@@ -1602,9 +1557,19 @@ a.card.card-tilt:hover .matchup {
 }
 
 /* EloHistory floating hover label */
+/* One clamp, no media query. 42vw holds a near-constant 2.3:1 across the fluid band, which is
+   the right ratio for a time series; the floor and the cap are the parts that need saying.
+   FLOOR 240px: below ~570px of viewport the ratio would drop under 1.4:1 and the plot would
+   go square — it should stop shrinking and just get denser. CAP 520px: past that a 1208px-wide
+   plot starts eating a whole viewport height and pushes the table entirely below the fold,
+   which is the original complaint in the other axis.
+   `vw` is exact here because .shell is the only horizontal constraint and /ratings is not
+   inside .with-toc. IF A TOC RAIL IS EVER ADDED TO THIS PAGE, switch to
+   `aspect-ratio: 2.3; min-height: 240px; max-height: 520px` — container-relative, and correct
+   under a narrower column. */
 .elo-wrap {
   position: relative;
-  height: var(--elo-h, 280px);
+  height: var(--elo-h, clamp(240px, 42vw, 520px));
 }
 
 .elo-label {
@@ -1619,6 +1584,83 @@ a.card.card-tilt:hover .matchup {
   padding: 1px var(--space-2);
   white-space: nowrap;
   transform: translate(10px, -50%);
+}
+
+/* The compare tray: legend, control and reset in one row. A real <Legend> would try to
+   enumerate thirty series and would fight the system's typography; this names only what is
+   plotted, and every entry is also the button that removes it. */
+.compare-tray {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.compare-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 2px var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--ink);
+  background: none;
+  border: 1px solid var(--slot-color, var(--line));
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+
+.compare-chip:hover {
+  background: var(--bg-2);
+}
+
+.compare-chip:focus-visible {
+  outline: 2px solid var(--chalk-line);
+  outline-offset: 2px;
+}
+
+.compare-chip .swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--slot-color);
+}
+
+.compare-count {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+}
+
+.compare-reset {
+  font: inherit;
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+  background: none;
+  border: 0;
+  padding: 0;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.compare-reset:hover {
+  color: var(--ink);
+}
+
+/* tooltip rows carry their own swatch, so the tooltip is self-legending */
+.chart-tooltip .tt-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.chart-tooltip .tt-swatch {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex: none;
 }
 
 .chart-figure figcaption {
@@ -2194,7 +2236,17 @@ a.card.card-tilt:hover .matchup {
   stroke-width: 1.5;
   stroke-linecap: round;
   stroke-dasharray: 1;
-  animation: gm-in 220ms var(--ease-out);
+  animation: nf-arc-in 220ms var(--ease-out);
+}
+
+/* was `gm-in`, borrowed from the graded-card goal mark. That mark is gone (the outcome rule
+   on the prob bar replaced it), and a missing @keyframes fails SILENTLY — the animation
+   simply never runs — so this moved here with its consumer rather than being left dangling.
+   Same move the hero's ph-spot made when it became nf-spot-in below. */
+@keyframes nf-arc-in {
+  from {
+    stroke-dashoffset: 1;
+  }
 }
 
 .nf-spot {

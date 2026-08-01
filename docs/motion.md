@@ -153,8 +153,9 @@ is the honesty spine of the whole broadcast layer.
   for the same reason the 3-step stagger's is: the keyframe is from-only, so the base state is
   the finished cell.
 - **Duration may exceed `--dur-reveal` for self-drawing evidence** (a chart line drawing
-  itself), because the drawing is the information. `GoalMark`'s 450ms already set this
-  precedent; it is written down now.
+  itself), because the drawing is the information. `GoalMark`'s 450ms set this precedent and
+  the rule outlived it — the mark was retired 2026-07-31, and the exception stands on its own
+  reasoning rather than on that one consumer.
 
 ## The decision gate (all five must be yes)
 
@@ -253,7 +254,8 @@ What survives is the part that was asked for: it **rolls, spins and bounces**, a
 real black-and-white match ball rather than a chalk drawing of one. That last part is the
 site's **only solid object** — an explicit, size-gated exception to the closed chalk vocabulary,
 written down in `tokens.css` beside the `--ball-*` tokens: solid at ≥24px in the hero only,
-chalk everywhere else (the goal mark's ball is 9 units across, where a patch layout is mush).
+chalk everywhere else (the empty-state and loader balls are single-digit units across, where a
+patch layout is mush).
 
 The geometry is generated, not eyeballed (`lib/pitchBall.ts`): a truncated icosahedron seen
 face-on at a pentagon, which is exactly six visible black patches. The first attempt WAS
@@ -268,12 +270,27 @@ because `PitchHero` writes both onto `.ph-cell` from the same two constants.
 
 ## Motions that fire only on a favourable outcome
 
-There is exactly one: `gm-ripple`, the net moving when the ball reaches the goal mouth on a
-graded card. It is **capped deliberately**, and the cap is the point — it is permitted only
-because a net moving when a ball hits it is *physics, not applause*. Everything else about the
-graded-card mark is symmetric by construction: the ball's roll starts at the ⅓ baseline tick
-on **every** card, and two forecasts equally far from the baseline travel identical distances
-in opposite directions (unit-tested in `lib/goalMark.test.ts`). Do not "improve" the ripple.
+**There are none.** (2026-07-31)
+
+There used to be exactly one: `gm-ripple`, the net moving when the ball reached the goal mouth on
+a graded card. It was capped deliberately and permitted only because a net moving when a ball
+hits it is *physics, not applause*.
+
+The whole graded-card goal mark has now been retired — the developer's verdict was that it "makes
+no sense," and the audit agreed for a different reason: it plotted, on its own x-axis, a number
+the probability bar 40px above it already carried as a segment width. What replaced it is a rule
+under that bar, exactly as wide as the segment that happened, in that outcome's own colour. It
+ships **static**, with no entrance at all.
+
+So the guarantee got stronger rather than weaker: it was "exactly one such motion, and its
+threshold is unit-tested above ½ so nobody can quietly lower the bar until the record looks
+celebratory." It is now **zero, structurally** — there is no threshold left to police and no
+channel through which correctness could be expressed. `lib/probBar.test.ts` asserts that
+everything the mark renders is a pure function of `result` alone, including a source-level check
+that the words `correct`/`hit`/`miss` and the semantic colour tokens appear nowhere near it.
+
+If an entrance is ever wanted, it is Tier 2 and nothing more: `scaleX(0→1)` from the left, ≤
+`--dur-reveal`, from-only keyframe, no fill mode, identical on every card regardless of outcome.
 
 ## Regression log (why rules 2, 3 and 8 are written in blood)
 

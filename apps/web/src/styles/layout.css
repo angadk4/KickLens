@@ -1374,7 +1374,27 @@ a.ticker-item:hover {
   }
 }
 
-/* ---- page-level 2-col compositions (Performance/Calibration panels, Ratings) ---- */
+/* ---- /ratings: chart on top at full shell width, then the table.
+        This REPLACED a 2-column composition whose right column was a sticky rail holding the
+        chart — 5/12 of a 1240px shell, so ~480px of plot for thirty lines. The rail's stated
+        job was keeping the trajectory beside the row being read; nothing at full width can do
+        that, so the mapping moved into the data: every compared row carries its line's colour
+        on its lead cell (.row-compared) and in its own button (.rp-swatch), which works at
+        every viewport and survives .table-scroll's horizontal scroll. ---- */
+.ratings-stack {
+  display: grid;
+  gap: var(--space-5);
+}
+
+/* tray → chart → note. The tray sits ABOVE the plot because it is a toolbar as much as a
+   legend: below the figure it landed under the "view as a table" details, which read as a
+   footnote to a footnote. */
+.ratings-chart {
+  display: grid;
+  gap: var(--space-3);
+}
+
+/* ---- page-level 2-col compositions (Performance/Calibration panels) ---- */
 
 .panel-cols {
   display: grid;
@@ -1389,29 +1409,6 @@ a.ticker-item:hover {
   }
   .panel-cols > * {
     min-width: 0;
-  }
-
-  .ratings-cols {
-    display: grid;
-    grid-template-columns: minmax(0, 7fr) minmax(340px, 5fr);
-    gap: var(--space-4) var(--rail-gap);
-    align-items: start;
-  }
-  /* the trajectory TRACKS the table: the table runs ~1340px, the chart ~360px, so without
-     this the rail simply ends and leaves a column of nothing. Sticky (verified: the rail's
-     top goes 261px → 96px between scroll 0 and scroll 1200) keeps it beside whatever row
-     you are reading; the taller chart and the note below it give the rail real presence at
-     the top of the page too. */
-  .ratings-cols .ratings-chart {
-    position: sticky;
-    top: 96px;
-    display: grid;
-    gap: var(--space-3);
-    align-content: start;
-    max-height: calc(100vh - var(--space-6) - 96px);
-  }
-  .ratings-cols .ratings-chart .elo-wrap {
-    --elo-h: 420px;
   }
 }
 

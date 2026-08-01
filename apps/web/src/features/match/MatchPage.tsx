@@ -4,7 +4,6 @@ import { Link, useParams } from "react-router-dom";
 import { api } from "../../api";
 import { Badge } from "../../components/ui/Badge";
 import { CardDetail } from "../../components/ui/CardDetail";
-import { GoalMark } from "../../components/ui/GoalMark";
 import { ProbBar } from "../../components/ui/ProbBar";
 import { Reveal } from "../../components/ui/Reveal";
 import { Section } from "../../components/ui/Section";
@@ -100,23 +99,27 @@ export function MatchPage() {
               <span className="chip">{current.model_label}</span>
               {current.stale_inputs && <Badge kind="draft" label="issued under STALE inputs" />}
             </div>
-            <ProbBar pHome={current.p_home} pDraw={current.p_draw} pAway={current.p_away} />
+            {/* once graded, the bar carries the outcome rule: a mark the width of the segment
+                that happened. The number it prints is that segment's own frozen probability —
+                the value inside the hash — while the log loss chip below is the graded figure.
+                They are the same claim (log_loss = −ln p, unit-tested), stated in both units. */}
+            <ProbBar
+              pHome={current.p_home}
+              pDraw={current.p_draw}
+              pAway={current.p_away}
+              result={current.grade ? (m.result ?? undefined) : undefined}
+            />
             {current.grade && (
-              <>
-                <div className="meta">
-                  <span className="chip">log loss {nats(current.grade.log_loss)}</span>
-                  <span className="chip">rps {nats(current.grade.rps)}</span>
-                  <span className="chip">brier {nats(current.grade.brier)}</span>
-                  {/* neutral on purpose: the goal mark carries the continuous truth */}
-                  <Badge
-                    kind="none"
-                    label={current.grade.correct ? "✓ top pick hit" : "top pick missed"}
-                  />
-                </div>
-                {/* the ball at e^−log loss — the chip above, drawn from the SAME stored
-                    grade, so the two can never disagree even mid-regrade */}
-                <GoalMark p={Math.exp(-current.grade.log_loss)} />
-              </>
+              <div className="meta">
+                <span className="chip">log loss {nats(current.grade.log_loss)}</span>
+                <span className="chip">rps {nats(current.grade.rps)}</span>
+                <span className="chip">brier {nats(current.grade.brier)}</span>
+                {/* neutral on purpose: the rule under the bar carries the continuous truth */}
+                <Badge
+                  kind="none"
+                  label={current.grade.correct ? "✓ top pick hit" : "top pick missed"}
+                />
+              </div>
             )}
             {/* provenance the card always carried but never showed */}
             <CardDetail>

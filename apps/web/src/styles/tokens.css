@@ -41,13 +41,21 @@
   --scope-backtest: #8b98ac;
   --scope-live: #66c28f;
 
-  /* Pitch art — the only chalk-line vocabulary, and it is CLOSED. Five marks:
+  /* Pitch art — the only chalk-line vocabulary, and it is CLOSED. FOUR marks:
      the hero plan (halfway line + center circle), THE BALL, the empty-state arc,
-     the 404 penalty spot, and the record's goal-mouth mark. The ball is ONE noun
-     with five licensed placements — the hero center spot, the juggling loader, the
-     record goal mouth, out-of-play on an error banner, and at rest on the
-     empty-state arc — and there is no sixth. Every mark is a stroke or a spot:
-     never dashed, never textured, never a fill pattern.
+     and the 404 penalty spot. The ball is ONE noun with FOUR licensed placements —
+     the hero center spot, the juggling loader, out-of-play on an error banner, and
+     at rest on the empty-state arc — and there is no fifth. Every mark is a stroke
+     or a spot: never dashed, never textured, never a fill pattern.
+
+     RETIRED 2026-07-31: the record's goal-mouth mark (and the ball's placement in
+     it). It drew a goal frame, a sagging net and a ball at p(actual) on every graded
+     card — a metaphor the reader had to learn before they could read a number, on a
+     different x-axis from the probability bar 40px above it, plotting a value that
+     bar already contained as a segment width. It was replaced by a rule under the
+     bar itself, coloured from the outcome triad below. So this is a mark LEAVING the
+     vocabulary, not a fifth joining it: the graded-card mark moved out of pitch art
+     and into DATA. --chalk-mark and --chalk-net retired with it.
 
      ONE EXCEPTION, and it is size-gated. The hero ball is a real black-and-white
      match ball (--ball-* below) rather than a chalk outline of one — the developer
@@ -61,11 +69,10 @@
   --chalk-lit: rgba(232, 237, 230, 0.55); /* a stroke under a passed deadline (expired hero) */
   --chalk-spot: rgba(232, 237, 230, 0.5); /* the only filled chalk mark: a spot */
   --chalk-ghost: rgba(232, 237, 230, 0.09); /* chalk at rest — the empty-state arc ONLY */
-  /* The goal mark used --chalk-ghost and was therefore invisible: 0.09 composites to a
-     19-of-255 delta on --bg-1, i.e. below the 3:1 graphics-contrast floor. 0.38 clears it
-     and still reads as "at rest / not yet earned" against --chalk-lit's 0.55. */
-  --chalk-mark: rgba(232, 237, 230, 0.38);
-  --chalk-net: rgba(232, 237, 230, 0.2); /* a net IS fainter than a post — representational */
+  /* --chalk-mark (0.38) and --chalk-net (0.2) lived here for the goal mark and had no other
+     consumer, so they retired with it. The lesson they encoded is worth keeping: 0.09 alpha
+     composites to a 19-of-255 delta on --bg-1, below the 3:1 graphics-contrast floor — which
+     is why --chalk-ghost is licensed for the empty-state arc and NOTHING that carries data. */
 
   /* THE HERO BALL — the site's only solid object (see the size gate above). Not chalk, so
      deliberately NOT an rgba of the ink: a real ball is opaque and sits ON the pitch rather
@@ -136,6 +143,23 @@
 
   /* Liveness — alias only, NO new hue: dots ≤10px and the literal word "live" */
   --live: var(--success);
+
+  /* SERIES RAMP — the ONLY categorical hues in the system, and they are licensed for exactly
+     one thing: the /ratings compare set (max 4 teams). Not outcomes (that is the H|D|A triad
+     above), not scopes, not status, not anything else. Slot 0 is chalk, which is why there
+     are three of these and not four.
+
+     Colour here is an ACCELERATOR, never the carrier: every compared line also gets a direct
+     end-of-line label, a tray chip and a swatch on its own table row. That is not belt-and-
+     braces, it is required — #8fb4e0 and #c98fb4 converge under deuteranopia and protanopia
+     (their lightness ratio is only 1.21:1) and this palette cannot fix it: the warm end is
+     spoken for (gold = official, clay = a loss on this very page, plus --warn/--danger) and
+     Okabe-Ito's safe green is --success. So the reading never depends on telling two hues
+     apart. Contrast on --bg-1: 7.7:1, 6.4:1, 5.2:1 — all well clear of the 3:1 graphics
+     floor, which matters at a 2px stroke. */
+  --series-1: #8fb4e0;
+  --series-2: #c98fb4;
+  --series-3: #5f9aa0;
 
   /* Motion — the budget is AUTHORED in docs/motion.md (tiers, the PERCEPTIBILITY FLOOR,
      hard rules, the decision gate). Summary: transform/opacity only; content never

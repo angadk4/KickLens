@@ -7,8 +7,15 @@
 // one card grid. Width now decides only whether a LABEL is drawn, never how a NUMBER reads:
 // a segment too narrow to hold its label in full renders no label rather than a clipped
 // sliver (the aria-label always carries all three figures).
+//
+// On a GRADED card the bar also carries the outcome mark: pass `result` and a rule appears
+// beneath, exactly as wide as the segment that happened, in that outcome's own colour. It
+// replaced a separate goal-mouth graphic that plotted the same number 40px lower on a
+// different x-axis. The colour says WHICH outcome occurred, never whether we were right — a
+// 12% away win and a 71% away win are both clay and differ only in length. See lib/probBar.ts.
 import { useEffect, useRef, useState } from "react";
 import { pct } from "../../lib/format";
+import { outcomeMark, segments, type Outcome } from "../../lib/probBar";
 
 /** A label is exactly 7 monospace glyphs ("D 26.0%") = 50.4px at --text-xs IBM Plex Mono
     600 (measured, not estimated); +8px so it never sets flush against a segment edge. */
@@ -18,10 +25,13 @@ export function ProbBar({
   pHome,
   pDraw,
   pAway,
+  result,
 }: {
   pHome: number;
   pDraw: number;
   pAway: number;
+  /** graded cards only: the outcome that actually happened */
+  result?: Outcome;
 }) {
   const barRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
@@ -36,11 +46,10 @@ export function ProbBar({
     return () => ro.disconnect();
   }, []);
 
-  const segs = [
-    { key: "home", label: "H", p: pHome },
-    { key: "draw", label: "D", p: pDraw },
-    { key: "away", label: "A", p: pAway },
-  ] as const;
+  // ONE source for the cells. The mark row below renders from the same array, so its rules
+  // cannot drift off the segments they sit under — no measuring, no second ResizeObserver.
+  const mark = result ? outcomeMark(pHome, pDraw, pAway, result) : null;
+  const segs = mark ? mark.cells : segments(pHome, pDraw, pAway);
 
   return (
     <div className="probbar-wrap">
@@ -54,7 +63,7 @@ export function ProbBar({
           <div
             key={s.key}
             className={`seg ${s.key}`}
-            style={{ flexGrow: Math.max(s.p, 0.001), flexBasis: 0 }}
+            style={{ flexGrow: s.grow, flexBasis: 0 }}
             title={`${s.label} ${pct(s.p)}`}
           >
             {/* one precision, one place: in-bar, 1dp — drawn only when it fits whole */}
@@ -64,6 +73,27 @@ export function ProbBar({
           </div>
         ))}
       </div>
+      {mark && (
+        <div className="probbar-outcome">
+          {/* aria-hidden: the rule restates the segment above it, and the caption below is
+              real text — so both render sites are announced without a bespoke aria sentence */}
+          <div className="probbar-marks" aria-hidden>
+            {segs.map((s, i) => (
+              <div
+                key={s.key}
+                className={`oc-cell ${s.key}`}
+                style={{ flexGrow: s.grow, flexBasis: 0 }}
+              >
+                {/* colour comes from the cell's own class, exactly as the segment above gets
+                    its fill — so the component writes no per-card style beyond the shared
+                    flex weights, and there is nowhere for a correctness signal to live */}
+                {i === mark.index && <div className="oc-rule" />}
+              </div>
+            ))}
+          </div>
+          <span className="probbar-caption">{mark.caption}</span>
+        </div>
+      )}
     </div>
   );
 }

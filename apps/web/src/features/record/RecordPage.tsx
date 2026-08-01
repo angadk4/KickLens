@@ -5,7 +5,6 @@ import { Link } from "react-router-dom";
 import { api } from "../../api";
 import { Badge } from "../../components/ui/Badge";
 import { CardDetail } from "../../components/ui/CardDetail";
-import { GoalMark } from "../../components/ui/GoalMark";
 import { HashBadge } from "../../components/ui/HashBadge";
 import { ProbBar } from "../../components/ui/ProbBar";
 import { Reveal } from "../../components/ui/Reveal";
@@ -15,7 +14,6 @@ import { Section } from "../../components/ui/Section";
 import { EmptyState, ErrorState, Skeleton } from "../../components/ui/states";
 import { useUpcoming } from "../../components/layout/UpcomingContext";
 import { dateShort, kickoffLocal, nats, teamName } from "../../lib/format";
-import { goalThreshold } from "../../lib/goalMark";
 import { useApi } from "../../lib/useApi";
 import { InPlaySection } from "../forecasts/InPlaySection";
 
@@ -23,8 +21,6 @@ import { InPlaySection } from "../forecasts/InPlaySection";
    been replaced by <SealStrip/> below, which fetches merkleRoots(90) and whose rightmost cell
    IS that same latest seal, with its root and commit time in the title. Keeping both meant two
    requests for the same data and two ways to say one thing. */
-
-const RESULT_LABEL = { H: "home win", D: "draw", A: "away win" } as const;
 
 export function RecordPage() {
   const [limit, setLimit] = useState(50);
@@ -53,10 +49,10 @@ export function RecordPage() {
   }, [totalGraded, data, refresh]);
 
   // ---- the grade landing, finally given a visible consequence. The refetch above used to be
-  // completely silent. Rows whose match_id is new since the last render get `.landed`, and
-  // their GoalMark's first-sight draw fires AT THE MOMENT the grade lands — already-built
-  // motion, firing when it means something. Symmetric: `.landed` is a chalk-edge brighten
-  // with no colour, and the GoalMark is symmetric by construction.
+  // completely silent. Rows whose match_id is new since the last render get `.landed`: a
+  // chalk-edge brighten with NO colour, so it marks arrival without commenting on the forecast
+  // inside. (It used to also trigger the goal mark's draw-in; that mark is gone, and the
+  // outcome rule that replaced it ships deliberately static.)
   const seenIds = useRef<Set<number> | null>(null);
   const [landed, setLanded] = useState<Set<number>>(new Set());
 
@@ -170,14 +166,14 @@ export function RecordPage() {
             <SealStrip />
             <p className="blurb" style={{ fontSize: "var(--text-xs)" }}>
               Small live samples are extremely noisy — judge this record in months, not
-              matchdays. The goal mouth on each card plots p(actual): the probability the
-              frozen forecast gave to the result that happened (= e<sup>−log loss</sup>, the
-              same number as the chip). The tick marked ⅓ is what a knew-nothing guess would
-              have given, so the ball's position against it says whether the forecast beat
-              guessing — and its roll starts there on every card, so nothing is flattered.
-              Every card gets the identical mark: a hit at 36% and a miss at 34% look almost
-              the same, because they almost are. The ball reaches the net only from{" "}
-              {(Math.floor(goalThreshold() * 1000) / 10).toFixed(1)}% up.
+              matchdays. On each card the coloured rule under the bar marks the outcome that
+              actually happened, and its width <em>is</em> the probability the frozen forecast
+              gave that outcome — the number inside the hash, not a re-derivation. A
+              knew-nothing guess would have given 33.3% to whatever happened, and the log loss
+              chip is that same comparison in nats (1.0986 = knew nothing). Every card gets the
+              identical mark, and it says only <em>which</em> outcome occurred: a forecast that
+              put 36% on the result and one that put 34% look almost the same, because they
+              almost are.
             </p>
             {/* Reveal, not the page's single <Section>: that Section starts above the fold,
                 so its one skip decision meant NOTHING on this page could ever animate. */}
@@ -195,26 +191,29 @@ export function RecordPage() {
                     </span>
                     <span className="when">{dateShort(it.kickoff_utc)}</span>
                   </div>
-                  <ProbBar pHome={it.p_home} pDraw={it.p_draw} pAway={it.p_away} />
+                  {/* `result` turns the bar into the graded mark: a rule the width of the
+                      segment that happened, plus a caption naming it. The old `result:` chip
+                      that stood here is gone — the caption says it, attached to the thing it
+                      describes, so the link's accessible name gains a clause and loses one. */}
+                  <ProbBar
+                    pHome={it.p_home}
+                    pDraw={it.p_draw}
+                    pAway={it.p_away}
+                    result={it.result}
+                  />
                   <div className="meta">
-                    <span className="chip">result: {RESULT_LABEL[it.result]}</span>
                     <span className="chip">log loss {nats(it.log_loss)}</span>
                     {typeof it.rps === "number" && (
                       <span className="chip">rps {nats(it.rps)}</span>
                     )}
-                    {/* both outcomes neutral: the ✓/✗ words stay, the colour verdict is
-                        gone — the goal mark below carries the continuous truth instead */}
+                    {/* both outcomes neutral: the ✓/✗ words stay, the colour verdict is gone —
+                        the rule under the bar carries the continuous truth instead */}
                     <Badge
                       kind="none"
                       label={it.correct ? "✓ top pick hit" : "top pick missed"}
                     />
                     <HashBadge hash={it.forecast_hash} />
                   </div>
-                  {/* the same mark on every card: the ball at e^−log loss — derived from
-                      the STORED grade (the chip's own number), so mark and chip can never
-                      disagree, even inside a result-correction regrade window. decorative:
-                      50 repeated aria sentences would bloat every link's accessible name */}
-                  <GoalMark p={Math.exp(-it.log_loss)} decorative />
                   {/* brier arrives on every graded item and was never rendered anywhere */}
                   {typeof it.brier === "number" && (
                     <CardDetail>brier {nats(it.brier)} · graded automatically</CardDetail>
