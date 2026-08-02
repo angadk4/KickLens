@@ -88,13 +88,18 @@
   }
 }
 
+/* gap --space-4, not --space-5: at 1440px the eight nav links need 779px and were given 744,
+   so "Engineering" sat permanently 35px past the rail's right edge — a scrollable rail is by
+   design on a phone, but on a wide desktop a permanently half-visible last tab reads as
+   broken. Four gaps at 8px less each returns 32px, and the narrower two-unit countdown
+   returns the rest. */
 .topnav-inner {
   max-width: var(--shell-max);
   margin: 0 auto;
   padding: var(--space-3) var(--space-4);
   display: flex;
   align-items: center;
-  gap: var(--space-5);
+  gap: var(--space-4);
 }
 
 .wordmark {
@@ -172,8 +177,14 @@
   }
 }
 
-/* the nav's live pulse: next freeze, everywhere but home (the hero owns it there) */
+/* the nav's live pulse: next freeze, everywhere but home (the hero owns it there).
+   inline-flex + align-items:center is the fix for "the letters are at different heights":
+   FlapNumber is an inline-flex box 1.12em tall with overflow:hidden, so its digits sit
+   centred in that box while adjacent plain text ("next freeze", the unit letters) sat on the
+   normal text baseline — two alignment systems in one line. One flex axis, one alignment. */
 .nav-freeze {
+  display: inline-flex;
+  align-items: center;
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   letter-spacing: 0.06em;
@@ -181,6 +192,29 @@
   white-space: nowrap;
   text-decoration: none;
   font-variant-numeric: tabular-nums;
+}
+
+.nav-freeze .nf-unit {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* a flex container collapses the trailing whitespace inside .nf-label, so the gap has to be
+   a margin — without it the line renders "next freeze5d" */
+.nav-freeze .nf-label {
+  margin-right: 0.5em;
+}
+
+/* the unit letter is MEANING, not punctuation — "5d" without a legible d is just "5".
+   The old .nf-sep rule dimmed it to 0.55 alpha along with the colon, which is why the d
+   read as fading out. Slightly secondary to the digit, never faint. */
+.nav-freeze .nf-u {
+  opacity: 0.75;
+  margin-right: 0.5em;
+}
+
+.nav-freeze .nf-unit:last-child .nf-u {
+  margin-right: 0;
 }
 
 /* ⌘K keycap — the palette's one pointer affordance. ≥900px only: a palette is a keyboard
@@ -265,9 +299,9 @@
   }
 }
 
-.nav-freeze .nf-sep {
-  opacity: 0.55;
-}
+/* .nf-sep is retired: it dimmed unit letters to 0.55 as though they were punctuation, and
+   the colon it also styled is gone (a duration must not render as a clock time). The
+   matchday branch below still renders plain label text, which needs no separator styling. */
 
 .health-dot {
   display: inline-flex;
@@ -1637,6 +1671,21 @@ a.ticker-item:hover {
   .board-split {
     gap: var(--space-5);
     align-items: stretch;
+  }
+
+  /* …but the STRETCH must stop at the invisible grid, not travel into the cards.
+     `.fixture-card { height: 100% }` means "match the tallest card in MY ROW" — which is the
+     equal-height row we want. Without this rule the fixture grid, itself stretched to the
+     pipeline rail's height, handed that whole height to its single row: between matchdays,
+     with one fixture in the 7-day window, the lone card grew to ~281px with ~143px of dead
+     space inside its own border and read as a stalled skeleton.
+     `align-content: start` sizes the ROWS to their content and leaves the slack at the
+     bottom of the (borderless) grid, so the column bottoms still line up and cards in a row
+     are still equal. NOTE `align-self: start` on the card is a measured no-op here —
+     height:100% resolves against the grid area regardless — and auto-fit columns only make
+     the lone card twice as wide at the same height. */
+  .board-split > .grid-2 {
+    align-content: start;
   }
 
   /* the pipeline fills the row; its footer links sit on the fixture grid's bottom line */

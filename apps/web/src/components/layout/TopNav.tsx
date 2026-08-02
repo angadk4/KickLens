@@ -35,26 +35,37 @@ function NavFreeze() {
         freeze pending
       </Link>
     );
+  // TWO units, each carrying its own letter. Never a bare colon: "next freeze 5d 18:13" was
+  // read as a clock time (18:13 is a duration — 18 hours 13 minutes — not 6pm), the same
+  // defect the operations board's hero row had. Two units is also the narrowest honest form,
+  // which is what stops this widget from squeezing "Engineering" out of the nav rail; at five
+  // days out, ticking seconds were noise anyway.
+  const units =
+    cd.d > 0
+      ? ([
+          { v: cd.d, u: "d", name: "days" },
+          { v: cd.h, u: "h", name: "hours" },
+        ] as const)
+      : cd.h > 0
+        ? ([
+            { v: cd.h, u: "h", name: "hours" },
+            { v: cd.m, u: "m", name: "minutes" },
+          ] as const)
+        : ([
+            { v: cd.m, u: "m", name: "minutes" },
+            { v: cd.s, u: "s", name: "seconds" },
+          ] as const);
   return (
     <Link to="/forecasts" className="nav-freeze" title="Next official freeze (kickoff−3h)">
       <span className="nf-label">next freeze </span>
-      {cd.d > 0 ? (
-        <>
-          <FlapNumber value={cd.d} pad={1} label="days" />
-          <span className="nf-sep">d </span>
-          <FlapNumber value={cd.h} label="hours" />
-          <span className="nf-sep">:</span>
-          <FlapNumber value={cd.m} label="minutes" />
-        </>
-      ) : (
-        <>
-          <FlapNumber value={cd.h} label="hours" />
-          <span className="nf-sep">:</span>
-          <FlapNumber value={cd.m} label="minutes" />
-          <span className="nf-sep">:</span>
-          <FlapNumber value={cd.s} label="seconds" />
-        </>
-      )}
+      {units.map((u, i) => (
+        <span key={u.u} className="nf-unit">
+          <FlapNumber value={u.v} pad={i === 0 ? 1 : 2} label={u.name} />
+          <span className="nf-u" aria-hidden>
+            {u.u}
+          </span>
+        </span>
+      ))}
     </Link>
   );
 }
