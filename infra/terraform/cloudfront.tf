@@ -12,10 +12,14 @@ resource "aws_cloudfront_origin_access_control" "site" {
 # under someone else's brand. CSP is an integrity control here, not hygiene.
 #
 # Why each non-obvious directive is what it is (verified against the built bundle in apps/web/dist):
-#   connect-src   The SPA's ONLY network target is the HTTP API. Referenced off the API Gateway
-#                 resource rather than hardcoded so the header can never drift from the real
-#                 endpoint. (The GitHub links in the footer are <a href> navigations, not fetches,
-#                 so they need no directive.)
+#   connect-src   The SPA has exactly TWO network targets. (1) The HTTP API — referenced off the
+#                 API Gateway resource rather than hardcoded so the header can never drift from
+#                 the real endpoint. (2) raw.githubusercontent.com — the in-browser anchor audit
+#                 (HashProof / lib/anchorAudit.ts) fetches the day's public anchor file from
+#                 GitHub's CDN and recomputes the Merkle root client-side; that third-party fetch
+#                 is the point (the record comes from a host we don't control), so it is a
+#                 deliberate allowance, read-only, to one pinned host. (The GitHub links in the
+#                 footer are <a href> navigations, not fetches, so they need no directive.)
 #   style-src     'unsafe-inline' is required: React/framer-motion write inline style attributes
 #                 and Vite can inline critical CSS. It is scoped to styles ONLY — script-src
 #                 deliberately has no 'unsafe-inline', and that is the directive that actually
@@ -33,7 +37,7 @@ resource "aws_cloudfront_response_headers_policy" "site_security" {
   security_headers_config {
     content_security_policy {
       override                = true
-      content_security_policy = "default-src 'self'; connect-src 'self' ${aws_apigatewayv2_api.api.api_endpoint}; img-src 'self' data:; font-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'none'; object-src 'none'"
+      content_security_policy = "default-src 'self'; connect-src 'self' ${aws_apigatewayv2_api.api.api_endpoint} https://raw.githubusercontent.com; img-src 'self' data:; font-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'none'; object-src 'none'"
     }
 
     content_type_options {

@@ -190,6 +190,20 @@ export type TeamRatings = {
   teams: TeamRating[];
 };
 
+/** /activity — the mission-control feed: ledger events (canonical team names, joined
+    server-side) merged with ingest job runs, newest first. */
+export type ActivityItem =
+  | {
+      kind: "ledger";
+      type: string;
+      at_utc: string | null;
+      match_id: number;
+      home: string;
+      away: string;
+      details: Record<string, unknown> | null;
+    }
+  | { kind: "job"; job: string; sweep: string; status: string; at_utc: string | null };
+
 export type MerkleRootItem = {
   day: string;
   root: string;
@@ -268,6 +282,10 @@ export const api = {
   merkleRoots: (limit = 30) =>
     get<{ repo: string | null; algorithm: string; items: MerkleRootItem[] }>(
       `/merkle-roots?limit=${limit}`,
+    ),
+  activity: (hours = 48) =>
+    get<{ window_hours: number; as_of_utc: string; items: ActivityItem[] }>(
+      `/activity?hours=${hours}`,
     ),
   calibration: () => get<CalibrationResponse>("/calibration"),
   modelVersions: () => get<ModelVersion[]>("/model-versions"),

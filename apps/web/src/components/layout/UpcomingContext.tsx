@@ -12,7 +12,7 @@
 // targets the cutoff (kickoff−3h, when inputs lock); once it passes, consumers show the
 // honest "locked · anchoring at the next run" state until the frozen record appears.
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { api, type InPlayItem, type UpcomingMatch } from "../../api";
+import { api, type CompletedItem, type InPlayItem, type UpcomingMatch } from "../../api";
 import { cutoffOf, freezeRunOf } from "../../lib/format";
 import { boardSnapshot, diffBoard, phaseTransitions, type BoardSnapshot } from "../../lib/liveEvents";
 import { notYetKickedOff } from "../../lib/matchPhase";
@@ -36,6 +36,13 @@ type UpcomingState = {
   /** live count of graded officials (/predictions/completed) — the ONE source for the
       "live graded" number everywhere, so pages can never disagree */
   totalGraded: number | null;
+  /** the graded record's newest item BY KICKOFF (the endpoint's order) — not necessarily
+      the most recently GRADED (a postponed match graded late sorts by its kickoff). Free
+      from the same completed(1) call that supplies the count (it always returned the item;
+      the count kept it, the item was thrown away). Powers the home page's live-audit
+      target with ZERO extra requests — copy describing it must say "newest match on the
+      record", never "most recently graded". */
+  latestGraded: CompletedItem | null;
 };
 
 const EMPTY: UpcomingState = {
@@ -45,6 +52,7 @@ const EMPTY: UpcomingState = {
   nextMatch: null,
   inPlay: null,
   totalGraded: null,
+  latestGraded: null,
 };
 
 const Ctx = createContext<UpcomingState>(EMPTY);
@@ -69,7 +77,8 @@ export function UpcomingProvider({ children }: { children: React.ReactNode }) {
     list: UpcomingMatch[] | null;
     inPlay: InPlayItem[] | null;
     totalGraded: number | null;
-  }>({ list: null, inPlay: null, totalGraded: null });
+    latestGraded: CompletedItem | null;
+  }>({ list: null, inPlay: null, totalGraded: null, latestGraded: null });
   // bounds the recheck loop during a pending-publication window so a stuck freeze can't poll forever
   const pending = useRef<{ id: number; tries: number } | null>(null);
   // bounds the transient-failure retry loop (a Neon cold start must not kill the poll —
@@ -80,7 +89,8 @@ export function UpcomingProvider({ children }: { children: React.ReactNode }) {
     list: UpcomingMatch[] | null;
     inPlay: InPlayItem[] | null;
     totalGraded: number | null;
-  }>({ list: null, inPlay: null, totalGraded: null });
+    latestGraded: CompletedItem | null;
+  }>({ list: null, inPlay: null, totalGraded: null, latestGraded: null });
   // the previous board projection, for the pure event diff (lib/liveEvents)
   const prevSnap = useRef<BoardSnapshot | null>(null);
   // lets a clock-driven kickoff crossing ask for an immediate refetch, debounced
@@ -138,7 +148,9 @@ export function UpcomingProvider({ children }: { children: React.ReactNode }) {
           const inPlay = ip.status === "fulfilled" ? ip.value : latest.current.inPlay;
           const totalGraded =
             c.status === "fulfilled" ? c.value.total_graded : latest.current.totalGraded;
-          latest.current = { list, inPlay, totalGraded };
+          const latestGraded =
+            c.status === "fulfilled" ? (c.value.items[0] ?? null) : latest.current.latestGraded;
+          latest.current = { list, inPlay, totalGraded, latestGraded };
 
           // ---- the event layer. This is a CALLBACK, not a render, so publishing here is
           // legal. diffBoard returns [] when prevSnap is null, which is the entire "never
@@ -240,6 +252,7 @@ export function UpcomingProvider({ children }: { children: React.ReactNode }) {
       nextMatch: next?.m ?? null,
       inPlay: state.inPlay,
       totalGraded: state.totalGraded,
+      latestGraded: state.latestGraded,
     };
   }, [state, now]);
 

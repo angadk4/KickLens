@@ -554,6 +554,23 @@ if DATABASE_URL:
         assert n is not None and int(n[0]) == 1
         assert commit_daily_root_from_content(conn, date(2026, 7, 21), "") is None
 
+    def test_seal_refuses_non_conforming_leaves(env) -> None:  # type: ignore[no-untyped-def]
+        # Sealer and the in-browser auditor (apps/web/src/lib/anchorAudit.ts) must share ONE
+        # definition of "leaf" (strict lowercase 64-hex). Silently sealing a junk hash would
+        # commit a root the auditor can never reproduce — a false "file was rewritten after
+        # sealing" against a byte-identical file. Failing the seal (→ Errors alarm) is honest.
+        from datetime import date
+
+        from common.hashing import commit_daily_root_from_content
+
+        conn = env["conn"]
+        for bad in ["A" * 64, "a" * 63, "not-a-hash", 123]:
+            content = (
+                json.dumps({"forecast_hash": "a" * 64}) + "\n" + json.dumps({"forecast_hash": bad})
+            )
+            with pytest.raises(ValueError, match="line 2"):
+                commit_daily_root_from_content(conn, date(2026, 7, 22), content)
+
     # ---------- ingest handler: hour claim + total-outage visibility ----------
 
     def test_ingest_handler_claims_raises_on_total_outage_then_reclaims(  # type: ignore[no-untyped-def]

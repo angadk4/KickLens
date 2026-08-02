@@ -12,6 +12,7 @@ import { Equaliser } from "../../components/ui/Equaliser";
 import { HashBadge } from "../../components/ui/HashBadge";
 import { ProbBar } from "../../components/ui/ProbBar";
 import { Section } from "../../components/ui/Section";
+import { ANCHORS_URL } from "../../lib/facts";
 import { kickoffUTC, teamName, timeLocal } from "../../lib/format";
 import { basisNote, isLiveNow, matchPhase, phaseLabel } from "../../lib/matchPhase";
 import { useNow } from "../../lib/useRelativeTime";
@@ -72,7 +73,9 @@ export function InPlaySection() {
                       full time has passed", which we will not call live */}
                   {isLiveNow(phase) && <Equaliser />} {label.text}
                 </span>
-                {m.forecast.forecast_hash && <HashBadge hash={m.forecast.forecast_hash} />}
+                {m.forecast.forecast_hash && (
+                  <HashBadge hash={m.forecast.forecast_hash} href={ANCHORS_URL} />
+                )}
               </div>
               {/* the phase explanation, promoted out of a title= attribute nobody hovers —
                   plus, for the first time, HOW WE KNOW: the raw provider status is the finest

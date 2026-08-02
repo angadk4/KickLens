@@ -3,6 +3,15 @@
 // constant cites its source document; update on retrain / re-seal (and on a new green CI
 // run for the test counts) — never by editing page copy directly.
 
+// ——— the public record (ONE URL definition — pages must never hand-roll these) ———
+/** The project repository — also the anchor repo (anchors/ lives in it). */
+export const REPO_URL = "https://github.com/angadk4/KickLens";
+/** The public anchor directory. Cards link the TREE, never a client-derived day file:
+    the anchor day is the FREEZE day, not the kickoff day (match 6067 kicked off Jul 26
+    but is anchored under Jul 25), so deriving a filename from kickoff is provably wrong.
+    The exact file+line link lives in the proof bench, where the SERVER states the day. */
+export const ANCHORS_URL = `${REPO_URL}/tree/main/anchors`;
+
 // ——— test suite (Engineering page + architecture diagram) ———
 // The count of the suite THIS deploy ships with: 199 passed, 1 skipped against the real
 // Postgres service container (verified locally 2026-07-23; the prior green CI run,
@@ -56,6 +65,12 @@ export const ALWAYS_HOME_ACC_DEV = "≈48.8%";
 export const CRON_RULES = 9;
 /** CloudWatch alarms: 6 job Errors + 6 job Throttles + api 5xx — alarms.tf. */
 export const ALARM_COUNT = 13;
+
+// ——— the knew-nothing baseline (display precision) ———
+/** Log loss of guessing ⅓/⅓/⅓ every match: ln 3 ≈ 1.0986. This is the DISPLAY constant
+    (site copy, chart rule labels); lib/yourCall.ts keeps the full-precision value for
+    computation. Both are pinned against Math.log(3) by tests. */
+export const KNEW_NOTHING_LL = 1.0986;
 
 // ——— small-sample display floor (one standard, every page) ———
 /** Below this sample size a per-bucket breakdown (reliability curve, by-confidence chart)

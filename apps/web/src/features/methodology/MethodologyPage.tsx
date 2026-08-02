@@ -15,11 +15,12 @@ import {
   DEV_SEAL_DATE,
   ECE_DEV_B3,
   ECE_DEV_CHAMPION,
+  REPO_URL,
 } from "../../lib/facts";
 import { dateShort } from "../../lib/format";
 import { useApi } from "../../lib/useApi";
 
-const REPO = "https://github.com/angadk4/KickLens";
+const REPO = REPO_URL; // ONE definition (lib/facts) — pages never hand-roll the repo URL
 
 const TOC = [
   { id: "how-and-why", label: "Guarantees" },

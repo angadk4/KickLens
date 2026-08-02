@@ -9,6 +9,7 @@ T-3h.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
@@ -138,8 +139,10 @@ def write_official_forecast(
 
 def void_official(conn: psycopg.Connection, prediction_id: int, match_id: int, reason: str) -> None:
     """Supersession (postponement after freeze): append Voided; the row stays forever.
-    A NEW official forecast is then produced at the new T-3h by the finalization job."""
-    append_event(conn, match_id, "Voided", prediction_id, details=f'{{"reason": "{reason}"}}')
+    A NEW official forecast is then produced at the new T-3h by the finalization job.
+    json.dumps, not an f-string: today every reason is a canonical constant, but a reason
+    carrying a quote would have produced invalid JSON and failed the whole sweep."""
+    append_event(conn, match_id, "Voided", prediction_id, details=json.dumps({"reason": reason}))
 
 
 def latest_official(conn: psycopg.Connection, match_id: int) -> int | None:

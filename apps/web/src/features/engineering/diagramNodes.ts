@@ -77,7 +77,7 @@ export const NODES: DiagramNode[] = [
       "ingest 08/20 + results 01–06 · feature :10 · inference :20",
       "grade 2h · merkle 12:00 · odds :05 · canary 09:00",
     ],
-    title: "Schedule state is ENABLED in code, so a terraform apply can never silently disarm the live loop." },
+    title: "Schedule state is ENABLED in code, so a terraform apply can never silently disarm the live loop. Counted down live on the operations board below." },
   { id: "a2", x: 330, y: 172, w: 430, h: 130, labelTop: true,
     lines: ["one container image · ECR · GIT_SHA baked"],
     title: "≈1.3 GB image with the ML stack, six handlers, timeouts 120–300s. The git SHA is baked at build time — Lambda has no git binary, and lineage must never degrade to 'unknown'." },

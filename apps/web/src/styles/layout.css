@@ -23,6 +23,30 @@
   }
 }
 
+/* ---- skip link: the first tab stop on every page. Parked above the viewport (transform
+   only — it keeps its box, so landing steals no layout); lands top-left as a chalk chip
+   the moment keyboard focus reaches it. ---- */
+
+.skip-link {
+  position: fixed;
+  top: var(--space-3);
+  left: var(--space-3);
+  z-index: 100;
+  transform: translateY(-200%);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--ink);
+  background: var(--bg-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  padding: var(--space-2) var(--space-3);
+  text-decoration: none;
+}
+
+.skip-link:focus-visible {
+  transform: none;
+}
+
 /* ---- nav: night-air glass; float shadow only after scroll ---- */
 
 .topnav {
@@ -157,6 +181,36 @@
   white-space: nowrap;
   text-decoration: none;
   font-variant-numeric: tabular-nums;
+}
+
+/* ⌘K keycap — the palette's one pointer affordance. ≥900px only: a palette is a keyboard
+   tool, and advertising it on touch would be a lie of affordance. The 2px bottom border is
+   what makes it read as a KEY rather than a chip. */
+.nav-kbd {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  .nav-kbd {
+    display: inline-flex;
+    align-items: center;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    letter-spacing: 0.04em;
+    color: var(--ink-muted);
+    background: var(--bg-1);
+    border: 1px solid var(--line-strong);
+    border-bottom-width: 2px;
+    border-radius: var(--r-sm);
+    padding: 2px var(--space-2);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .nav-kbd:hover {
+    color: var(--ink);
+    border-color: var(--ink-faint);
+  }
 }
 
 .nav-freeze:hover {

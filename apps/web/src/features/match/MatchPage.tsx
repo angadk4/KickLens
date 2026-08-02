@@ -11,7 +11,7 @@ import { EmptyState, ErrorState, Skeleton } from "../../components/ui/states";
 import { kickoffLocal, kickoffUTC, nats, teamName, voidPhrase } from "../../lib/format";
 import { matchPhase, phaseLabel } from "../../lib/matchPhase";
 import { useApi } from "../../lib/useApi";
-import { useNow } from "../../lib/useRelativeTime";
+import { relTime, useNow } from "../../lib/useRelativeTime";
 import { VerificationPanel } from "./VerificationPanel";
 
 const RESULT_LABEL = { H: "home win", D: "draw", A: "away win" } as const;
@@ -121,10 +121,13 @@ export function MatchPage() {
                 />
               </div>
             )}
-            {/* provenance the card always carried but never showed */}
+            {/* provenance the card always carried but never showed — the full chain of
+                custody: inputs locked (cutoff) → written (frozen) → published (anchored).
+                A null anchored_at prints nothing: no claim without its timestamp. */}
             <CardDetail>
               {current.created_utc && <>frozen {kickoffUTC(current.created_utc)} · </>}
               {current.cutoff_utc && <>cutoff {kickoffUTC(current.cutoff_utc)} · </>}
+              {current.anchored_at_utc && <>anchored {kickoffUTC(current.anchored_at_utc)} · </>}
               id #{current.prediction_id}
             </CardDetail>
           </div>
@@ -150,6 +153,12 @@ export function MatchPage() {
                     freezing at the next run
                   </span>
                 ))}
+              {/* drafts age: WHEN this preliminary was generated is part of reading it */}
+              {m.draft.generated_utc && (
+                <span className="chip" title={kickoffUTC(m.draft.generated_utc)}>
+                  drafted {relTime(m.draft.generated_utc, now)}
+                </span>
+              )}
             </div>
             <ProbBar pHome={m.draft.p_home} pDraw={m.draft.p_draw} pAway={m.draft.p_away} />
             <p className="blurb">

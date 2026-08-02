@@ -10,16 +10,20 @@ import { StatTile } from "../../components/ui/StatTile";
 import { Toc } from "../../components/ui/Toc";
 import {
   ALARM_COUNT,
+  ANCHORS_URL,
   CRON_RULES,
   DEV_SEAL_DATE,
   RECOMPUTE_PARITY_ROWS,
+  REPO_URL,
   TESTS_ASOF,
   TESTS_CI_PASSED,
   TESTS_CI_SKIPPED,
   TEST_EVAL_DATE,
 } from "../../lib/facts";
 import { useApi } from "../../lib/useApi";
+import { ActivityFeed } from "./ActivityFeed";
 import { ArchitectureDiagram, DiagramWhys } from "./ArchitectureDiagram";
+import { NextRunsBoard } from "./NextRunsBoard";
 
 const TOC = [
   { id: "engineering", label: "At a glance" },
@@ -34,7 +38,7 @@ const TOC = [
   { id: "restraint", label: "Restraint" },
 ];
 
-const REPO = "https://github.com/angadk4/KickLens";
+const REPO = REPO_URL; // ONE definition (lib/facts) — pages never hand-roll the repo URL
 
 const INVARIANTS = [
   {
@@ -95,7 +99,8 @@ const OMISSIONS = [
 ] as const;
 
 export function EngineeringPage() {
-  const health = useApi(() => api.health());
+  // /health used to be fetched here for the Operations live-line; the NextRunsBoard now
+  // reads the shared health store instead (one fetch for the whole app, matchday-fresh)
   const latest = useApi(() => api.completed(1));
   const { list } = useUpcoming();
   // graded match → its proof page; else the soonest fixture (whose page carries the
@@ -264,7 +269,7 @@ export function EngineeringPage() {
           <Link to={verifyTarget ? `/match/${verifyTarget}` : "/record"} className="btn primary">
             {verifyLabel}
           </Link>
-          <a href={`${REPO}/tree/main/anchors`} target="_blank" rel="noreferrer" className="btn ghost">
+          <a href={ANCHORS_URL} target="_blank" rel="noreferrer" className="btn ghost">
             Public anchors ↗
           </a>
         </div>
@@ -296,14 +301,13 @@ export function EngineeringPage() {
             never back-filled. Provider down → last-known data plus a stale banner. Bad model
             → repoint the registry's production flag.
           </p>
-          {health.data && (
-            <p className="mono" style={{ fontSize: "var(--text-xs)", color: "var(--ink-faint)" }}>
-              live now: last ingest {health.data.last_ingest ?? "—"} · last grade{" "}
-              {health.data.last_grade ?? "—"} ·{" "}
-              {health.data.freshness_ok ? "freshness ok" : "stale"}
-            </p>
-          )}
         </div>
+        {/* the bare "live now" line grew into the departure board — same facts, plus the
+            eight scheduled next-triggers the page only used to DESCRIBE */}
+        <NextRunsBoard />
+        {/* …and what actually happened: ledger events + ingest sweeps (renders nothing
+            against an older API — the endpoint is additive) */}
+        <ActivityFeed />
       </Section>
 
       <Section
@@ -367,7 +371,7 @@ export function EngineeringPage() {
           Post-MVP candidates (drift dashboards, isotonic calibration, a second league) are
           listed in the build contract, not promised here. Checkable from here:{" "}
           <Link to="/record">the record</Link> ·{" "}
-          <a href={`${REPO}/tree/main/anchors`} target="_blank" rel="noreferrer">
+          <a href={ANCHORS_URL} target="_blank" rel="noreferrer">
             public anchors ↗
           </a>{" "}
           ·{" "}

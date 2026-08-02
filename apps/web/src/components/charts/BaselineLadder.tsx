@@ -10,9 +10,10 @@
 // render — one user unit = one CSS pixel, so type never scales below legibility — and the
 // label / value columns are derived from the widest string at the chosen size. Every rung,
 // dot, whisker cap and value is inside the box at 390px.
-import { useId, useLayoutEffect, useRef, useState } from "react";
+import { useId, useState } from "react";
 import { nats } from "../../lib/format";
 import { C, MONO } from "./theme";
+import { useMeasuredWidth } from "./useMeasuredWidth";
 
 export type LadderRow = {
   name: string;
@@ -65,26 +66,6 @@ function niceTicks(lo: number, hi: number, maxTicks: number): number[] {
 
 function color(e?: string): string {
   return e === "model" ? C.model : e === "market" ? C.market : C.gray;
-}
-
-/** Live container width — the chart is drawn to it rather than scrolled inside it. */
-function useMeasuredWidth() {
-  const ref = useRef<HTMLDivElement>(null);
-  const [w, setW] = useState(0);
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const read = () => setW(el.clientWidth);
-    read();
-    if (typeof ResizeObserver === "undefined") {
-      window.addEventListener("resize", read);
-      return () => window.removeEventListener("resize", read);
-    }
-    const ro = new ResizeObserver(read);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-  return [ref, w] as const;
 }
 
 export function BaselineLadder({ rows, n }: { rows: LadderRow[]; n?: number | null }) {

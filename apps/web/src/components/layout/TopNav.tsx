@@ -3,7 +3,11 @@ import { NavLink, Link, useLocation } from "react-router-dom";
 import { FlapNumber } from "../ui/FlapNumber";
 import { useCountdown } from "../../lib/useCountdown";
 import { useHealth } from "./HealthContext";
+import { openPalette } from "./paletteBus";
 import { useUpcoming } from "./UpcomingContext";
+
+// computed once — the OS doesn't change mid-session
+const IS_MAC = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
 
 /** ⏱ next-freeze mini-countdown — the nav's live pulse (hidden on home: the hero owns it).
     During a matchday the freeze may be days away while games run NOW — the live state wins.
@@ -162,6 +166,16 @@ export function TopNav() {
           ))}
         </nav>
         {pathname !== "/" && <NavFreeze />}
+        {/* the palette's discoverability: a keycap, ≥900px only — a palette is a keyboard
+            tool, and pretending otherwise on touch would be a lie of affordance */}
+        <button
+          type="button"
+          className="nav-kbd"
+          onClick={openPalette}
+          title="Command palette — search pages, matches, actions"
+        >
+          {IS_MAC ? "⌘K" : "Ctrl K"}
+        </button>
         <span className="health-dot" title={`system status: ${dotLabel}`}>
           <span className={`dot ${dotClass}`} aria-hidden />
           {/* the word collapses below 720px to make room for the ticking countdown; the

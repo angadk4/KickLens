@@ -86,7 +86,10 @@ budget only while present.
 - A **transient rAF bounded by a single interaction**, running on framer-motion's shared
   frameloop and cancelled the frame it goes to sleep, does not count and does not violate
   rule 7. So is a **one-shot `setTimeout` bounded by a single event** (`HashProof`'s
-  `MIN_COMPUTE_MS` already ships as this). Recurring timers remain forbidden.
+  `MIN_BEAT_MS` pacing floors ship as this). Recurring timers remain forbidden — with ONE
+  named, pre-existing exception: `HashProof`'s 25ms per-character reveal interval, which is
+  interaction-bounded, cleared at completion and on unmount, and was part of the sanctioned
+  Tier-3 proof moment before this rule was written.
 - A **conditional** loop that exists only during a named live state counts against the budget
   only while it is present.
 
@@ -267,6 +270,33 @@ That one cosine is the difference between a sticker and a sphere.
 because `HashProof`'s one-shot timeout is the same class of thing, but nothing on home holds a
 frame callback any more: the ball is pure CSS, and its travel and rotation cannot desync
 because `PitchHero` writes both onto `.ph-cell` from the same two constants.
+
+## The audit/palette/board build (2026-08-01) — new consumers, named
+
+Four features landed; every motion they carry maps onto an existing rule, and none adds an
+ambient loop (verified: `motion.sh` still reports only the pre-existing infinite set, and the
+`SHOT_REDUCED=1` sweep is height-identical on all 20 shots).
+
+- **Command palette entrance** (`pal-in`, 160ms, from-only, no fill, no exit animation) —
+  Tier 2, event-driven, killed by the base.css killswitch. A dismissed tool leaves instantly
+  on purpose: exit animation on a keyboard tool is latency.
+- **HashProof's 5-step audit** — three timer classes, described exactly: (1) the
+  pre-existing 25ms reveal `setInterval`, interaction-bounded, cleared at completion and
+  on unmount (the named rule-7 exception above); (2) `MIN_BEAT_MS` 600ms pacing floors —
+  one-shot naked `setTimeout`s whose handles are NOT retained; a late firing lands in an
+  `aliveRef` guard and does nothing (≤600ms of harmless latency after unmount, by design);
+  (3) the 5s fetch timeout (`lib/anchorAudit.ts FETCH_TIMEOUT_MS`) — one-shot, cleared on
+  settle. Concurrent runs are excluded by an in-flight ref, so at most one reveal interval
+  can exist. **Reduced motion zeroes every pacing floor and the reveal — only real latency
+  remains.**
+- **The palette's `copied ✓` flash** and the HashBadge's — same class: one-shot 1.2s
+  setTimeout bounded by a click, cleared on unmount.
+- **The operations board** (`NextRunsBoard`) — re-renders on the SHARED 1-second clock
+  (`useNow(1000)` → `lib/clock.ts` registry; zero new timers) in a leaf component, so only
+  the board re-renders. Its split-flap countdown is the existing `FlapNumber` mechanism.
+  Rows never reorder; the boarding-row highlight moves at most a few times an hour.
+- **LiveAudit / ActivityFeed / MonthlyRecord** — no motion of their own beyond the shared
+  section-settle and the components they reuse.
 
 ## Motions that fire only on a favourable outcome
 

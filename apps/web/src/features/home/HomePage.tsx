@@ -9,7 +9,7 @@ import { FlapNumber } from "../../components/ui/FlapNumber";
 import { Section } from "../../components/ui/Section";
 import { StatTile } from "../../components/ui/StatTile";
 import { EmptyState, Skeleton } from "../../components/ui/states";
-import { MARKET_LOG_LOSS_TEST } from "../../lib/facts";
+import { KNEW_NOTHING_LL, MARKET_LOG_LOSS_TEST } from "../../lib/facts";
 import {
   dateShort,
   freezeRunOf,
@@ -25,6 +25,7 @@ import { useCountdown } from "../../lib/useCountdown";
 import { useNow, useRelativeTime } from "../../lib/useRelativeTime";
 import { FixtureCard } from "../forecasts/FixtureCard";
 import { InPlaySection } from "../forecasts/InPlaySection";
+import { LiveAudit } from "./LiveAudit";
 import { PitchHero } from "./PitchHero";
 // board geometry corrections that belong in styles/layout.css — see the file header
 
@@ -372,12 +373,17 @@ export function HomePage() {
           <StatusCell />
         </div>
         <p className="blurb" style={{ fontSize: "var(--text-xs)" }}>
-          Log loss — lower is better. Guessing ⅓/⅓/⅓ every match scores 1.0986; on the same
+          Log loss — lower is better. Guessing ⅓/⅓/⅓ every match scores{" "}
+          {KNEW_NOTHING_LL.toFixed(4)}; on the same
           sealed test the closing market scored {MARKET_LOG_LOSS_TEST.toFixed(4)} — ahead of
           the model, and said so plainly. The full ladder is on{" "}
           <Link to="/performance">Performance</Link>.
         </p>
       </Section>
+
+      {/* the flagship: audit a real forecast against GitHub, in the reader's own browser.
+          Renders nothing while the record is empty — honest emptiness over a staged demo. */}
+      <LiveAudit />
 
       <Section
         eyebrow="Next up"

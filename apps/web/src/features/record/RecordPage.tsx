@@ -13,6 +13,7 @@ import { ScopeChip } from "../../components/ui/ScopeChip";
 import { Section } from "../../components/ui/Section";
 import { EmptyState, ErrorState, Skeleton } from "../../components/ui/states";
 import { useUpcoming } from "../../components/layout/UpcomingContext";
+import { ANCHORS_URL, KNEW_NOTHING_LL } from "../../lib/facts";
 import { dateShort, kickoffLocal, nats, teamName } from "../../lib/format";
 import { useApi } from "../../lib/useApi";
 import { InPlaySection } from "../forecasts/InPlaySection";
@@ -158,7 +159,7 @@ export function RecordPage() {
                 title="ln(3) — guessing ⅓/⅓/⅓ every match"
                 data-hint="ln(3) — the log loss of guessing ⅓/⅓/⅓ every match. Scores below it mean the model knew something."
               >
-                1.0986 = knew-nothing baseline
+                {KNEW_NOTHING_LL.toFixed(4)} = knew-nothing baseline
               </span>
             </div>
             {/* 90 days of daily seals, from the same endpoint the lone SealChip above uses —
@@ -170,7 +171,8 @@ export function RecordPage() {
               actually happened, and its width <em>is</em> the probability the frozen forecast
               gave that outcome — the number inside the hash, not a re-derivation. A
               knew-nothing guess would have given 33.3% to whatever happened, and the log loss
-              chip is that same comparison in nats (1.0986 = knew nothing). Every card gets the
+              chip is that same comparison in nats ({KNEW_NOTHING_LL.toFixed(4)} = knew
+              nothing). Every card gets the
               identical mark, and it says only <em>which</em> outcome occurred: a forecast that
               put 36% on the result and one that put 34% look almost the same, because they
               almost are.
@@ -212,7 +214,7 @@ export function RecordPage() {
                       kind="none"
                       label={it.correct ? "✓ top pick hit" : "top pick missed"}
                     />
-                    <HashBadge hash={it.forecast_hash} />
+                    <HashBadge hash={it.forecast_hash} href={ANCHORS_URL} />
                   </div>
                   {/* brier arrives on every graded item and was never rendered anywhere */}
                   {typeof it.brier === "number" && (

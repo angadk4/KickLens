@@ -8,6 +8,7 @@ import { Badge } from "../../components/ui/Badge";
 import { CardDetail } from "../../components/ui/CardDetail";
 import { HashBadge } from "../../components/ui/HashBadge";
 import { ProbBar } from "../../components/ui/ProbBar";
+import { ANCHORS_URL } from "../../lib/facts";
 import { cutoffOf, kickoffLocal, teamName, timeLocal } from "../../lib/format";
 import { IMMINENT_KICKOFF_MIN } from "../../lib/matchPhase";
 import { useNow } from "../../lib/useRelativeTime";
@@ -102,7 +103,9 @@ export function FixtureCard({
                   freeze pending
                 </span>
               ))}
-            {f.forecast_hash && <HashBadge hash={f.forecast_hash} />}
+            {/* the TREE link, deliberately — the exact file+line is only knowable from the
+                server (anchor day = freeze day, not kickoff day; lib/facts.ts) */}
+            {f.forecast_hash && <HashBadge hash={f.forecast_hash} href={ANCHORS_URL} />}
           </div>
           {/* the held-back line: numbers this card already computed and used to discard.
               Inside the imminent window the chip above owns the countdown — no duplicate. */}

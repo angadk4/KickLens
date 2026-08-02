@@ -1296,6 +1296,12 @@ a.card.card-tilt:hover .matchup {
   background: var(--danger);
 }
 
+/* a retried failure (anchor push, errored sweep) — warn, not danger: named with its
+   recovery in the same phrase (lib/activity.ts) */
+.timeline .tl-item.failed::before {
+  background: var(--warn);
+}
+
 .timeline .tl-time {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
@@ -1379,6 +1385,22 @@ a.card.card-tilt:hover .matchup {
   color: var(--success);
 }
 
+/* the honest failure taxonomy: a dash is "couldn't check" (never celebrated, never
+   alarmed); ✕ is reserved for integrity failures — mismatch, absence from a SEALED
+   day, a sealed root that doesn't reproduce */
+.prover .pv-step.skip .pv-mark {
+  color: var(--ink-faint);
+}
+
+.prover .pv-step.fail {
+  color: var(--ink-muted);
+  animation: stamp-in var(--dur-med) var(--ease-out);
+}
+
+.prover .pv-step.fail .pv-mark {
+  color: var(--danger);
+}
+
 .prover .pv-hash {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
@@ -1421,6 +1443,13 @@ a.card.card-tilt:hover .matchup {
   border: 1.5px solid var(--danger);
 }
 
+/* an incomplete audit: the hash held but the third-party record couldn't be (or isn't
+   yet) checked — chalk, not gold: ⬡ gold is reserved for the full chain */
+.prover .pv-verdict.partial {
+  color: var(--ink-muted);
+  border: 1.5px solid var(--line-strong);
+}
+
 @media (max-width: 1199px) {
   /* mobile: the interactive proof is the hook; the bytes are the appendix */
   .proof-bench .prover {
@@ -1428,6 +1457,187 @@ a.card.card-tilt:hover .matchup {
     border-bottom: 2px solid var(--gold);
     padding-bottom: var(--space-4);
   }
+}
+
+/* the home audit device — one prover-width card; the full bench lives on the match page */
+.la-card {
+  max-width: 640px;
+  display: grid;
+  gap: var(--space-4);
+  justify-items: start;
+}
+
+/* ---- ⌘K command palette (components/layout/CommandPalette) ----
+   Combobox-in-dialog; DOM focus never leaves the input. Group headers speak in the
+   section-strap voice (mono caps on a rule) so the palette is unmistakably THIS site. */
+
+.pal-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 60; /* above the nav (50) */
+  background: rgba(15, 24, 19, 0.55);
+  display: grid;
+  justify-items: center;
+  align-items: start;
+}
+
+.palette {
+  margin-top: 12vh;
+  width: min(560px, calc(100vw - 24px));
+  background: var(--bg-1);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-float);
+  overflow: hidden;
+  /* enter only, from-only (base state = final state); no exit — a dismissed tool leaves
+     instantly. Reduced motion is handled by the global killswitch in base.css. */
+  animation: pal-in 160ms var(--ease-out);
+}
+
+@keyframes pal-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+.pal-input {
+  width: 100%;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  padding: var(--space-4);
+  outline: none;
+}
+
+.pal-input::placeholder {
+  color: var(--ink-faint);
+}
+
+.pal-list {
+  max-height: min(400px, 55vh);
+  overflow-y: auto;
+  padding: var(--space-2) 0 var(--space-3);
+}
+
+.pal-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4) var(--space-1);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ink-faint);
+}
+
+.pal-group .pal-rule {
+  flex: 1;
+  height: 1px;
+  background: var(--strap-rule);
+}
+
+.pal-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-2) var(--space-4);
+  cursor: pointer;
+  border-left: 2px solid transparent;
+}
+
+.pal-row.active {
+  background: var(--bg-2);
+  border-left-color: var(--accent); /* the chalk edge — interaction is chalk, never gold */
+}
+
+.pal-label {
+  font-size: var(--text-sm);
+  color: var(--ink);
+}
+
+.pal-hint {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+
+.pal-row.active .pal-hint {
+  color: var(--ink-muted); /* faint fails 4.7:1 on bg-2 — muted is the bg-2 rule (tokens) */
+}
+
+.pal-empty {
+  padding: var(--space-4);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+}
+
+/* zero results: the (valid, empty) listbox collapses so its padding doesn't read as a gap */
+.pal-list:empty {
+  display: none;
+}
+
+/* ---- the operations departure board (features/engineering/NextRunsBoard) ----
+   One boarding row: surface + a 2px chalk edge — the same "current thing" grammar as the
+   palette's active row. Rows never reorder (authored cadence order); only the highlight
+   moves, so the table is calm while still visibly alive. */
+
+.runs-board-wrap {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.runs-board td {
+  white-space: nowrap;
+}
+
+.runs-board tr.rb-hero td {
+  background: var(--bg-2);
+}
+
+.runs-board tr.rb-hero td:first-child {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.runs-board .rb-next {
+  font-variant-numeric: tabular-nums;
+}
+
+.runs-board .rb-at {
+  color: var(--ink-muted);
+}
+
+.runs-board .rb-seen {
+  color: var(--ink-muted);
+}
+
+/* "not surfaced" is an admission, not a datum — it must not read like one */
+.runs-board .rb-none {
+  color: var(--ink-faint);
+  font-style: normal;
+}
+
+/* the activity feed under the board */
+.activity-feed {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.activity-feed .af-title {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ink-muted);
 }
 
 .verify-status {

@@ -4,6 +4,7 @@
 import { api, type MetricsPayload, type Scope } from "../../api";
 import { BaselineLadder, type LadderRow } from "../../components/charts/BaselineLadder";
 import { ConfidenceChart } from "../../components/charts/ConfidenceChart";
+import { MonthlyRecord } from "../../components/charts/MonthlyRecord";
 import { CountUp } from "../../components/ui/CountUp";
 import { Entry } from "../../components/ui/Entry";
 import { ScopeChip } from "../../components/ui/ScopeChip";
@@ -13,12 +14,14 @@ import {
   ALWAYS_HOME_ACC_DEV,
   ALWAYS_HOME_ACC_TEST,
   DEV_SEAL_DATE,
+  KNEW_NOTHING_LL,
   MARKET_LOG_LOSS_DEV,
   MARKET_LOG_LOSS_TEST,
   MIN_N_BUCKET_DETAIL,
   TEST_EVAL_DATE,
 } from "../../lib/facts";
 import { nats } from "../../lib/format";
+import { monthlyRows, showMonthly } from "../../lib/monthly";
 import { useApi } from "../../lib/useApi";
 
 const SCOPES: { scope: Scope; label: string; blurb: string; emptyNote: string }[] = [
@@ -130,7 +133,10 @@ function ScopePanel({ scope, label, blurb, emptyNote }: (typeof SCOPES)[number])
   const showBuckets =
     buckets.length > 0 && (scope !== "live" || (m?.n ?? 0) >= MIN_N_BUCKET_DETAIL);
   const biggestBucket = buckets.length > 0 ? Math.max(...buckets.map((b) => b.n)) : 0;
-  const hasCharts = ladder.length > 0 || showBuckets;
+  // by_month is only computed for the live scope; the chart earns its place at 2 months
+  const monthly = monthlyRows(m?.by_month, MIN_N_BUCKET_DETAIL);
+  const showMonths = scope === "live" && showMonthly(monthly);
+  const hasCharts = ladder.length > 0 || showBuckets || showMonths;
   return (
     <Entry>
       <header className="entry-strap">
@@ -236,6 +242,13 @@ function ScopePanel({ scope, label, blurb, emptyNote }: (typeof SCOPES)[number])
                       not skill.
                     </p>
                   )}
+                  {scope === "live" && monthly.length === 1 && (
+                    <p className="blurb">
+                      The month-by-month record appears once it spans two calendar months —
+                      every graded forecast so far sits inside {monthly[0]!.label}, so a
+                      one-dot chart would dress a single number up as a trend.
+                    </p>
+                  )}
                   {scope === "test" &&
                     typeof m.market_log_loss === "number" &&
                     typeof m.log_loss === "number" && (
@@ -254,6 +267,7 @@ function ScopePanel({ scope, label, blurb, emptyNote }: (typeof SCOPES)[number])
                 {showBuckets && m.by_confidence && (
                   <ConfidenceChart byConfidence={m.by_confidence} />
                 )}
+                {showMonths && <MonthlyRecord rows={monthly} />}
               </div>
             )}
           </div>
@@ -277,7 +291,8 @@ export function PerformancePage() {
         <div className="callout">
           <strong>How to read these numbers.</strong> Log loss measures how surprised the model
           is by actual results — <em>lower is better</em>. A model that knows nothing (⅓/⅓/⅓
-          every match) scores <span className="mono">1.0986</span>; every hundredth below that
+          every match) scores <span className="mono">{KNEW_NOTHING_LL.toFixed(4)}</span>; every
+          hundredth below that
           is real, hard-won signal. It rewards well-calibrated probabilities, not lucky picks —
           which is why it, and not accuracy, decides everything here.
         </div>

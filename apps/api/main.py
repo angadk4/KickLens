@@ -668,6 +668,63 @@ def merkle_roots(conn: Conn, response: Response, limit: int = Query(30, le=180))
     }
 
 
+@app.get("/activity")
+def activity(
+    conn: Conn, response: Response, hours: int = Query(48, ge=1, le=168)
+) -> dict[str, Any]:
+    """The system's recent visible actions, as records (the dashboard's activity feed).
+
+    Two honest sources only: the append-only prediction ledger (every record-affecting
+    event, joined through match→team so canonical names — never raw provider strings —
+    reach the wire) and the ingest job_run rows (the one job whose runs /health already
+    exposes). Feature/inference/odds/canary runs leave no queryable trace on the read-only
+    surface — the API serves records, not job telemetry, and the site says so rather than
+    inventing liveness.
+    """
+    _cache(response, 300)
+    since = datetime.now(UTC) - timedelta(hours=hours)
+    items: list[dict[str, Any]] = []
+    for r in conn.execute(
+        "SELECT e.event_type, e.event_time_utc, e.match_id,"
+        " h.canonical_name, a.canonical_name, e.details"
+        " FROM prediction_event e"
+        " JOIN match m ON m.match_id = e.match_id"
+        " JOIN team h ON h.team_id = m.home_team_id"
+        " JOIN team a ON a.team_id = m.away_team_id"
+        " WHERE e.event_time_utc >= %s"
+        " ORDER BY e.event_time_utc DESC LIMIT 200",
+        (since,),
+    ).fetchall():
+        items.append(
+            {
+                "kind": "ledger",
+                "type": r[0],
+                "at_utc": _iso(r[1]),
+                "match_id": int(r[2]),
+                "home": r[3],
+                "away": r[4],
+                "details": r[5],
+            }
+        )
+    # ingest runs: the sweep kind and status only — job_run.details carries raw provider
+    # payload fragments, which never leak through the public surface
+    for r in conn.execute(
+        "SELECT coalesce(details->>'sweep', 'full'), status,"
+        " coalesce(finished_at_utc, started_at_utc)"
+        " FROM job_run WHERE job_name = 'ingest'"
+        " AND coalesce(finished_at_utc, started_at_utc) >= %s"
+        " ORDER BY 3 DESC LIMIT 200",
+        (since,),
+    ).fetchall():
+        items.append(
+            {"kind": "job", "job": "ingest", "sweep": r[0], "status": r[1], "at_utc": _iso(r[2])}
+        )
+    # one merged stream, newest first (both sources emit tz-aware UTC at second precision,
+    # so the ISO strings sort correctly)
+    items.sort(key=lambda it: it["at_utc"] or "", reverse=True)
+    return {"window_hours": hours, "as_of_utc": _iso(datetime.now(UTC)), "items": items[:200]}
+
+
 # ---------------- dashboard v2: Elo power ratings (replay-on-demand) ----------------
 
 # Memoized full ratings structure, keyed on (completed-match count, max kickoff): a newly

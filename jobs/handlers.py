@@ -158,7 +158,15 @@ def ingest(event: dict[str, Any], context: Any) -> dict[str, Any]:
                 },
             )
         except BaseException:
-            finish_job(conn, job_id, status="failed")
+            # the sweep KIND must survive failure too — a failed results-only sweep with
+            # NULL details would be read back as a failed FULL sweep by /activity's
+            # coalesce, the exact full-vs-narrow conflation /health was fixed to avoid
+            finish_job(
+                conn,
+                job_id,
+                status="failed",
+                details={"sweep": "results_only" if results_only else "full"},
+            )
             raise
     if failed_days:
         print(f"ingest: provider failures for days {failed_days}")

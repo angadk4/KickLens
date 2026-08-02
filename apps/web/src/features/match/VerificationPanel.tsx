@@ -3,6 +3,7 @@
 // hash. canonical_json is only served when the server-side recompute already matches.
 import type { VerifiedForecast, Verification } from "../../api";
 import { Badge } from "../../components/ui/Badge";
+import { ANCHORS_URL } from "../../lib/facts";
 import { dateShort, voidPhrase } from "../../lib/format";
 import { FieldLedger, FieldLedgerPending } from "../../components/ui/FieldLedger";
 import { HashProof } from "./HashProof";
@@ -23,15 +24,7 @@ const HASHED_FIELD_NAMES = [
   "data_freshness_time",
 ];
 
-function Forecast({
-  f,
-  repo,
-  kickoffUtc,
-}: {
-  f: VerifiedForecast;
-  repo: string | null;
-  kickoffUtc: string | null;
-}) {
+function Forecast({ f, repo }: { f: VerifiedForecast; repo: string | null }) {
   const voidReason = f.events.find((e) => e.type === "Voided")?.details?.reason;
   const vp = voidPhrase(typeof voidReason === "string" ? voidReason : undefined);
   return (
@@ -81,6 +74,9 @@ function Forecast({
               <>
                 <dt>merkle root ({f.merkle.day})</dt>
                 <dd>{f.merkle.root}</dd>
+                {/* chain of custody: WHEN the day was sealed, not just that it was */}
+                <dt>day sealed at</dt>
+                <dd>{f.merkle.committed_at_utc ?? "—"}</dd>
               </>
             )}
           </dl>
@@ -135,8 +131,10 @@ function Forecast({
           <HashProof
             canonicalJson={f.canonical_json}
             storedHash={f.forecast_hash}
+            anchorDay={f.anchor_day}
+            anchorRawUrl={f.anchor_file?.raw_url ?? null}
             anchorHtmlUrl={f.anchor_file?.html_url ?? null}
-            kickoffLabel={dateShort(kickoffUtc)}
+            sealedRoot={f.merkle?.root ?? null}
           />
         )}
       </div>
@@ -182,7 +180,8 @@ export function VerificationPanel({ v }: { v: Verification }) {
                 "canonical bytes assembled",
                 "SHA-256 computed in this browser (WebCrypto)",
                 "matches the stored write-once hash",
-                "anchor entered public history before kickoff",
+                "found in the public anchor file on GitHub — not our API",
+                "day's Merkle root reproduced from the public lines",
               ].map((t, i) => (
                 <div key={i} className="pv-step">
                   <span className="pv-mark" aria-hidden>
@@ -194,11 +193,7 @@ export function VerificationPanel({ v }: { v: Verification }) {
             </div>
             <p className="blurb" style={{ fontSize: "var(--text-xs)" }}>
               The mechanism is already public:{" "}
-              <a
-                href="https://github.com/angadk4/KickLens/tree/main/anchors"
-                target="_blank"
-                rel="noreferrer"
-              >
+              <a href={ANCHORS_URL} target="_blank" rel="noreferrer">
                 anchors ↗
               </a>
             </p>
@@ -213,10 +208,12 @@ export function VerificationPanel({ v }: { v: Verification }) {
         {v.hash_algorithm}. {v.merkle_algorithm}.
       </p>
       {v.forecasts.map((f) => (
-        <Forecast key={f.prediction_id} f={f} repo={v.anchor_repo} kickoffUtc={v.kickoff_utc} />
+        <Forecast key={f.prediction_id} f={f} repo={v.anchor_repo} />
       ))}
+      {/* the trust-NOTHING fallback: the in-browser audit fetches from GitHub, but it is
+          still our code doing the fetching — this recipe removes us from the loop entirely */}
       <p className="blurb">
-        Independent check: fetch the anchor file from GitHub (
+        Trust nothing, including this page: fetch the anchor file straight from GitHub (
         {v.forecasts[0]?.anchor_file ? (
           <a href={v.forecasts[0].anchor_file.raw_url} target="_blank" rel="noreferrer">
             raw ↗
@@ -224,9 +221,10 @@ export function VerificationPanel({ v }: { v: Verification }) {
         ) : (
           "raw"
         )}
-        ), find the line above, and confirm it entered the public history before kickoff (
-        {dateShort(v.kickoff_utc)}); the daily Merkle root seals the day so the file can't be
-        quietly rewritten.
+        ), find the line above, confirm it entered the public history before kickoff (
+        {dateShort(v.kickoff_utc)}), and recompute the day's Merkle root yourself — the exact
+        algorithm is stated at the top of this section. The audit button does precisely that in
+        your browser; doing it by hand takes even our JavaScript out of the loop.
       </p>
     </div>
   );

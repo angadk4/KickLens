@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from dataclasses import asdict, dataclass
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -101,12 +102,33 @@ def merkle_root(hashes: list[str]) -> str:
     return level[0]
 
 
+_LEAF_RE = re.compile(r"^[0-9a-f]{64}$")
+
+
+def _leaves_from_jsonl(jsonl_text: str) -> list[str]:
+    """The ONE definition of 'leaf', shared with the in-browser auditor
+    (apps/web/src/lib/anchorAudit.ts): a line's forecast_hash, which must be strict
+    lowercase 64-hex. A parseable line with a non-conforming hash RAISES rather than
+    sealing: silently including it would commit a root the auditor (which excludes
+    non-conforming lines) can never reproduce — the seal would then accuse a byte-identical
+    file of being rewritten. Failing the seal job fires its Errors alarm instead, which is
+    the honest outcome for a file that shouldn't exist. (Unparseable lines already raise
+    via json.loads, unchanged.)"""
+    leaves: list[str] = []
+    for n, line in enumerate((ln for ln in jsonl_text.splitlines() if ln), start=1):
+        value = json.loads(line)["forecast_hash"]
+        if not isinstance(value, str) or not _LEAF_RE.match(value):
+            raise ValueError(f"anchor line {n}: forecast_hash is not lowercase 64-hex")
+        leaves.append(value)
+    return leaves
+
+
 def commit_daily_root_from_content(
     conn: psycopg.Connection, day: date, jsonl_text: str
 ) -> str | None:
     """Merkle root from anchor-file CONTENT (cloud path: fetched from the public repo —
     the grade Lambda never shares a filesystem with inference; launch-review fix)."""
-    hashes = [json.loads(line)["forecast_hash"] for line in jsonl_text.splitlines() if line]
+    hashes = _leaves_from_jsonl(jsonl_text)
     if not hashes:
         return None
     root = merkle_root(hashes)
@@ -129,7 +151,7 @@ def commit_daily_root(
     path = anchor_dir / f"{day:%Y-%m-%d}.jsonl"
     if not path.is_file():
         return None
-    hashes = [json.loads(line)["forecast_hash"] for line in path.read_text().splitlines() if line]
+    hashes = _leaves_from_jsonl(path.read_text())
     root = merkle_root(hashes)
     conn.execute(
         "INSERT INTO anchor_merkle_root (day, root, committed_at_utc) VALUES (%s,%s,%s)"

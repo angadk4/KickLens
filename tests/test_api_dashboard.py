@@ -526,3 +526,87 @@ if DATABASE_URL:
         # a non-voided official carries a null reason (additive field degrades cleanly)
         graded = env["client"].get(f"/matches/{env['match_ids'][0]}").json()
         assert graded["forecasts"][0]["void_reason"] is None
+
+    # ---------- /activity (mission-control feed) ----------
+
+    def test_activity_merges_ledger_and_ingest_runs_newest_first(env) -> None:  # type: ignore[no-untyped-def]
+        # seed two ingest runs: a tagged results-only sweep and a pre-tag run (details NULL
+        # → reported as 'full', same convention /health uses)
+        now = datetime.now(UTC)
+        env["conn"].execute(
+            "INSERT INTO job_run (job_name, idempotency_key, status, details,"
+            " started_at_utc, finished_at_utc)"
+            " VALUES ('ingest','act-night','done',%s,%s,%s)",
+            (json.dumps({"sweep": "results_only", "provider": "should-not-leak"}), now, now),
+        )
+        env["conn"].execute(
+            "INSERT INTO job_run (job_name, idempotency_key, status, details,"
+            " started_at_utc, finished_at_utc) VALUES ('ingest','act-full','done',NULL,%s,%s)",
+            (now - timedelta(hours=3), now - timedelta(hours=3)),
+        )
+        # a FAILED sweep keeps its kind (handlers.py writes the sweep tag on the failure
+        # path too — a NULL-details failure would coalesce to 'full' and mislabel it)
+        env["conn"].execute(
+            "INSERT INTO job_run (job_name, idempotency_key, status, details,"
+            " started_at_utc, finished_at_utc)"
+            " VALUES ('ingest','act-failed','failed',%s,%s,%s)",
+            (
+                json.dumps({"sweep": "results_only"}),
+                now - timedelta(minutes=5),
+                now - timedelta(minutes=5),
+            ),
+        )
+        # a non-ingest job must NOT appear — the API exposes no other job telemetry
+        env["conn"].execute(
+            "INSERT INTO job_run (job_name, idempotency_key, status, started_at_utc,"
+            " finished_at_utc) VALUES ('feature','act-feature','done',%s,%s)",
+            (now, now),
+        )
+        res = env["client"].get("/activity")
+        assert res.status_code == 200
+        assert res.headers["cache-control"] == "public, max-age=300"
+        body = res.json()
+        assert body["window_hours"] == 48 and body["as_of_utc"]
+        kinds = {it["kind"] for it in body["items"]}
+        assert kinds == {"ledger", "job"}
+        jobs = [it for it in body["items"] if it["kind"] == "job"]
+        assert {(j["sweep"], j["status"]) for j in jobs} == {
+            ("results_only", "done"),
+            ("full", "done"),
+            ("results_only", "failed"),
+        }
+        # provider strings never leak: job items carry NO details field at all
+        assert all("details" not in j for j in jobs)
+        assert all(j["job"] == "ingest" for j in jobs)
+        # ledger items name teams canonically and carry the event type + match id
+        voided = next(
+            it
+            for it in body["items"]
+            if it.get("type") == "Voided" and it["match_id"] == env["m_voided"]
+        )
+        assert voided["home"] == "Team B" and voided["away"] == "Team D"
+        assert voided["details"] == {"reason": "postponed"}
+        # newest first, across both sources
+        stamps = [it["at_utc"] for it in body["items"]]
+        assert stamps == sorted(stamps, reverse=True)
+
+    def test_activity_window_filters_and_clamps(env) -> None:  # type: ignore[no-untyped-def]
+        # the 2025-05-10 ledger events (OfficialFrozen etc.) are years outside any window
+        body = env["client"].get("/activity?hours=168").json()
+        assert body["window_hours"] == 168
+        assert all(it.get("type") != "OfficialFrozen" for it in body["items"])
+        # a 1-hour window keeps exactly the rows stamped "now" by this module: the fixture's
+        # Corrected event plus the two fresh sweeps — the 90m/2h/3h-old rows all fall out
+        hour = env["client"].get("/activity?hours=1").json()
+        got = {
+            (it["kind"], it.get("type") or it.get("sweep"), it.get("status"))
+            for it in hour["items"]
+        }
+        assert got == {
+            ("ledger", "Corrected", None),
+            ("job", "results_only", "done"),
+            ("job", "results_only", "failed"),
+        }
+        # clamp is a contract: out-of-range values are rejected, not silently coerced
+        assert env["client"].get("/activity?hours=0").status_code == 422
+        assert env["client"].get("/activity?hours=200").status_code == 422

@@ -8,8 +8,13 @@
    The four registers:
    - BOARD (default)  /, forecasts, record, match, ratings, performance, calibration —
      moves NOTHING; the live surfaces are the identity.
-   - REFERENCE        methodology, engineering — the only two pages with no live data:
-     every number is a static, dated fact. Paper darkens a step, rules crispen.
+   - REFERENCE        methodology, engineering — the reference pages: every number is a
+     static, dated fact. Paper darkens a step, rules crispen. TWO sanctioned exceptions
+     on /engineering (developer-approved 2026-08-01, the "mission control" build): the
+     operations departure board (NextRunsBoard — scheduled next-triggers + /health
+     last-seen) and the activity feed (/activity ledger events). Both render OTHER
+     surfaces' live data as records — they add no hue and no new claim surface, and the
+     register's paper/rules treatment applies to them unchanged.
    - FINE PRINT       sections that LIMIT claims — they must not look like claim surfaces.
    - PROOF            proof-bearing sections — the machined edge (--line-strong) already
      means "official" on .card.stamped; the strap rule borrows exactly that. */

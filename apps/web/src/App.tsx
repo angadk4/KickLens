@@ -3,6 +3,7 @@
 // scope + sample size (T-171). One shared upcoming fetch powers all liveness surfaces.
 import { useEffect, useState, type ReactNode } from "react";
 import { Outlet, ScrollRestoration, useLocation } from "react-router-dom";
+import { CommandPalette } from "./components/layout/CommandPalette";
 import { Floodlights } from "./components/layout/Floodlights";
 import { HealthBanners } from "./components/layout/HealthBanners";
 import { SiteFooter } from "./components/layout/SiteFooter";
@@ -26,7 +27,8 @@ function RouteMain({ children }: { children: ReactNode }) {
     firstLoadDone = true;
   }, []);
   return (
-    <main id="content" className={animate ? "route-enter" : undefined}>
+    // tabIndex −1: the skip link's #content target must be programmatically focusable
+    <main id="content" tabIndex={-1} className={animate ? "route-enter" : undefined}>
       {children}
     </main>
   );
@@ -45,6 +47,10 @@ export default function App() {
   return (
     <>
       <UpcomingProvider>
+        {/* first tab stop on every page — parked offscreen until keyboard focus lands */}
+        <a className="skip-link" href="#content">
+          Skip to content
+        </a>
         <Floodlights page={page} />
         <TopNav />
         <div className="shell" data-page={page}>
@@ -53,12 +59,17 @@ export default function App() {
           {/* the event channel's announcement surface: a leaf on EVERY route, so an event can
               never land on a page that has nobody listening */}
           <Takeover />
+          {/* ⌘K — a leaf beside the takeover for the same reason: opening it must not
+              re-render pages. Renders nothing until opened. */}
+          <CommandPalette />
           {/* The crawl is the site's event channel, so it has to exist wherever an event
               could land — a freeze landing while someone reads /record previously had nowhere
-              to go. Excluded on the two REFERENCE pages: styles/sections.css states their job
-              as "the only two pages with no live data", and a live crawl there would
-              contradict a written rule. In document flow, not sticky: a sticky 36px strip
-              under a sticky nav eats 4% of a 390×844 viewport. */}
+              to go. Excluded on the two REFERENCE pages (styles/sections.css): their numbers
+              are static, dated facts, and a live crawl there would contradict the register.
+              (The register's two sanctioned exceptions — the operations board and activity
+              feed on /engineering — render live data AS records; a crawl announces. The
+              distinction is documented at the register comment.) In document flow, not
+              sticky: a sticky 36px strip under a sticky nav eats 4% of a 390×844 viewport. */}
           {!REFERENCE_PAGES.has(page) && <Ticker />}
           <RouteMain key={pathname}>
             <Outlet />
