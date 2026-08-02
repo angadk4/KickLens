@@ -355,6 +355,15 @@ def performance(conn: Conn, response: Response, scope: str = Query(...)) -> dict
     if row is None:
         raise HTTPException(404, f"no metrics recorded for scope '{scope}' yet")
     payload = row[0] if isinstance(row[0], dict) else json.loads(row[0])
+    # The B3 fallback's CI is published evidence in both scopes (docs/baselines.md for dev,
+    # docs/final-test-report-2025.md for the sealed test) but was never written into the
+    # metrics snapshots, so the ladder drew the champion's whiskers and dashed B3's — while
+    # /methodology, sourcing the SAME rung from _BASELINE_LADDER, did the exact opposite. Two
+    # pages asserted "no CI exists" for a number the other published one click away. Injected
+    # here (not back-filled into the sealed snapshots) so both ladders read from one source.
+    b3_ci = _B3_CI95.get(scope)
+    if b3_ci is not None and "b3_log_loss_ci95" not in payload:
+        payload = {**payload, "b3_log_loss_ci95": b3_ci}
     return {"scope": scope, "as_of_utc": _iso(row[1]), "metrics": payload}
 
 
@@ -404,6 +413,17 @@ def model_versions(conn: Conn, response: Response) -> list[dict[str, Any]]:
     ]
 
 
+# The B3 fallback's 95% matchweek-block-bootstrap CI, per scope. Published evidence that
+# never made it into the metrics snapshots: dev from docs/baselines.md (also the B3 row of
+# _BASELINE_LADDER below), test from docs/final-test-report-2025.md's sealed table. Injected
+# into /performance so the ladder on that page and the one on /methodology cannot disagree
+# about which rungs have whiskers. No touch-once issue: both figures come from evaluations
+# already completed and published.
+_B3_CI95: dict[str, list[float]] = {
+    "dev": [1.0182, 1.0507],
+    "test": [1.0163, 1.0816],
+}
+
 # Sealed dev-era baseline ladder (docs/baselines.md, 2018-2024 walk-forward, 210 blocks,
 # n=3,012 - frozen 2026-07-06 evidence; there is deliberately no DB table for it).
 _BASELINE_LADDER: list[dict[str, Any]] = [
@@ -418,7 +438,15 @@ _BASELINE_LADDER: list[dict[str, Any]] = [
     },
     {"rung": "B4", "name": "independent Poisson", "log_loss": 1.2299, "ci95": [1.1663, 1.3011]},
     {"rung": "B5", "name": "Dixon-Coles", "log_loss": 1.0627, "ci95": [1.0396, 1.0866]},
-    {"rung": "champion", "name": "logistic F1 + temperature", "log_loss": 1.0346, "ci95": None},
+    # the champion HAS a dev CI — it is the same [1.0180, 1.0510] the dev metrics snapshot
+    # serves as log_loss_ci95, and the ladder's own caption promises whiskers "where one
+    # exists". Leaving it None made /methodology contradict /performance about the same rung.
+    {
+        "rung": "champion",
+        "name": "logistic F1 + temperature",
+        "log_loss": 1.0346,
+        "ci95": [1.0180, 1.0510],
+    },
     {
         "rung": "market-closing",
         "name": "de-vigged closing market (stronger-information reference)",
@@ -460,8 +488,12 @@ def methodology(conn: Conn, response: Response) -> dict[str, Any]:
         ],
         "data": "football-data.co.uk (historical); Highlightly (live fixtures); "
         # "aggregate display only" described a display that does not exist anywhere on the
-        # site — odds are captured solely as the same-cutoff market reference, never shown
-        "SportsGameOdds (closing odds, collected for the market reference; not displayed)",
+        # site — odds are captured solely as the same-cutoff market reference, never shown.
+        # Nor are the LIVE captures "closing": ingestion/odds.py stores is_closing=false and
+        # captures near the T-3h cutoff. The closing odds behind the dev/test market
+        # reference are the historical Pinnacle columns from football-data.co.uk.
+        "SportsGameOdds (same-cutoff three-way snapshots near T-3h, as the live market "
+        "reference; never displayed)",
         "calibration": {
             "method": None if prod is None else prod[0],
             "param_t": None if prod is None or prod[1] is None else float(prod[1]),

@@ -12,6 +12,8 @@ import {
   ECE_DEV_CHAMPION,
   ECE_DEV_MARKET,
   ECE_DEV_RAW,
+  ECE_TEST_CHAMPION,
+  ECE_TEST_MARKET,
   MIN_N_BUCKET_DETAIL,
 } from "../../lib/facts";
 import { useApi } from "../../lib/useApi";
@@ -26,7 +28,9 @@ const LABELS: Record<string, { label: string; blurb: string }> = {
     blurb:
       "Calibration on the sealed touch-once test — all seven pre-registered models plus the " +
       "market reference were scored in that single run; the champion was frozen before it, " +
-      "and its ECE was the best of all eight evaluated.",
+      `and its ECE (${ECE_TEST_CHAMPION.toFixed(4)}) was the best of the seven pre-registered ` +
+      `models. The de-vigged closing market was better calibrated still (${ECE_TEST_MARKET.toFixed(4)}) ` +
+      "— it sees three hours of information the kickoff−3h cutoff cannot.",
   },
   live: {
     label: "Live record",

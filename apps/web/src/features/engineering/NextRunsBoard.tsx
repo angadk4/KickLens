@@ -11,6 +11,7 @@
 import { api } from "../../api";
 import { useHealth } from "../../components/layout/HealthContext";
 import { FlapNumber } from "../../components/ui/FlapNumber";
+import { ACTIVITY_HOURS } from "../../lib/activity";
 import { REPO_URL } from "../../lib/facts";
 import { nextRun, nextUp, SCHEDULE, untilLabel, atLabel, type JobEvidence } from "../../lib/schedule";
 import { useApi } from "../../lib/useApi";
@@ -38,12 +39,25 @@ function HeroCountdown({ atMs, nowMs }: { atMs: number; nowMs: number }) {
   );
 }
 
+const NOT_SURFACED = {
+  text: "not surfaced by the API",
+  title: "The API surfaces records, not job telemetry — by design.",
+};
+
 export function NextRunsBoard() {
   const now = useNow(1000);
   const { health } = useHealth();
   // real evidence for the merkle row — one request, and the endpoint is max-age 300
   const merkle = useApi(() => api.merkleRoots(1));
   const sealedAt = merkle.data?.items[0]?.committed_at_utc ?? null;
+  // …and for the night results row. /health cannot distinguish sweep kinds (see JobEvidence),
+  // but /activity tags every ingest run, so the narrow sweep can be evidenced by its OWN runs
+  // instead of borrowing the full sweep's timestamp. Same endpoint the feed below uses, and
+  // it is max-age 300, so this is a cache hit in practice.
+  const activity = useApi(() => api.activity(ACTIVITY_HOURS));
+  const lastResultsSweep =
+    activity.data?.items.find((it) => it.kind === "job" && it.sweep === "results_only")?.at_utc ??
+    null;
 
   const boarding = nextUp(SCHEDULE, now);
 
@@ -53,6 +67,16 @@ export function NextRunsBoard() {
     switch (e) {
       case "full-ingest":
         return rel(health?.last_full_ingest);
+      case "results-sweep":
+        // no tagged run inside the window → say nothing rather than borrow another job's
+        // timestamp. A sweep dead longer than the window is exactly when a false-green here
+        // would do the most damage.
+        return lastResultsSweep
+          ? { text: relTime(lastResultsSweep, now), title: lastResultsSweep }
+          : {
+              text: "not surfaced by the API",
+              title: `No results-only sweep recorded in the last ${ACTIVITY_HOURS}h.`,
+            };
       case "ingest":
         return rel(health?.last_ingest);
       case "grade":
@@ -60,10 +84,7 @@ export function NextRunsBoard() {
       case "merkle":
         return rel(sealedAt);
       case "none":
-        return {
-          text: "not surfaced by the API",
-          title: "The API surfaces records, not job telemetry — by design.",
-        };
+        return NOT_SURFACED;
     }
   };
 
@@ -103,6 +124,13 @@ export function NextRunsBoard() {
                   <td className="mono rb-next">
                     {hero ? (
                       <>
+                        {/* the literal "in " is load-bearing: the hero is always MM:SS (the
+                            largest gap between any two slots in SCHEDULE is 45 min, so the
+                            hours group never appears), and the column immediately left is
+                            headed CADENCE (UTC) with values like "08:00 & 20:00" — without a
+                            unit cue "17:25" parses as a clock time. Every other countdown on
+                            the site carries one. */}
+                        <span className="rb-in">in </span>
                         <HeroCountdown atMs={at} nowMs={now} />
                         <span className="rb-at"> → {atLabel(at)}</span>
                       </>

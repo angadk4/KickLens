@@ -38,7 +38,10 @@ export function ReliabilityDiagram({
   return (
     <figure className="chart-figure">
       <ResponsiveContainer width="100%" height={260}>
-        <ComposedChart data={data} margin={{ right: 12 }}>
+        {/* accessibilityLayer={false} — see ConfidenceChart for the full reasoning: the
+            Recharts default stamps an unnamed role="application" tab stop on the svg, and
+            this figure's caption + table already carry every number. */}
+        <ComposedChart data={data} margin={{ right: 12 }} accessibilityLayer={false}>
           <CartesianGrid {...gridProps} />
           <XAxis
             dataKey="bucket"

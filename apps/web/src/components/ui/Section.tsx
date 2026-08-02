@@ -51,7 +51,12 @@ export function Section({
       )}
       <div className="entry-body">
         <div className="section-head">
-          <h2>{title}</h2>
+          {/* The LEAD section's title is the page's <h1>. Every route except home passes
+              `lead` exactly once (home has no lead Section — its hero carries the real h1),
+              so this yields exactly one h1 per page and no route is left without one. The
+              condensed-caps ration is keyed on `.entry.lead`, a CLASS, so the rendered
+              pixels are unchanged — see the `:is(h1, h2)` selectors in layout.css. */}
+          {lead ? <h1>{title}</h1> : <h2>{title}</h2>}
           {description && <p>{description}</p>}
         </div>
         {children}

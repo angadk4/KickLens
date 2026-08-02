@@ -24,7 +24,14 @@ export function ConfidenceChart({
   return (
     <figure className="chart-figure">
       <ResponsiveContainer width="100%" height={220}>
-        <BarChart data={data}>
+        {/* accessibilityLayer={false}: Recharts 3 defaults it ON, which stamps
+            role="application" tabindex="0" on the <svg> with NO accessible name. That role
+            tells screen readers to leave browse mode and forward every keystroke, so a
+            keyboard user lands in an unnamed application region where arrows stop navigating
+            the page. It buys nothing here — the figcaption plus the <details> table below
+            already reproduce every number the tooltip shows, and the site's three hand-rolled
+            SVG charts all use role="img" with a full aria-label. */}
+        <BarChart data={data} accessibilityLayer={false}>
           <CartesianGrid {...gridProps} />
           <XAxis dataKey="bucket" {...axisProps} label={undefined} />
           <YAxis {...axisProps} tickFormatter={(v: number) => v.toFixed(2)} />
@@ -46,10 +53,15 @@ export function ConfidenceChart({
             }}
           />
           {/* isAnimationActive={false} everywhere: Recharts' grow-in re-serializes `d` per frame */}
+          {/* C.model, not C.home: the H|D|A triad is reserved for outcomes, and these bars
+              encode log loss by max-probability bucket — a quantity with no home/draw/away
+              meaning. The fill was pre-v5 residue that survived the theme pass by not being
+              looked at. theme.ts's law: one chalk stroke per chart, and it is the thing the
+              chart is about. (Not C.gray — that is reserved for reference series.) */}
           <Bar
             dataKey="log_loss"
             name="log loss"
-            fill={C.home}
+            fill={C.model}
             radius={[4, 4, 0, 0]}
             isAnimationActive={false}
           />

@@ -109,7 +109,15 @@ function ladderRows(scope: Scope, m: MetricsPayload): LadderRow[] {
   if (typeof m.market_log_loss === "number")
     rows.push({ name: "market (de-vig)", log_loss: m.market_log_loss, emphasis: "market" });
   if (typeof b3 === "number")
-    rows.push({ name: "B3 Elo (fallback)", log_loss: b3, emphasis: "reference" });
+    rows.push({
+      name: "B3 Elo (fallback)",
+      log_loss: b3,
+      // the ladder's caption promises whiskers "where one exists" — and one does for B3 in
+      // both dev and test; the API now serves it (see _B3_CI95). Older API → undefined →
+      // the row renders exactly as it used to.
+      ci95: m.b3_log_loss_ci95 ?? null,
+      emphasis: "reference",
+    });
   if (typeof m.log_loss === "number")
     rows.push({
       name: "champion",

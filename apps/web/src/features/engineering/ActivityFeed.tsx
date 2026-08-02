@@ -6,21 +6,32 @@
 // read-only surface, and the feed does not pretend otherwise.
 import { Link } from "react-router-dom";
 import { api } from "../../api";
-import { activityPhrase } from "../../lib/activity";
+import { ACTIVITY_HOURS, activityPhrase } from "../../lib/activity";
 import { relTime, useNow } from "../../lib/useRelativeTime";
 import { useApi } from "../../lib/useApi";
 
+/** Rows rendered. The endpoint returns up to 200; showing all of them would bury the page. */
+const SHOWN = 30;
+
 export function ActivityFeed() {
-  const { data, error } = useApi(() => api.activity(48));
+  const { data, error } = useApi(() => api.activity(ACTIVITY_HOURS));
   const now = useNow();
   if (error || !data || data.items.length === 0) return null;
+  const total = data.items.length;
+  const shown = Math.min(SHOWN, total);
   return (
     <div className="activity-feed">
+      {/* the count is disclosed for the same reason /record prints "showing 30 of 106": a
+          window label over a truncated list implies the list IS the window. Here it
+          understates rather than overstates — 27 of the 48 hours read blank — but the rule
+          is the rule. `total` is itself the endpoint's 200-row cap, so say so at the cap. */}
       <h3 className="af-title">
-        activity · last {data.window_hours} h · from the ledger, not a log file
+        activity · newest {shown} of {total}
+        {total >= 200 ? "+" : ""} in the last {data.window_hours} h · from the ledger, not a
+        log file
       </h3>
       <div className="timeline">
-        {data.items.slice(0, 30).map((it, i) => {
+        {data.items.slice(0, SHOWN).map((it, i) => {
           const p = activityPhrase(it);
           return (
             <div

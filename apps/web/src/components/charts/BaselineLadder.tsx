@@ -49,8 +49,23 @@ function noteFor(name: string): string {
 
 const TICK_STEPS = [0.005, 0.01, 0.02, 0.025, 0.05, 0.1, 0.15, 0.2, 0.25, 0.5, 1];
 
-/** Nice ticks that also FIT: the narrower the plot, the coarser the step. */
-function niceTicks(lo: number, hi: number, maxTicks: number): number[] {
+/** Decimal places needed to print a step without collapsing distinct ticks onto one label.
+    Derived from the step itself rather than hardcoded: TICK_STEPS holds 0.005 AND 0.025, so
+    a `step < 0.01 ? 3 : 2` rule would still render 0.025's ticks as 1.03 / 1.08 — right count,
+    wrong numbers. */
+function precisionFor(step: number): number {
+  for (let p = 0; p <= 4; p++) {
+    if (Math.abs(Number(step.toFixed(p)) - step) < 1e-9) return p;
+  }
+  return 4;
+}
+
+/** Nice ticks that also FIT: the narrower the plot, the coarser the step. Returns the chosen
+    step alongside the values, because the AXIS FORMATTER needs it — printing every tick at
+    toFixed(2) under a 0.005 step rendered "1.01 1.01 1.02 1.02 1.03 1.03 …": ten gridlines,
+    five labels, and the 1.015 line mislabelled 1.01 by exactly the 0.005 threshold the page
+    names one screen above. Positions were always right; only the text lied. */
+function niceTicks(lo: number, hi: number, maxTicks: number): { ticks: number[]; step: number } {
   for (const step of TICK_STEPS) {
     const start = Math.ceil(lo / step - 1e-9) * step;
     const count = Math.floor((hi - start) / step + 1e-9) + 1;
@@ -58,10 +73,10 @@ function niceTicks(lo: number, hi: number, maxTicks: number): number[] {
     if (count <= maxTicks) {
       const ticks: number[] = [];
       for (let i = 0; i < count; i++) ticks.push(Number((start + i * step).toFixed(3)));
-      return ticks;
+      return { ticks, step };
     }
   }
-  return [];
+  return { ticks: [], step: 0.01 };
 }
 
 function color(e?: string): string {
@@ -95,7 +110,12 @@ export function BaselineLadder({ rows, n }: { rows: LadderRow[]; n?: number | nu
   const H = PAD_TOP + rows.length * ROW_H + AXIS_H;
   const x = (v: number) => LABEL_W + ((v - lo) / (hi - lo)) * plotW;
   const tickFs = Math.min(fs, 11);
-  const ticks = niceTicks(lo, hi, Math.max(2, Math.floor(plotW / (4 * tickFs * MONO_ADV + 12))));
+  const { ticks, step: tickStep } = niceTicks(
+    lo,
+    hi,
+    Math.max(2, Math.floor(plotW / (4 * tickFs * MONO_ADV + 12))),
+  );
+  const tickDp = precisionFor(tickStep);
 
   const champion = rows.find((r) => r.emphasis === "model");
   const h = hover !== null ? rows[hover] : null;
@@ -130,7 +150,7 @@ export function BaselineLadder({ rows, n }: { rows: LadderRow[]; n?: number | nu
                 fontSize={tickFs}
                 fontFamily={MONO}
               >
-                {t.toFixed(2)}
+                {t.toFixed(tickDp)}
               </text>
             </g>
           ))}

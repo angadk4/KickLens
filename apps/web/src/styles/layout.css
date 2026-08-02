@@ -497,15 +497,18 @@
 }
 
 /* the scoreboard voice is a GESTURE: only each page's lead section shouts;
-   interior sections speak in sentence case so hierarchy survives */
-.section-head h2 {
+   interior sections speak in sentence case so hierarchy survives.
+   :is(h1, h2) because Section renders the LEAD title as <h1> (one per route — every page
+   except home passes `lead` exactly once) and interior titles as <h2>. The ration is keyed on
+   the `.entry.lead` CLASS, not on the tag, so promoting the element changed no pixels. */
+.section-head :is(h1, h2) {
   font-size: var(--text-2xl);
   font-weight: 650;
   letter-spacing: -0.01em;
   text-wrap: balance;
 }
 
-.entry.lead .section-head h2 {
+.entry.lead .section-head :is(h1, h2) {
   font-size: var(--text-3xl);
   text-transform: uppercase;
   font-stretch: var(--stretch-display);
@@ -1205,12 +1208,26 @@
   }
 }
 
-/* ---- the ticker: the record accruing, under the halfway line (home only) ---- */
+/* ---- the ticker: the record accruing, under the halfway line (sitewide) ---- */
 
+/* The mask lives on .ticker-window, not on .ticker, because the pause control has to sit
+   OUTSIDE it: mask-image applies to an element's descendants, so a button at the right edge
+   would fade out exactly where it is placed. WCAG 2.2.2 needs that control reachable — the
+   old :hover / :focus-within pause was pointer-only and keyboard-only, leaving touch with no
+   mechanism at all. */
 .ticker {
   position: relative;
+  display: flex;
+  align-items: center;
   height: var(--ticker-h);
   border-bottom: 1px solid var(--line);
+}
+
+.ticker-window {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
   overflow: hidden;
   /* both edges fade so scrolling items never hard-cut mid-word */
   -webkit-mask-image: linear-gradient(
@@ -1227,6 +1244,29 @@
     #000 calc(100% - 32px),
     transparent
   );
+}
+
+/* chalk, never gold — it is a control, and gold means officialness */
+.ticker-ctl {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-left: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink-faint);
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.ticker-ctl:hover,
+.ticker-ctl:focus-visible {
+  color: var(--ink);
 }
 
 .ticker-track {
@@ -1249,8 +1289,22 @@
 }
 
 .ticker:hover .ticker-track,
-.ticker:focus-within .ticker-track {
+.ticker:focus-within .ticker-track,
+.ticker.paused .ticker-track {
   animation-play-state: paused;
+}
+
+/* Paused by the control: the track can be anywhere in its cycle, so the window becomes
+   horizontally scrollable rather than leaving items stranded outside a clipped box. NOT
+   `animation: none` — a set exceeds 390px, so killing the animation alone would simply hide
+   the overflow (on mobile /forecasts it would drop the ingest line entirely). */
+.ticker.paused .ticker-window {
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.ticker.paused .ticker-window::-webkit-scrollbar {
+  display: none;
 }
 
 @keyframes ticker-scroll {

@@ -76,6 +76,9 @@ export type MetricsPayload = {
   log_loss_ci95?: [number, number];
   b3_log_loss?: number;
   incumbent_b3_log_loss?: number;
+  /** B3's 95% CI, injected per scope by the API from published evidence (dev: baselines.md,
+      test: the sealed report). Optional so an older API degrades to a dash, as before. */
+  b3_log_loss_ci95?: [number, number];
   market_log_loss?: number;
   by_confidence?: Record<string, ConfidenceBucket>;
   by_month?: Record<string, { n: number; log_loss: number }>;

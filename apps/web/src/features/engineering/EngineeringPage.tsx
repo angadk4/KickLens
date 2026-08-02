@@ -286,8 +286,9 @@ export function EngineeringPage() {
         <div className="prose">
           <p>
             Every job gets an Errors alarm and a Throttles alarm — a throttled job never
-            runs, so it never errors, and needs its own tripwire. The API alarms at a single
-            5xx: on a read-only surface, one server error is a real bug. The daily canary goes
+            runs, so it never errors, and needs its own tripwire. The API gets both, and its
+            Errors alarm fires at a single 5xx: on a read-only surface, one server error is a
+            real bug. The daily canary goes
             beyond a health probe with dead-man checks: results overdue by more than a day,
             fixtures past their cutoff with no official forecast (the single worst failure
             this project can have), and anchors stuck unpublished. Any hit raises, which is

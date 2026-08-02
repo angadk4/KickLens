@@ -3,6 +3,32 @@
 > Filled exactly once from `experiments/final_test_2025.json`. Protocol v1.0 is now **frozen**
 > (Protocol §13). This test can never be re-run; the 2025 season is spent.
 
+## ⚠ CORRECTION — 2026-08-02
+
+**This report originally under-disclosed the market reference, and drew a false conclusion from
+the omission. Nothing was re-run and no number changed: every figure below was already present
+in `experiments/final_test_2025.json` from the single sanctioned 2026-07-12 execution.**
+
+**What was wrong.** The Market row in the results table printed only log loss, dashing RPS,
+Brier, ECE and Accuracy — the four columns in which the market *beats* the champion. The
+Interpretation then claimed the champion's ECE was "best of all eight evaluated models." It was
+not: the de-vigged closing market was calibrated roughly twice as well (ECE **0.0128** vs
+**0.0272**).
+
+**Why that mattered.** Protocol §187 and `run_final_test.py` both pre-register that this report
+carries *every* pre-registered metric for *every* pre-registered model, "not only the champion's
+best figure." Selective omission is exactly what that clause forbids, and the resulting sentence
+was the only superiority claim anywhere in the project — against a market the Master Spec (§21)
+says is explicitly never claimed to be beaten.
+
+**The corrected claim, verified against the sealed JSON:** the champion's ECE of 0.0272 is the
+best of the **seven pre-registered models** (next best: B3 Elo at 0.0358). The market reference,
+which sees three more hours of information than the T-3h cutoff, was better calibrated still.
+
+The table and Interpretation below are corrected in place and marked **†**. Marked-up copies of
+the original wording are retained in git history and in `BUILD_LOG.md` (2026-08-02). Found by
+the 2026-08-02 multi-lens site audit; two independent lenses converged on it.
+
 ## Header
 
 - **Run:** 2026-07-12 16:50 UTC (local machine, single execution) · protocol **v1.0**
@@ -25,7 +51,7 @@
 | B4 Poisson | 510 | 1.0745 [1.0455, 1.1067] | 0.2302 | 0.6495 | 0.0577 | 0.469 |
 | B5 Dixon-Coles | 510 | 1.2342 [1.1701, 1.3043] | 0.2251 | 0.6397 | 0.0683 | 0.500 |
 | **Champion: logistic-F1-C0.1+temperature** | 510 | **1.0507 [1.0213, 1.0778]** | **0.2220** | 0.6318 | **0.0272** | 0.459 |
-| Market (de-vigged Pinnacle closing; n=510/510) | 510 | **1.0317** | — | — | — | — |
+| Market (de-vigged Pinnacle closing; n=510/510) † | 510 | **1.0317** | **0.2161** | **0.6195** | **0.0128** | 0.492 |
 
 \* accuracy is a diagnostic, never a selection criterion.
 
@@ -42,7 +68,11 @@
 
 **The champion deploys.** Every *relative*, pre-registered expectation replicated out-of-time:
 equivalence with Elo (+0.0004), the ~0.02-nat market gap (+0.0190), and the calibration
-advantage (champion ECE 0.0272 — best of all eight evaluated models on unseen data).
+advantage over the pre-registered field (champion ECE 0.0272 — best of the **seven
+pre-registered models** on unseen data; next best B3 Elo at 0.0358). † The de-vigged closing
+market was better calibrated still (0.0128), as it is better on RPS, Brier and accuracy — it
+sees three hours of information the T-3h cutoff cannot. The market is a reference, not a
+competitor in the pre-registered field, and no claim to beat it is made here or anywhere else.
 
 **Honest absolute-level note (led with, not buried):** the champion's absolute log loss
 (1.0507) sits above its dev estimate (1.0346). This shift affected **every model including the

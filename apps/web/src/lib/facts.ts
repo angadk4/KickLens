@@ -43,6 +43,19 @@ export const ECE_DEV_B3 = 0.03;
 /** Mean fitted temperature across dev walk-forward folds — docs/selection.md ("Mean fitted T = 1.157"). */
 export const DEV_MEAN_FOLD_T = 1.157;
 
+// ——— calibration on the SEALED 2025 test (docs/final-test-report-2025.md · one pass) ———
+// These exist as constants because the page copy around them was wrong once: it claimed the
+// champion's ECE was "best of all eight evaluated", which silently counted the market among
+// the pre-registered field and was false against the sealed JSON (see that report's
+// 2026-08-02 correction). Keeping both numbers named, side by side, makes the true comparison
+// the easy one to write.
+/** Champion ECE on the touch-once test — best of the SEVEN pre-registered models. */
+export const ECE_TEST_CHAMPION = 0.0272;
+/** De-vigged closing market ECE on the identical 510 matches — better than the champion. */
+export const ECE_TEST_MARKET = 0.0128;
+/** Next-best pre-registered model's ECE (B3 Elo) — what "best of seven" is measured against. */
+export const ECE_TEST_B3 = 0.0358;
+
 // ——— champion vs B3 Elo (docs/selection.md: paired diff +0.00012 [−0.00296, +0.00304]) ———
 /** Paired log-loss diff at display precision; the CI includes zero → equivalence, no superiority claim. */
 export const CHAMPION_VS_B3_DELTA_NATS = "+0.0001";
@@ -63,8 +76,11 @@ export const ALWAYS_HOME_ACC_DEV = "≈48.8%";
 /** EventBridge cron rules: ingest 08/20 + results-only 01–06 (ADR-005) + feature :10 +
     inference :20 + grade 2h + merkle 12:00 + odds :05 + canary 09:00. */
 export const CRON_RULES = 9;
-/** CloudWatch alarms: 6 job Errors + 6 job Throttles + api 5xx — alarms.tf. */
-export const ALARM_COUNT = 13;
+/** CloudWatch alarms: 6 job Errors + 6 job Throttles + api Errors + api Throttles — alarms.tf.
+    Was 13 until 2026-08-02: `api_throttles` shipped on 2026-07-26 and this constant never
+    moved, so the Engineering page under-counted its own alarms for a week. `facts.test.ts`
+    now derives both this and CRON_RULES from the Terraform itself so the drift cannot recur. */
+export const ALARM_COUNT = 14;
 
 // ——— the knew-nothing baseline (display precision) ———
 /** Log loss of guessing ⅓/⅓/⅓ every match: ln 3 ≈ 1.0986. This is the DISPLAY constant

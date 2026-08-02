@@ -1,7 +1,10 @@
-// The record accruing, as a quiet broadcast ticker under the halfway line (home only).
-// CSS marquee over a duplicated track; pauses on hover/focus; IO-gated offscreen;
-// reduced motion / no-JS renders a static row. An SR-visible static list carries the
-// same content. Zero extra API calls: items come from the shared upcoming + health data.
+// The record accruing, as a quiet broadcast ticker under the halfway line — on every route
+// with live data (not home only: an event has to be able to land wherever the reader is).
+// CSS marquee over a duplicated track; pauses on hover, on focus, and on an explicit
+// control (WCAG 2.2.2 — the first two are pointer-only and keyboard-only, so touch had no
+// mechanism); IO-gated offscreen; reduced motion / no-JS renders a static row. An SR-visible
+// static list carries the same content. Zero extra API calls: items come from the shared
+// upcoming + health data.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { shortHash, teamName } from "../../lib/format";
@@ -37,6 +40,10 @@ export function Ticker() {
   const ref = useRef<HTMLElement>(null);
   const setRef = useRef<HTMLSpanElement>(null);
   const [running, setRunning] = useState(false);
+  // the reader's explicit pause (WCAG 2.2.2). Deliberately NOT persisted across routes or
+  // sessions: the ticker is the site's event channel, and a pause silently surviving a
+  // navigation would look like a dead feed.
+  const [paused, setPaused] = useState(false);
   const [setWidth, setSetWidth] = useState(0);
   // live-subscribing: flipping the OS setting takes effect immediately — both the old
   // one-shot .matches read AND framer's useReducedMotion freeze the choice at mount
@@ -108,26 +115,47 @@ export function Ticker() {
   return (
     <section
       ref={ref}
-      className={`ticker${running ? " running" : ""}`}
+      className={`ticker${running ? " running" : ""}${paused ? " paused" : ""}`}
       aria-label="Upcoming freezes"
       // duration from the MEASURED set width, so the crawl runs at a constant px/s
       // regardless of how many items there are or how long their text is (lib/ticker.ts)
       style={{ ["--ticker-dur" as string]: `${tickerDuration(setWidth)}s` }}
     >
-      {/* SR + no-JS + reduced-motion: the plain row IS the content */}
-      <div className="ticker-track">
-        <span className="ticker-set" ref={setRef}>
-          {items}
-        </span>
-        {running && (
-          // `inert` as well as aria-hidden: the duplicate carries real <Link>s, so
-          // aria-hidden alone left a set of invisible-but-TABBABLE links in the tab order —
-          // now on every route rather than just home. inert removes them from it entirely.
-          <span className="ticker-set" aria-hidden inert>
-            {items /* duplicated set for the seamless loop */}
+      <div className="ticker-window">
+        {/* SR + no-JS + reduced-motion: the plain row IS the content */}
+        <div className="ticker-track">
+          <span className="ticker-set" ref={setRef}>
+            {items}
           </span>
-        )}
+          {running && !paused && (
+            // `inert` as well as aria-hidden: the duplicate carries real <Link>s, so
+            // aria-hidden alone left a set of invisible-but-TABBABLE links in the tab order —
+            // now on every route rather than just home. inert removes them from it entirely.
+            // Dropped while paused: the window scrolls then, and a second copy would let a
+            // reader scroll into a duplicate of what they just read.
+            <span className="ticker-set" aria-hidden inert>
+              {items /* duplicated set for the seamless loop */}
+            </span>
+          )}
+        </div>
       </div>
+      {/* WCAG 2.2.2: moving content that starts automatically and runs more than 5s needs a
+          mechanism to pause it. :hover is pointer-only and :focus-within keyboard-only, so
+          touch had none. An explicit control is also the only version that ANNOUNCES its
+          state — chalk, never gold, and it sits outside the masked window so the edge fade
+          cannot swallow it. */}
+      {running && (
+        <button
+          type="button"
+          className="ticker-ctl"
+          onClick={() => setPaused((p) => !p)}
+          aria-pressed={paused}
+          aria-label={paused ? "Resume the ticker" : "Pause the ticker"}
+          title={paused ? "Resume the ticker" : "Pause the ticker"}
+        >
+          <span aria-hidden>{paused ? "▶" : "❙❙"}</span>
+        </button>
+      )}
     </section>
   );
 }

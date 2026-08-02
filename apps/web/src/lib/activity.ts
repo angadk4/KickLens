@@ -5,6 +5,10 @@
 import type { ActivityItem } from "../api";
 import { teamName, voidPhrase } from "./format";
 
+/** The window both /engineering consumers request, so the feed's heading and the operations
+    board's "last seen" fallback can never describe different spans of time. */
+export const ACTIVITY_HOURS = 48;
+
 export type ActivityPhrase = {
   /** what happened, without the matchup */
   action: string;

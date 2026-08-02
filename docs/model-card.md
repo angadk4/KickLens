@@ -45,7 +45,7 @@ as of the T-3h cutoff (fs-v1; leakage suite R1–R8 enforced in CI). See `docs/d
 | Metric | Value [95% CI] |
 |---|---|
 | Log loss | **1.0507** [1.021, 1.078] (n=510) |
-| ECE | **0.0272** — best of all 8 evaluated models |
+| ECE | **0.0272** — best of the 7 pre-registered models (market: 0.0128, better) |
 | vs Elo fallback | +0.0004 [-0.004, +0.006] — **equivalence replicated** |
 | vs market | +0.0190 [+0.010, +0.028] behind — **dev gap replicated** |
 

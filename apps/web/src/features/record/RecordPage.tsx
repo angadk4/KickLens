@@ -208,12 +208,15 @@ export function RecordPage() {
                     {typeof it.rps === "number" && (
                       <span className="chip">rps {nats(it.rps)}</span>
                     )}
-                    {/* both outcomes neutral: the ✓/✗ words stay, the colour verdict is gone —
-                        the rule under the bar carries the continuous truth instead */}
-                    <Badge
-                      kind="none"
-                      label={it.correct ? "✓ top pick hit" : "top pick missed"}
-                    />
+                    {/* Both outcomes neutral AND both bare. The colour verdict went with the
+                        goal mark (T-277); the ✓ went 2026-08-02, because it was one-sided —
+                        only the favourable outcome carried a glyph, so the pair advertised as
+                        "✓/✗" had shipped as "✓/nothing" and a `✗ top pick missed` has never
+                        existed in this repo's history. Accuracy is diagnostic-only, so the
+                        honest options are a symmetric pair or none; a tick, caret or arrow all
+                        read as verdict glyphs, so it is none. The continuous truth is the rule
+                        under the bar and the log loss chip. */}
+                    <Badge kind="none" label={it.correct ? "top pick hit" : "top pick missed"} />
                     <HashBadge hash={it.forecast_hash} href={ANCHORS_URL} />
                   </div>
                   {/* brier arrives on every graded item and was never rendered anywhere */}

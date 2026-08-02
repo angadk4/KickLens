@@ -14,7 +14,7 @@
 // with a live-scope figure and is mounted only on /calibration, and (6) the API is read-only
 // and CSP sets form-action 'none', so it is *physically* unable to write anywhere. The caveat
 // and the scope note come from describeCall(), which cannot return one without the other.
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CompletedItem } from "../../api";
 import { pct, teamName } from "../../lib/format";
 import {
@@ -31,6 +31,47 @@ const RESULT_LABEL: Record<Outcome, string> = {
   D: "draw",
   A: "away win",
 };
+
+/** Same 7-glyph label budget ProbBar measured ("D 26.0%" at --text-xs mono). */
+const LABEL_PX = 58;
+
+/** The H|D|A bar, with ProbBar's geometry discipline rather than its own.
+    `flexBasis: 0` is the load-bearing part: the segments inherited `flex-basis: auto`, so each
+    one's base was its own ~53px label and only the LEFTOVER was distributed by grow — a bar
+    labelled 45.0 / 27.0 / 28.0 rendered 39.2 / 30.4 / 30.4 on mobile. Compression toward
+    uniform can never flip the ranking and never overstates confidence, but this is the widget
+    on the page whose entire argument is that a probability means exactly what it says.
+    Measuring also lets a segment too narrow for its label render none, instead of clipping to
+    an ambiguous fragment like "5." that still reads as a numeral. */
+function YcBar({ p, ghost }: { p: { pH: number; pD: number; pA: number }; ghost?: boolean }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => setWidth(entries[0]?.contentRect.width ?? 0));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const segs = [
+    { key: "home", label: "H", v: p.pH },
+    { key: "draw", label: "D", v: p.pD },
+    { key: "away", label: "A", v: p.pA },
+  ];
+  return (
+    <div ref={ref} className={`yc-bar${ghost ? " ghost" : ""}`} aria-hidden>
+      {segs.map((s) => (
+        <span
+          key={s.key}
+          className={`yc-seg ${s.key}`}
+          style={{ flexGrow: Math.max(s.v, 0.001), flexBasis: 0 }}
+        >
+          {width > 0 && s.v * width >= LABEL_PX ? `${s.label} ${pct(s.v)}` : ""}
+        </span>
+      ))}
+    </div>
+  );
+}
 
 export function YourCall({ matches }: { matches: CompletedItem[] }) {
   // the fixture is chosen by a stated RULE, never a pick: most recent graded first
@@ -81,18 +122,8 @@ export function YourCall({ matches }: { matches: CompletedItem[] }) {
       </div>
 
       {/* the editable bar. The visible segments are decorative; the two range inputs are the
-          real controls and sit on top of them. */}
-      <div className="yc-bar" aria-hidden>
-        <span className="yc-seg home" style={{ flexGrow: Math.max(yours.pH, 0.001) }}>
-          H {pct(yours.pH)}
-        </span>
-        <span className="yc-seg draw" style={{ flexGrow: Math.max(yours.pD, 0.001) }}>
-          D {pct(yours.pD)}
-        </span>
-        <span className="yc-seg away" style={{ flexGrow: Math.max(yours.pA, 0.001) }}>
-          A {pct(yours.pA)}
-        </span>
-      </div>
+          real controls and stack BELOW them (.your-call is a grid, not a stacking overlay). */}
+      <YcBar p={yours} />
 
       {/* Each slider's RANGE is bounded by the other, so they can never cross. Without this the
           cuts sort themselves inside splitFromCuts and the two sliders silently swap roles: drag
@@ -151,17 +182,7 @@ export function YourCall({ matches }: { matches: CompletedItem[] }) {
         </button>
       ) : (
         <div className="yc-reveal">
-          <div className="yc-bar ghost" aria-hidden>
-            <span className="yc-seg home" style={{ flexGrow: Math.max(model.pH, 0.001) }}>
-              H {pct(model.pH)}
-            </span>
-            <span className="yc-seg draw" style={{ flexGrow: Math.max(model.pD, 0.001) }}>
-              D {pct(model.pD)}
-            </span>
-            <span className="yc-seg away" style={{ flexGrow: Math.max(model.pA, 0.001) }}>
-              A {pct(model.pA)}
-            </span>
-          </div>
+          <YcBar p={model} ghost />
           <p className="yc-line">
             the frozen official forecast · it scored{" "}
             <strong className="mono">{logLoss(model, result).toFixed(4)}</strong>

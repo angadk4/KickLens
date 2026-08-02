@@ -1074,9 +1074,15 @@ a.card.card-tilt:hover .matchup {
   gap: 1px;
 }
 
+/* The key track is 16em, not 12em: at --text-xs in IBM Plex Mono (0.6em advance) plus
+   uppercase + 0.06em letter-spacing, 12em overprinted from 20 characters on — and the longest
+   key, CALIBRATION_ARTIFACT_ID, is 23, so "_ID" landed on top of its own value. The track's
+   min is a fixed 0, so Grid's automatic-minimum-size rule can never grow it out of the
+   collision; only the max matters. 16em clears the longest of the eleven hashed field names
+   with room to spare. */
 .fl-row {
   display: grid;
-  grid-template-columns: 1.2em minmax(0, 12em) minmax(0, 1fr);
+  grid-template-columns: 1.2em minmax(0, 16em) minmax(0, 1fr);
   gap: var(--space-2);
   align-items: baseline;
   font-family: var(--font-mono);
@@ -1101,6 +1107,10 @@ a.card.card-tilt:hover .matchup {
 .fl-row dt {
   text-transform: uppercase;
   letter-spacing: 0.06em;
+  /* belt and braces with the 16em track above: a key longer than the track wraps inside its
+     own column rather than printing over the value. The value is the evidence — it must never
+     be the thing that gets covered. */
+  overflow-wrap: anywhere;
 }
 
 .fl-row dd {
@@ -2174,6 +2184,18 @@ a.card.card-tilt:hover .matchup {
   color: var(--ink-faint);
 }
 
+/* --ink-faint is licensed for bg-0/bg-1 only (tokens.css states the rule and the number):
+   #7d8c7b on --bg-2 is 4.20:1, under the 4.5:1 AA floor at this 14px weight. Both surfaces
+   that raise a row to --bg-2 therefore raise the D glyph with it — and .row-compared is the
+   DEFAULT state for three rows on /ratings, so this was five sub-AA glyphs on first paint,
+   not a transient hover. --ink-muted is 6.87:1 on bg-2 and still visibly dimmer than W
+   (15.24:1), so the W > D > L reading survives. Same fix, same reasoning as
+   .pal-row.active .pal-hint. */
+.data-table tr:hover .form-str .d,
+.data-table tr.row-compared .form-str .d {
+  color: var(--ink-muted);
+}
+
 .form-str .l {
   color: var(--away);
 }
@@ -2429,6 +2451,7 @@ a.card.card-tilt:hover .matchup {
   font-size: var(--text-hero);
   font-weight: 600;
   color: var(--ink);
+  margin: 0; /* it is an <h1> now (document outline); the layout is the flex parent's */
 }
 
 .notfound .nf-mark {

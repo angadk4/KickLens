@@ -114,10 +114,13 @@ export function MatchPage() {
                 <span className="chip">log loss {nats(current.grade.log_loss)}</span>
                 <span className="chip">rps {nats(current.grade.rps)}</span>
                 <span className="chip">brier {nats(current.grade.brier)}</span>
-                {/* neutral on purpose: the rule under the bar carries the continuous truth */}
+                {/* Neutral AND bare on purpose — the rule under the bar carries the
+                    continuous truth. The ✓ was dropped 2026-08-02: it appeared only on the
+                    favourable outcome, and a one-sided glyph on a diagnostic-only metric is a
+                    verdict by another route (see RecordPage for the full reasoning). */}
                 <Badge
                   kind="none"
-                  label={current.grade.correct ? "✓ top pick hit" : "top pick missed"}
+                  label={current.grade.correct ? "top pick hit" : "top pick missed"}
                 />
               </div>
             )}

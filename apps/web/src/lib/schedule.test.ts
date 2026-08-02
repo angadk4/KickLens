@@ -116,9 +116,35 @@ describe("coherence with the rest of the site", () => {
 
   it("every row names its evidence or admits the API has none", () => {
     for (const row of SCHEDULE) {
-      expect(["full-ingest", "ingest", "grade", "merkle", "none"]).toContain(row.evidence);
+      expect(["full-ingest", "results-sweep", "ingest", "grade", "merkle", "none"]).toContain(
+        row.evidence,
+      );
       expect(row.note.length).toBeGreaterThan(10);
     }
+  });
+
+  it("the night results row is NEVER evidenced from the sweep-agnostic ingest timestamp", () => {
+    // /health's last_ingest is a greatest() over ALL ingest runs, so pointing the narrow
+    // night row at it printed the FULL sweep's timestamp for ~17 hours of every day — the
+    // row claimed a 20:00 run its own cadence cell says cannot happen. This is the same
+    // full-vs-narrow conflation that masked the 2026-07-23 outage, and it has now been
+    // reintroduced twice (lib/activity.ts, then here). It gets a test.
+    const results = SCHEDULE.find((r) => r.key === "ingest-results")!;
+    expect(results.evidence).toBe("results-sweep");
+    expect(results.evidence).not.toBe("ingest");
+    // and only the FULL sweep may use the full-ingest health field
+    expect(SCHEDULE.find((r) => r.key === "ingest-full")!.evidence).toBe("full-ingest");
+    // nothing else claims a sweep-agnostic ingest timestamp
+    expect(SCHEDULE.filter((r) => r.evidence === "ingest")).toHaveLength(0);
+  });
+
+  it("the odds row does not describe its captures as closing or as displayed", () => {
+    // ingestion/odds.py stores is_closing=false and captures near T-3h, and no aggregate
+    // odds display exists anywhere on the site — both halves of the retired phrase were false
+    const odds = SCHEDULE.find((r) => r.key === "odds")!;
+    expect(odds.note).not.toMatch(/closing/i);
+    expect(odds.note).not.toMatch(/aggregate display/i);
+    expect(odds.note).toMatch(/never displayed/i);
   });
 });
 

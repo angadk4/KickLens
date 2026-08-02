@@ -134,8 +134,9 @@ export function LiveAudit() {
             <strong>{teamName(target.away)}</strong>, {dateShort(target.kickoff)}, hash{" "}
             <span className="mono">⬡ {shortHash(target.hash)}</span>. One click: recompute
             its SHA-256 from the canonical document, fetch the day's anchor file from
-            GitHub's CDN, find the line, and reproduce the day's sealed Merkle root — all in
-            this tab.
+            GitHub's CDN, find the line, and recompute the day's Merkle root from the public
+            file — all in this tab. If that day is already sealed, the root is checked against
+            the committed seal; a day seals at 12:00 UTC the next day.
           </p>
           {/* aria-disabled, not disabled — the states.tsx busy-button rule */}
           <button

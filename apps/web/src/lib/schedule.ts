@@ -50,8 +50,21 @@ export function nextRun(spec: CronSpec, nowMs: number): number {
 }
 
 /** What the read-only API can actually prove about a job's last run. Everything else is
-    honestly "not surfaced" — the API serves records, not job telemetry, by design. */
-export type JobEvidence = "full-ingest" | "ingest" | "grade" | "merkle" | "none";
+    honestly "not surfaced" — the API serves records, not job telemetry, by design.
+
+    NOTE "results-sweep" is NOT the same as "ingest". /health's `last_ingest` is a greatest()
+    over ALL ingest runs regardless of sweep kind, so using it for the night results row
+    printed the FULL sweep's timestamp for ~17 hours of every day — the row claimed a 20:00
+    run its own cadence cell says cannot happen. That is the same full-vs-narrow conflation
+    that masked the 2026-07-23 outage. The results row is evidenced from /activity's
+    sweep-tagged rows instead, and falls back to "not surfaced" when the window holds none. */
+export type JobEvidence =
+  | "full-ingest"
+  | "results-sweep"
+  | "ingest"
+  | "grade"
+  | "merkle"
+  | "none";
 
 export type JobRow = {
   key: string;
@@ -82,7 +95,7 @@ export const SCHEDULE: JobRow[] = [
     cadence: "01:00–06:00 hourly",
     spec: { kind: "hourly", minute: 0, hourWindow: [1, 6] },
     rules: 1,
-    evidence: "ingest",
+    evidence: "results-sweep",
     note: "results only — the night window MLS finals land in",
   },
   {
@@ -92,7 +105,10 @@ export const SCHEDULE: JobRow[] = [
     spec: { kind: "hourly", minute: 5 },
     rules: 1,
     evidence: "none",
-    note: "closing three-way odds, aggregate display only",
+    // NOT "closing odds, aggregate display only" — both halves were false. ingestion/odds.py
+    // stores is_closing=false and captures near the T-3h cutoff, and there is no aggregate
+    // odds display anywhere on the site (apps/api/main.py already retired that phrase).
+    note: "same-cutoff three-way snapshots near T-3h; the market reference, never displayed",
   },
   {
     key: "feature",
