@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../../api";
-import { Badge } from "../../components/ui/Badge";
 import { CardDetail } from "../../components/ui/CardDetail";
 import { HashBadge } from "../../components/ui/HashBadge";
 import { ProbBar } from "../../components/ui/ProbBar";
@@ -11,11 +10,13 @@ import { Reveal } from "../../components/ui/Reveal";
 import { SealStrip } from "../../components/ui/SealStrip";
 import { ScopeChip } from "../../components/ui/ScopeChip";
 import { Section } from "../../components/ui/Section";
+import { Verdict } from "../../components/ui/Verdict";
 import { EmptyState, ErrorState, Skeleton } from "../../components/ui/states";
 import { useUpcoming } from "../../components/layout/UpcomingContext";
 import { ANCHORS_URL, KNEW_NOTHING_LL } from "../../lib/facts";
 import { dateShort, kickoffLocal, nats, teamName } from "../../lib/format";
 import { useApi } from "../../lib/useApi";
+import { verdictOf } from "../../lib/verdict";
 import { InPlaySection } from "../forecasts/InPlaySection";
 
 /* SealChip lived here — a chip fetching merkleRoots(1) to show the latest daily seal. It has
@@ -184,14 +185,27 @@ export function RecordPage() {
                 <Link
                   key={it.match_id}
                   to={`/match/${it.match_id}`}
-                  className={`card fixture-card stamped${landed.has(it.match_id) ? " landed" : ""}`}
+                  /* the verdict edge is a 2px stripe on the card's RIGHT — see
+                     components.css: the LEFT edge is spoken for by .live-edge on this same
+                     component, and live cards can sit directly above this grid */
+                  className={`card fixture-card stamped ${verdictOf(it.correct).edgeClass}${
+                    landed.has(it.match_id) ? " landed" : ""
+                  }`}
                 >
                   <div className="teams">
                     <span className="matchup">
-                      {teamName(it.home)} <span style={{ color: "var(--ink-faint)" }}>vs</span>{" "}
-                      {teamName(it.away)}
+                      {teamName(it.home)} <span className="vs">vs</span> {teamName(it.away)}
                     </span>
                     <span className="when">{dateShort(it.kickoff_utc)}</span>
+                    {/* The verdict lives HERE, on the first line the eye reads, right-aligned
+                        on a consistent scan line — not in the metric row below, where it was
+                        the third of three look-alike chips and effectively unfindable. Its
+                        meaning is the word plus the solid-vs-outline fill; the card's edge
+                        colour only accelerates the skim. Accuracy is still diagnostic-only:
+                        the log loss chip is two rows down and the rule under the bar carries
+                        the continuous truth — a 71% hit and a 34% hit read the same word and
+                        very different bars. */}
+                    <Verdict correct={it.correct} />
                   </div>
                   {/* `result` turns the bar into the graded mark: a rule the width of the
                       segment that happened, plus a caption naming it. The old `result:` chip
@@ -208,15 +222,8 @@ export function RecordPage() {
                     {typeof it.rps === "number" && (
                       <span className="chip">rps {nats(it.rps)}</span>
                     )}
-                    {/* Both outcomes neutral AND both bare. The colour verdict went with the
-                        goal mark (T-277); the ✓ went 2026-08-02, because it was one-sided —
-                        only the favourable outcome carried a glyph, so the pair advertised as
-                        "✓/✗" had shipped as "✓/nothing" and a `✗ top pick missed` has never
-                        existed in this repo's history. Accuracy is diagnostic-only, so the
-                        honest options are a symmetric pair or none; a tick, caret or arrow all
-                        read as verdict glyphs, so it is none. The continuous truth is the rule
-                        under the bar and the log loss chip. */}
-                    <Badge kind="none" label={it.correct ? "top pick hit" : "top pick missed"} />
+                    {/* the verdict moved OUT of this row to the title line — it was the third
+                        of three look-alike chips here and could not be found while skimming */}
                     <HashBadge hash={it.forecast_hash} href={ANCHORS_URL} />
                   </div>
                   {/* brier arrives on every graded item and was never rendered anywhere */}

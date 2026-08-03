@@ -20,7 +20,21 @@
   --ink-faint: #7d8c7b; /* 4.7:1 — captions on bg-0/bg-1 only; use muted on bg-2 */
 
   /* Roles: chalk = interactive, gold = officialness (seals/anchors — never links),
-     green = semantics only (success/live) */
+     green = semantics only (success/live)
+
+     AMENDED 2026-08-03 — a third licensed use of the success/danger pair: the graded card's
+     top-pick verdict edge (.fixture-card.pick-hit / .pick-miss). It is an ACCELERATOR
+     in the series-ramp sense below — the verdict's meaning is carried by a WORD and by a
+     solid-vs-outline stamp; the colour only makes 50 cards skimmable. Two measured
+     collisions shaped where it was allowed to go, recorded so nobody re-derives them:
+       · --success is the IDENTICAL hex to --scope-live (#66c28f, ΔE 0), and the live scope
+         chip sits three blocks above the record grid. Worse, .fixture-card.live-edge is
+         `border-left: 2px solid var(--live)` on the SAME component. Hence the verdict edge
+         is on the RIGHT, where nothing else in the codebase draws.
+       · --danger #e3796a vs --away #d98a5b is ΔE 17.8 (15° apart in hue) — under the ~25
+         confusion threshold at chip size, and every graded card carries a clay away segment.
+         Hence the colour never appears as a chip beside the bar; only as a 2px card edge,
+         and never as the sole channel. */
   --accent: #e8ede6;
   --gold: #c9a86a; /* 7.3:1 — FROZEN seals, merkle/anchor artifacts, ::selection */
   --success: #66c28f;

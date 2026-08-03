@@ -272,9 +272,30 @@ a.card.card-tilt:hover .matchup {
   height: 100%;
 }
 
+/* two columns so the verdict stamp sits beside the matchup on the FIRST line the eye reads,
+   right-aligned on a consistent scan line per grid column. `1fr auto` + `align-items: start`
+   keeps the matchup's min-height: 2.5em two-line slot intact, so bars still align across a
+   card row whether the stamp is present (graded) or absent (upcoming). */
 .fixture-card .teams {
   display: grid;
-  gap: var(--space-1);
+  grid-template-columns: 1fr auto;
+  align-items: start;
+  gap: var(--space-1) var(--space-3);
+}
+
+/* matchup and date own column 1; only the stamp sits in column 2 */
+.fixture-card .teams .matchup,
+.fixture-card .teams .when {
+  grid-column: 1;
+}
+
+/* pinned to row 1 explicitly — auto-placement puts it after .when, i.e. beside the DATE,
+   which is a row lower than the title line this is supposed to share. align-self: start
+   keeps it on the matchup's first line rather than centring it in that two-line slot. */
+.fixture-card .teams .pick-stamp {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: start;
 }
 
 .fixture-card .matchup {
@@ -295,6 +316,74 @@ a.card.card-tilt:hover .matchup {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   color: var(--ink-muted);
+}
+
+/* ---- the top-pick verdict (components/ui/Verdict.tsx + lib/verdict.ts) ----
+   The card's most-asked question, made findable. It was the third of three look-alike chips
+   in the metric row; the developer's words were "I have to look through the entire card to
+   find this."
+
+   TWO CHANNELS, and only one of them carries meaning:
+   · CARRIER  — the word (HIT / MISS) plus solid-vs-outline fill. Luminance skims better than
+                hue, survives colour blindness, and is the site's own solid-vs-hollow idiom.
+                Filled is 15.6:1 on the card gradient; the outline's text is 7.4:1.
+   · ACCELERATOR — the 2px colour stripe on the card's right edge, below. In tokens.css's
+                exact sense: it makes the grid skimmable and says nothing the word does not.
+   Both poles are the same box, same position, same type. Only the fill differs, so neither
+   state is structurally louder — see lib/verdict.test.ts, which enforces that. */
+/* NAMED .pick-stamp, not .verdict: `.verdict` was already taken by the Performance page's
+   Δ chips (.verdict.good / .neutral / .behind, further down this file), and being declared
+   later they silently won — the stamp rendered at 14px with 8px padding until a measured
+   crop caught it. */
+.pick-stamp {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* ONE box for both poles: "MISS" is a letter longer than "HIT", and without this the two
+     differ by 3px and the column stops aligning. Symmetry is the rule here (lib/verdict.ts). */
+  min-width: 5em;
+  padding: 2px var(--space-2);
+  border-radius: var(--r-sm);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: 0.1em;
+  border: 1px solid transparent; /* reserved on both poles — no 1px shift between states */
+}
+
+/* hit: a stamp. The brightest object on the card, 15.6:1 on the card gradient. */
+.pick-stamp.hit {
+  background: var(--ink);
+  color: var(--bg-0);
+}
+
+/* miss: the same box, unfilled. Not dimmer-as-in-lesser — muted is 7.4:1 and fully legible;
+   it is hollow, which is this system's way of saying "the weaker claim" (MonthlyRecord). */
+.pick-stamp.miss {
+  color: var(--ink-muted);
+  border-color: var(--line-strong);
+}
+
+/* The right-edge accelerator. RIGHT, not left, and that is load-bearing:
+   `.fixture-card.live-edge` already owns `border-left: 2px solid var(--live)` on this exact
+   component, and InPlaySection renders those structurally identical cards directly above the
+   record grid on a matchday — a green LEFT stripe here would be pixel-identical to "this
+   match is live now". The right edge is unused across the codebase and pairs with the
+   right-aligned stamp. Both poles get 2px so there is no width shift between them. */
+.fixture-card.pick-hit {
+  border-right: 2px solid var(--success);
+}
+
+.fixture-card.pick-miss {
+  border-right: 2px solid var(--danger);
+}
+
+/* MatchPage's graded card has no .teams row (the matchup is the page h1), so its stamp
+   rides the identity meta row and is pushed to the far right — the same scan position it
+   holds on the record grid. */
+.pick-slot {
+  margin-left: auto;
 }
 
 .fixture-card .meta {
@@ -425,9 +514,15 @@ a.card.card-tilt:hover .matchup {
   text-transform: none;
 }
 
-/* .badge.ok (green ✓) was removed deliberately: graded cards are neutral both ways —
-   the outcome rule under the prob bar names WHICH result happened, and its width is the
-   probability we gave it — a continuous datum, not a coloured verdict. */
+/* .badge.ok (green ✓) was removed in T-277 and is NOT coming back — but the reasoning that
+   replaced it has since been revised, so read .verdict below rather than trusting this
+   tombstone alone. What was wrong with .badge.ok was that it was LOPSIDED (a green hit with
+   no red twin) and that it lived in the metric chip row, where it read as another metric.
+   2026-08-03: the developer's complaint was that the verdict had become unfindable — third
+   of three look-alike chips. It now has its own symmetric two-pole stamp on the card's title
+   line (.verdict) plus a right-edge accelerator. The part of this note that still holds: the
+   outcome rule under the prob bar carries the CONTINUOUS truth, and the verdict never
+   replaces it. */
 
 /* ---- hash badge ---- */
 

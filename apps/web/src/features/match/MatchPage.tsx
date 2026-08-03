@@ -7,11 +7,13 @@ import { CardDetail } from "../../components/ui/CardDetail";
 import { ProbBar } from "../../components/ui/ProbBar";
 import { Reveal } from "../../components/ui/Reveal";
 import { Section } from "../../components/ui/Section";
+import { Verdict } from "../../components/ui/Verdict";
 import { EmptyState, ErrorState, Skeleton } from "../../components/ui/states";
 import { kickoffLocal, kickoffUTC, nats, teamName, voidPhrase } from "../../lib/format";
 import { matchPhase, phaseLabel } from "../../lib/matchPhase";
 import { useApi } from "../../lib/useApi";
 import { relTime, useNow } from "../../lib/useRelativeTime";
+import { verdictOf } from "../../lib/verdict";
 import { VerificationPanel } from "./VerificationPanel";
 
 const RESULT_LABEL = { H: "home win", D: "draw", A: "away win" } as const;
@@ -92,12 +94,24 @@ export function MatchPage() {
         }
       >
         {current ? (
-          <div className="card fixture-card stamped">
+          <div
+            className={`card fixture-card stamped${
+              current.grade ? ` ${verdictOf(current.grade.correct).edgeClass}` : ""
+            }`}
+          >
             <div className="meta">
               <Badge kind="frozen" />
               <span className="chip">rev {current.fixture_revision}</span>
               <span className="chip">{current.model_label}</span>
               {current.stale_inputs && <Badge kind="draft" label="issued under STALE inputs" />}
+              {/* this card has no .teams row (the matchup is the page h1), so the stamp
+                  rides the identity row instead — pushed to the far right by .pick-slot,
+                  the same right-edge scan position it holds on the record grid */}
+              {current.grade && (
+                <span className="pick-slot">
+                  <Verdict correct={current.grade.correct} />
+                </span>
+              )}
             </div>
             {/* once graded, the bar carries the outcome rule: a mark the width of the segment
                 that happened. The number it prints is that segment's own frozen probability —
@@ -114,14 +128,8 @@ export function MatchPage() {
                 <span className="chip">log loss {nats(current.grade.log_loss)}</span>
                 <span className="chip">rps {nats(current.grade.rps)}</span>
                 <span className="chip">brier {nats(current.grade.brier)}</span>
-                {/* Neutral AND bare on purpose — the rule under the bar carries the
-                    continuous truth. The ✓ was dropped 2026-08-02: it appeared only on the
-                    favourable outcome, and a one-sided glyph on a diagnostic-only metric is a
-                    verdict by another route (see RecordPage for the full reasoning). */}
-                <Badge
-                  kind="none"
-                  label={current.grade.correct ? "top pick hit" : "top pick missed"}
-                />
+                {/* the verdict moved up to the identity row (and onto the card's right edge)
+                    so it is findable at a glance; this row stays purely quantitative */}
               </div>
             )}
             {/* provenance the card always carried but never showed — the full chain of
