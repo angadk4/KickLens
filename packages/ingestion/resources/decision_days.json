@@ -1,5 +1,5 @@
 {
-  "_doc": "US-local Decision Day (final regular-season day) per season; drives the R1 playoff filter (docs/spikes/E1-playoffs.md). 2020 additionally excludes the MLS-is-Back knockout window. Add each new season when the league publishes its calendar; a missing season excludes nothing (degrades safely).",
+  "_doc": "US-local Decision Day (final regular-season day) per season; drives the R1 playoff filter (docs/spikes/E1-playoffs.md). 2020 additionally excludes the MLS-is-Back knockout window. ADD EACH NEW SEASON AS SOON AS THE LEAGUE PUBLISHES ITS CALENDAR — this is not optional bookkeeping. Corrected 2026-08-03 (T-281): a missing season does NOT 'degrade safely'. It used to make every date of that season count as regular season, which would have entered playoff fixtures into the write-once anchored record. rs_filter now REFUSES to classify an unconfigured season from its guard horizon (the earliest Decision Day ever configured, currently Oct 6 from 2019) onward, ingest skips those fixtures, and the daily canary raises as soon as a season with fixtures has no entry here. Consequence of leaving it blank: the record simply stops accruing for that season after early October.",
   "decision_day": {
     "2012": "2012-10-28",
     "2013": "2013-10-27",

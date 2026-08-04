@@ -36,6 +36,10 @@ IMPORT_SECONDS = round(time.perf_counter() - _import_t0, 3)
 CANARY_HEALTH_ATTEMPTS = 3
 CANARY_HEALTH_TIMEOUT_S = 40
 CANARY_HEALTH_RETRY_SLEEP_S = 3.0
+# T-281: how early to start warning that a season in flight has no configured Decision Day.
+# Bounded so the canary does not page daily for months — see the check in canary() for why
+# that trade-off matters more here than on a canary with only one job.
+CANARY_DECISION_DAY_LEAD_DAYS = 45
 
 
 def _conn() -> psycopg.Connection:
@@ -89,6 +93,7 @@ def ingest(event: dict[str, Any], context: Any) -> dict[str, Any]:
     # fixtures skipped for an unmapped team (ADR-006) — persisted to job_run.details so the
     # daily canary keeps flagging them; a skip is never silent
     unresolved: list[str] = []
+    unclassifiable: list[str] = []
     with _conn() as conn:
         # hour-bucket claim (launch-review fix): duplicate EventBridge deliveries no-op;
         # a crashed run reclaims after the lease expires
@@ -135,6 +140,7 @@ def ingest(event: dict[str, Any], context: Any) -> dict[str, Any]:
                     now=now,
                     results_only=results_only,
                     unresolved_out=unresolved,
+                    unclassifiable_out=unclassifiable,
                 )
                 for k, v in stats.items():
                     totals[k] = totals.get(k, 0) + v
@@ -155,6 +161,9 @@ def ingest(event: dict[str, Any], context: Any) -> dict[str, Any]:
                     # the 2026-07-23 outage for ~60h
                     "sweep": "results_only" if results_only else "full",
                     **({"unresolved_teams": unresolved} if unresolved else {}),
+                    # T-281: fixtures the RS filter refused to classify. Persisted so the
+                    # daily canary keeps raising until the season's Decision Day is configured.
+                    **({"unclassifiable": unclassifiable} if unclassifiable else {}),
                 },
             )
         except BaseException:
@@ -165,13 +174,26 @@ def ingest(event: dict[str, Any], context: Any) -> dict[str, Any]:
                 conn,
                 job_id,
                 status="failed",
-                details={"sweep": "results_only" if results_only else "full"},
+                details={
+                    "sweep": "results_only" if results_only else "full",
+                    # …and so must the skips. A sweep that refused fixtures and THEN hit a
+                    # provider outage would otherwise lose that evidence entirely: the canary
+                    # only reads `details` and a failed run would report none. The failure is
+                    # already alarmed on its own; the skips must not ride out on its coat-tails.
+                    **({"unresolved_teams": unresolved} if unresolved else {}),
+                    **({"unclassifiable": unclassifiable} if unclassifiable else {}),
+                },
             )
             raise
     if failed_days:
         print(f"ingest: provider failures for days {failed_days}")
     if unresolved:
         print(f"ingest: {len(unresolved)} fixture(s) skipped for unmapped teams: {unresolved}")
+    if unclassifiable:
+        print(
+            f"ingest: {len(unclassifiable)} fixture(s) skipped, season Decision Day not "
+            f"configured: {unclassifiable}"
+        )
     return {
         "statusCode": 200,
         "totals": totals,
@@ -321,6 +343,8 @@ def canary(event: dict[str, Any], context: Any) -> dict[str, Any]:
     import time as _time
     import urllib.request
 
+    from ingestion.rs_filter import guard_horizon, seasons_missing_decision_day
+
     api_url = os.environ.get("KICKLENS_API_URL", "")
     if not api_url:
         raise RuntimeError("canary: KICKLENS_API_URL not configured")
@@ -396,6 +420,45 @@ def canary(event: dict[str, Any], context: Any) -> dict[str, Any]:
             " ORDER BY finished_at_utc DESC LIMIT 1"
         ).fetchone()
         unmapped = [] if skipped is None or skipped[0] is None else list(skipped[0])
+        # T-281: fixtures the RS filter refused to classify, same 24h job_run channel.
+        refused_row = conn.execute(
+            "SELECT details->'unclassifiable' FROM job_run"
+            " WHERE job_name = 'ingest' AND status = 'done'"
+            "   AND details ? 'unclassifiable'"
+            "   AND finished_at_utc > now() - interval '24 hours'"
+            " ORDER BY finished_at_utc DESC LIMIT 1"
+        ).fetchone()
+        refused = [] if refused_row is None or refused_row[0] is None else list(refused_row[0])
+        # …and the EARLY warning, which is the point of this check: the config gap is
+        # knowable months before the guard horizon, so raise as soon as a season we hold
+        # fixtures for has no Decision Day. Without this the first symptom would be skipped
+        # playoff fixtures in October; with it, the alarm starts the day the season opens.
+        seasons_row = conn.execute(
+            "SELECT DISTINCT s.year FROM season s JOIN match m USING (season_id)"
+            " WHERE m.kickoff_utc > now() - interval '365 days'"
+        ).fetchall()
+        # Bounded to a lead window ON PURPOSE. Raising from the day a season opens would page
+        # daily for ~8 months, and this same canary guards the missed-forecast dead-man — the
+        # worst failure this project can have. Teaching the developer to ignore canary mail
+        # would cost more than the bug it warns about. CANARY_DECISION_DAY_LEAD_DAYS gives
+        # enough runway to look up a published calendar and push a one-line config change,
+        # and it keeps raising past the horizon (when fixtures start being refused).
+        today = datetime.now(UTC).date()
+        unconfigured = [
+            year
+            for year in seasons_missing_decision_day({int(r[0]) for r in seasons_row})
+            if today >= guard_horizon(year) - timedelta(days=CANARY_DECISION_DAY_LEAD_DAYS)
+        ]
+    if unconfigured:
+        problems.append(
+            f"season(s) {unconfigured} have ingested fixtures but no Decision Day in "
+            "packages/ingestion/resources/decision_days.json — from each season's guard "
+            f"horizon ({[guard_horizon(y).isoformat() for y in unconfigured]}) the RS filter "
+            "REFUSES to classify its fixtures, because playoff matches cannot be told from "
+            "regular-season ones. Add the date when MLS publishes the calendar."
+        )
+    if refused:
+        problems.append(f"{len(refused)} fixture(s) skipped, season not configured: {refused}")
     if unmapped:
         problems.append(
             f"{len(unmapped)} fixture(s) skipped for unmapped teams: {unmapped} "

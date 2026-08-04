@@ -28,7 +28,20 @@ For season `S` with regular-season end date `DecisionDay(S)` (US-local, public r
   date shift for evening kickoffs.
 - **2020 only:** additionally exclude rows in `2020-07-25 .. 2020-08-12` (MIB knockout rounds).
 - The current season (2026) has no Decision Day yet; its value must be added to the per-season
-  constants when the league publishes it (rule degrades safely: no 2026 rows are excluded until then).
+  constants when the league publishes it.
+
+  **CORRECTED 2026-08-03 (T-281).** This line used to end "rule degrades safely: no 2026 rows are
+  excluded until then." That was wrong, and dangerously so: "excludes nothing" means *every* date
+  of an unconfigured season counts as regular season, so once the playoffs began, playoff fixtures
+  would have been forecast, hashed, anchored publicly and graded into the live record — write-once
+  and unretractable. `rs_filter` now **refuses to classify** an unconfigured season from its
+  **guard horizon** onward: the earliest Decision Day ever configured, which the table below puts
+  at **10-06** (2019). Before that date an unconfigured season is still treated as regular season
+  (no Decision Day has ever fallen earlier, so it cannot be a playoff match); on or after it,
+  ingest skips the fixture and reports it, and the daily canary raises from 45 days ahead.
+  The horizon is derived from this table, so adding an earlier season tightens it automatically.
+  Note the spread — 10-06 (2019) to 11-08 (2020) — is five weeks: anchoring on the *latest*
+  would wave three weeks of genuine playoff fixtures through in a normal year.
 
 Per-season constants (US-local Decision Day):
 2012: 10-28 · 2013: 10-27 · 2014: 10-26 · 2015: 10-25 · 2016: 10-23 · 2017: 10-22 · 2018: 10-28 ·

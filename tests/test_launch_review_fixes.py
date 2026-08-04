@@ -350,6 +350,45 @@ if DATABASE_URL:
         assert len(notes) == 1
         assert "Some Cup Opponent" in notes[0] and "999999" in notes[0]
 
+    def test_unconfigured_season_skips_only_that_fixture(env) -> None:  # type: ignore[no-untyped-def]
+        """T-281: a fixture past the guard horizon in a season with no configured Decision Day
+        cannot be told from a playoff match, so it is SKIPPED and reported — same blast radius
+        as ADR-006's unmapped team, and for the same reason: the sweep must keep running.
+
+        The failure this prevents is worse than a halted sweep. `_match_id` stamps
+        `is_regular_season` ONCE at insert and returns early forever after, so a guessed flag
+        is never revisited — and if the fixture is then forecast, the row is hashed, anchored
+        publicly and graded into the live record, none of which can be retracted."""
+        conn = env["conn"]
+        # The season_year passed here is DERIVED to be absent from decision_days.json rather
+        # than hardcoded to 2026: pinning 2026's absence would make this test fail the day the
+        # developer does the one thing every part of this mechanism is nagging them to do.
+        # season_id stays the fixture's — rs_filter only ever sees the YEAR.
+        from ingestion.rs_filter import decision_day_for
+
+        year = max(y for y in range(2000, 2100) if decision_day_for(y) is not None) + 50
+        late = datetime(year, 11, 20, 20, 0, tzinfo=UTC)  # past the Oct 6 guard horizon
+        ambiguous = _fx("910", late)
+        early = _fx("911", datetime(year, 8, 20, 20, 0, tzinfo=UTC))  # safely regular season
+        notes: list[str] = []
+        stats = ingest_live_fixtures(
+            conn, [ambiguous, early], env["season"], year, unclassifiable_out=notes
+        )
+        assert stats["unclassifiable"] == 1
+        assert stats["new"] == 1  # the in-season fixture still ingested
+        # nothing persisted for the refused fixture — so it is recoverable, not lost
+        row = conn.execute(
+            "SELECT count(*) FROM source_fixture WHERE provider_fixture_id='910'"
+        ).fetchone()
+        assert row is not None and int(row[0]) == 0
+        # …and no match row either: the flag is set at INSERT and never revisited, so the
+        # ONLY safe outcome is that the row does not exist at all
+        m = conn.execute("SELECT count(*) FROM match WHERE kickoff_utc = %s", (late,)).fetchone()
+        assert m is not None and int(m[0]) == 0
+        # the note is actionable: it names the season and the file to edit
+        assert len(notes) == 1
+        assert str(year) in notes[0] and "decision_days.json" in notes[0]
+
     def test_unmapped_fixture_ingests_once_the_alias_exists(env) -> None:  # type: ignore[no-untyped-def]
         """A skip is not a dead end: nothing is persisted for the skipped fixture, so the very
         next sweep picks it up as soon as the developer adds the alias."""

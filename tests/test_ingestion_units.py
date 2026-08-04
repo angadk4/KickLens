@@ -13,7 +13,14 @@ from ingestion.normalize import (
     parse_file,
 )
 from ingestion.reconcile import ReconciliationReport
-from ingestion.rs_filter import is_regular_season
+from ingestion.rs_filter import (
+    SeasonNotConfiguredError,
+    decision_day_for,
+    guard_horizon,
+    is_ambiguous,
+    is_regular_season,
+    seasons_missing_decision_day,
+)
 from ingestion.validate import RejectRateExceeded, check, partition, quarantine, screen_odds
 
 HEADER = (
@@ -110,8 +117,92 @@ def test_2020_mib_knockouts_excluded_group_stage_kept() -> None:
     assert is_regular_season(2020, date(2020, 7, 20))  # group stage counted
 
 
-def test_unconfigured_season_excludes_nothing() -> None:
-    assert is_regular_season(2026, date(2026, 12, 25))
+# T-281 (2026-08-03). This block REPLACES `test_unconfigured_season_excludes_nothing`, which
+# asserted `is_regular_season(2026, date(2026, 12, 25)) is True` — i.e. it pinned the very
+# behaviour that would have entered MLS playoff fixtures into the tamper-evident record as
+# regular season. The old test was not wrong about the code; it was wrong about what the code
+# should do, and it would have failed silently in the developer's favour every October.
+#
+# These assert on UNCONFIGURED, a year DERIVED to be absent from the config rather than
+# hardcoded to 2026. The first draft used 2026, and adversarial review caught the trap:
+# adding the 2026 Decision Day — the exact one-line action the canary, the JSON's own _doc and
+# E1-playoffs.md all demand — turned five tests red. Attaching friction to the maintenance
+# action a mechanism exists to force is how you train someone to weaken the test instead
+# (which CLAUDE.md §2 forbids outright). Derived from the config, this can never happen.
+def _unconfigured_year() -> int:
+    """A season year guaranteed absent from decision_days.json, by construction."""
+    configured = [y for y in range(2000, 2100) if decision_day_for(y) is not None]
+    return max(configured) + 50
+
+
+def test_unconfigured_season_is_regular_before_the_guard_horizon() -> None:
+    # early in an unconfigured season nothing is ambiguous: no MLS Decision Day has ever
+    # fallen this early, so a March fixture cannot be a playoff match
+    year = _unconfigured_year()
+    assert is_regular_season(year, date(year, 3, 15))
+    assert is_regular_season(year, date(year, 8, 8))
+    assert not is_ambiguous(year, date(year, 8, 8))
+
+
+def test_unconfigured_season_REFUSES_to_classify_after_the_horizon() -> None:
+    # the failure this guard exists to prevent: a December date used to return True
+    year = _unconfigured_year()
+    with pytest.raises(SeasonNotConfiguredError) as exc:
+        is_regular_season(year, date(year, 12, 25))
+    # the message must be actionable — it names the season and the file to edit
+    assert str(year) in str(exc.value)
+    assert "decision_days.json" in str(exc.value)
+    assert is_ambiguous(year, date(year, 12, 25))
+    # and the first playoff-plausible date is refused too, not just the extreme one
+    with pytest.raises(SeasonNotConfiguredError):
+        is_regular_season(year, date(year, 10, 25))
+
+
+def test_guard_horizon_is_derived_from_the_configured_data() -> None:
+    # The earliest Decision Day in 14 configured seasons is 2019-10-06, so the horizon is
+    # Oct 6 — DERIVED, so adding an earlier season tightens the guard with no code change.
+    # (Configured Decision Days span Oct 6 2019 to Nov 8 2020: five weeks of spread. The
+    # horizon must be the EARLIEST, not the latest — anchoring on Nov 8 would wave three
+    # weeks of genuine playoff fixtures through in a normal-calendar year, which is the exact
+    # failure this guard exists to stop.)
+    year = _unconfigured_year()
+    assert guard_horizon(year) == date(year, 10, 6)
+    assert is_regular_season(year, date(year, 10, 5))  # day before: still safe
+    with pytest.raises(SeasonNotConfiguredError):
+        is_regular_season(year, date(year, 10, 6))  # horizon itself: ambiguous
+
+
+def test_horizon_tracks_the_config_rather_than_a_hardcoded_date() -> None:
+    # the guarantee that makes the derivation worth having: the horizon is never later than
+    # any Decision Day we have ever seen, so no configured season could have been misread
+    # compare by (month, day), NOT by absolute date — min() over dates from different years
+    # picks the oldest season, which is a different question entirely
+    days = [d for d in (decision_day_for(y) for y in range(2012, 2026)) if d is not None]
+    month, day = min((d.month, d.day) for d in days)
+    assert guard_horizon(2030) == date(2030, month, day)
+    # and no configured season's Decision Day falls before its own horizon
+    for year in range(2012, 2026):
+        configured = decision_day_for(year)
+        assert configured is not None
+        assert configured >= guard_horizon(year)
+
+
+def test_configured_seasons_are_completely_unaffected_by_the_guard() -> None:
+    # every historical season keeps its exact prior behaviour — the guard only fires where
+    # there was previously a silent guess
+    assert is_regular_season(2024, date(2024, 10, 20))
+    assert not is_regular_season(2024, date(2024, 12, 25))
+    assert not is_ambiguous(2024, date(2024, 12, 25))
+    assert not is_ambiguous(2020, date(2020, 7, 26))
+
+
+def test_seasons_missing_decision_day_powers_the_early_canary_warning() -> None:
+    # the canary uses this to raise MONTHS before the horizon, while the fix is still cheap
+    year = _unconfigured_year()
+    assert seasons_missing_decision_day([2024, 2025]) == []
+    assert seasons_missing_decision_day([2025, year]) == [year]
+    assert decision_day_for(2025) == date(2025, 10, 18)
+    assert decision_day_for(year) is None
 
 
 # ---------- T-030 fetch/caching ----------
@@ -199,3 +290,37 @@ def test_injected_conflict_appears_in_report() -> None:
     assert len(report.conflicts) == 1
     c = report.conflicts[0]
     assert c.resolution == "applied-incoming" and "conflicts=1" in report.summary()
+
+
+def test_historical_loader_refuses_rather_than_guessing() -> None:
+    """T-281 follow-through: `is_regular_season` is called from TWO places — live.py and the
+    historical loader. The first cut guarded only live.py, and adversarial review caught it:
+    `load.main()` runs the whole load in ONE transaction, `new/USA.csv` carries the CURRENT
+    season, and `.github/workflows/train.yml` runs `python -m ingestion.load` as its first
+    line under `bash -e`. So an uncaught raise would abort the entire historical load and kill
+    the monthly retrain — on a calendar date, not on a real defect.
+
+    This asserts the raise reaches `insert_match`'s caller (the loop catches and counts it);
+    the loop's skip behaviour itself is covered by the ingest integration test."""
+    year = _unconfigured_year()
+    # the loader classifies on natural_key_date, so a post-horizon row must refuse
+    with pytest.raises(SeasonNotConfiguredError):
+        is_regular_season(year, date(year, 11, 20))
+    # …and a pre-horizon row in the same unconfigured season must still load normally, so
+    # 2012-2025 plus the in-season part of the current year are unaffected
+    assert is_regular_season(year, date(year, 5, 20))
+
+
+def test_decision_day_config_rejects_a_year_that_disagrees_with_its_key() -> None:
+    """The guard fires on ABSENCE and cannot catch a WRONG value — a Decision Day configured
+    LATER than the truth silently stamps the first playoff round regular season, which is the
+    original hole re-entered by typo. This catches the mechanically checkable slice: a season
+    mapped to a date in a different year (a copy-paste of the wrong season)."""
+    import ingestion.rs_filter as rf
+
+    rf._config.cache_clear()
+    try:
+        with pytest.raises(ValueError, match="must fall in its own season"):
+            rf._validate_days({2026: date(2025, 10, 18)})
+    finally:
+        rf._config.cache_clear()

@@ -22,7 +22,7 @@ from ingestion import validate as vl
 from ingestion.historical import RawSnapshot, fetch_usa_csv, record_dataset_snapshot
 from ingestion.normalize import NormalizedMatch, parse_file
 from ingestion.reconcile import ReconciliationReport
-from ingestion.rs_filter import is_neutral_site, is_regular_season
+from ingestion.rs_filter import SeasonNotConfiguredError, is_neutral_site, is_regular_season
 
 SOURCE = "football-data"
 
@@ -153,16 +153,34 @@ def load_historical(conn: psycopg.Connection, data_root: Path) -> Reconciliation
 
     report = ReconciliationReport(source=SOURCE)
     odds_rows = 0
+    # T-281: the same refusal live.py handles, on the historical path. `new/USA.csv` carries
+    # the CURRENT season, so once an unconfigured season passes its guard horizon this loop
+    # meets a row rs_filter will not classify. main() runs the whole load in ONE transaction,
+    # so letting it propagate would abort the entire historical load — and this module is the
+    # first line of the monthly retrain workflow AND runs in CI, so an uncaught raise would
+    # turn the retrain and every push red on a calendar date rather than on a real defect.
+    # Skip + count, exactly as ADR-006 does for an unmapped team: 2012-2025 still load.
+    refused: list[str] = []
     for m in valid:
-        match_id = insert_match(conn, m, seasons[m.season_year], teams, report)
+        try:
+            match_id = insert_match(conn, m, seasons[m.season_year], teams, report)
+        except SeasonNotConfiguredError as exc:
+            refused.append(f"{m.natural_key_date} {m.home_name} v {m.away_name}: {exc}")
+            continue
         if match_id is not None:
             odds_rows += insert_closing_odds(conn, m, match_id)
     print(
         f"[load_historical] snapshot={snap.sha256[:12]} rows={len(rows)} valid={len(valid)} "
         f"rejects={len(rejects)} parse_rejects={len(parse_rejects)} "
-        f"odds_issues={len(odds_issues)} | {report.summary()} | market_snapshots+={odds_rows} "
+        f"odds_issues={len(odds_issues)} refused={len(refused)} | {report.summary()} "
+        f"| market_snapshots+={odds_rows} "
         f"| finished {datetime.now(UTC).isoformat(timespec='seconds')}"
     )
+    # NOT routed through vl.quarantine: that enforces the 5% reject-rate halt and runs before
+    # this loop, so a refused row would become a silent hole in the TRAINING data rather than
+    # a visible skip. These are printed instead, so a truncated season is legible in the log.
+    for note in refused[:10]:
+        print(f"  REFUSED (season not configured) {note}")
     for line, issue in odds_issues[:10]:
         print(f"  ODDS-ISSUE line {line}: {issue}")
     for c in report.conflicts[:20]:

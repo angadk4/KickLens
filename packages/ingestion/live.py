@@ -26,7 +26,7 @@ import psycopg
 
 from ingestion.aliases import UnresolvedTeamError, resolve_or_raise, resolver
 from ingestion.historical import RETRY_DELAYS_S
-from ingestion.rs_filter import is_regular_season
+from ingestion.rs_filter import SeasonNotConfiguredError, is_regular_season
 
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0 Safari/537.36"
 HIGHLIGHTLY_LEAGUE_ID = 216087
@@ -294,6 +294,7 @@ def ingest_live_fixtures(
     now: datetime | None = None,
     results_only: bool = False,
     unresolved_out: list[str] | None = None,
+    unclassifiable_out: list[str] | None = None,
 ) -> dict[str, int]:
     """Upsert canonical rows: unchanged payload → no-op; changed → revision N+1 (same match).
     Finished fixtures set the match result (live provider wins for the current season).
@@ -306,10 +307,18 @@ def ingest_live_fixtures(
     MLS play. The narrowing is the whole safety argument — do not widen it casually.
 
     A fixture whose teams have no alias is SKIPPED, never guessed (T-040 holds), and reported
-    via stats['unresolved'] + unresolved_out — the sweep continues (ADR-006)."""
+    via stats['unresolved'] + unresolved_out — the sweep continues (ADR-006).
+
+    A fixture in a season with no configured Decision Day, late enough in the year to be a
+    playoff match, is SKIPPED the same way (T-281) and reported via stats['unclassifiable'] +
+    unclassifiable_out. The asymmetry is deliberate: not ingesting a fixture is undone by the
+    next sweep once the config lands, whereas ingesting one with a guessed
+    `is_regular_season` writes a flag this function never revisits and, if it is forecast,
+    an anchored write-once row that cannot be retracted."""
     now = now or datetime.now(UTC)
     stats = {"new": 0, "revisions": 0, "unchanged": 0, "results": 0, "voided": 0}
     unresolved: list[str] = []
+    unclassifiable: list[str] = []
     for fx in fixtures:
         if results_only and not (
             fx.status == "final" and fx.home_goals is not None and fx.away_goals is not None
@@ -326,6 +335,23 @@ def ingest_live_fixtures(
             unresolved.append(_unresolved_note(fx, exc))
             stats["unresolved"] = stats.get("unresolved", 0) + 1
             continue
+        except SeasonNotConfiguredError as exc:
+            # T-281: the season's Decision Day is not configured and this date is late enough
+            # to be a playoff fixture. Skipping costs one row until the config lands; guessing
+            # costs a permanently wrong flag on an anchored, graded, write-once record.
+            unclassifiable.append(
+                f"{fx.kickoff_utc:%Y-%m-%d} {fx.home_label or fx.home_key} v "
+                f"{fx.away_label or fx.away_key} (fixture {fx.provider_fixture_id}): {exc}"
+            )
+            stats["unclassifiable"] = stats.get("unclassifiable", 0) + 1
+            continue
+    if unclassifiable:
+        print(
+            f"live-ingest: {len(unclassifiable)} fixture(s) SKIPPED, season not configured: "
+            f"{unclassifiable}"
+        )
+        if unclassifiable_out is not None:
+            unclassifiable_out.extend(unclassifiable)
     if unresolved:
         # loud in CloudWatch AND handed to the caller, which persists it to job_run.details
         # so the daily canary keeps raising until an alias (or an exclusion) is added

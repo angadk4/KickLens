@@ -34,6 +34,16 @@ if DATABASE_URL:
 
         return opener
 
+    @pytest.fixture(autouse=True)
+    def _quiet_decision_day_warning(monkeypatch: pytest.MonkeyPatch) -> None:
+        """T-281: the seeded DB holds 2026 fixtures and 2026 has no configured Decision Day,
+        so the canary's lead-time warning would fire inside every test in this module — but
+        only from 45 days before the Oct 6 guard horizon, i.e. from late August onward. That
+        is a TIME BOMB: these tests would pass today and start failing on a date nobody
+        chose. Pin the lead window closed here; the two tests below open it deliberately and
+        assert both sides."""
+        monkeypatch.setattr(handlers, "CANARY_DECISION_DAY_LEAD_DAYS", -10_000)
+
     @pytest.fixture(scope="module")
     def env():  # type: ignore[no-untyped-def]
         assert DATABASE_URL is not None
@@ -196,3 +206,63 @@ if DATABASE_URL:
         monkeypatch.delenv("KICKLENS_API_URL", raising=False)
         with pytest.raises(RuntimeError, match="KICKLENS_API_URL"):
             handlers.canary({}, None)
+
+    # ---------- T-281: the unconfigured-Decision-Day warning ----------
+
+    def test_decision_day_warning_fires_inside_the_lead_window(  # type: ignore[no-untyped-def]
+        env, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A season with fixtures but no configured Decision Day must make the canary raise,
+        naming the season, the file to edit, and the horizon after which fixtures start being
+        REFUSED rather than guessed.
+
+        Seeds its OWN far-future season rather than leaning on 2026's absence: pinning that
+        would make this test fail the day the developer configures 2026, i.e. the one action
+        this alarm exists to demand."""
+        from ingestion.rs_filter import decision_day_for
+
+        year = max(y for y in range(2000, 2100) if decision_day_for(y) is not None) + 50
+        conn = env["conn"]
+        conn.execute(
+            "INSERT INTO season (league_id, year)"
+            " SELECT league_id, %s FROM league WHERE code='MLS'"
+            " ON CONFLICT (league_id, year) DO NOTHING",
+            (year,),
+        )
+        conn.execute(
+            "INSERT INTO match (season_id, home_team_id, away_team_id, kickoff_utc, status)"
+            " SELECT season_id, %s, %s, %s, 'scheduled' FROM season WHERE year = %s",
+            (env["h"], env["a"], datetime(year, 5, 1, tzinfo=UTC), year),
+        )
+        monkeypatch.setattr(
+            "urllib.request.urlopen",
+            _fake_urlopen({"status": "ok", "freshness_ok": True, "last_ingest": "now"}),
+        )
+        # lead wide enough to reach a far-future horizon from today
+        monkeypatch.setattr(handlers, "CANARY_DECISION_DAY_LEAD_DAYS", 400_000)
+        try:
+            with pytest.raises(RuntimeError) as exc:
+                handlers.canary({}, None)
+            msg = str(exc.value)
+            assert str(year) in msg
+            assert "decision_days.json" in msg
+            assert f"{year}-10-06" in msg  # the derived horizon, stated so it is actionable
+        finally:
+            conn.execute(
+                "DELETE FROM match WHERE kickoff_utc = %s", (datetime(year, 5, 1, tzinfo=UTC),)
+            )
+            conn.execute("DELETE FROM season WHERE year = %s", (year,))
+
+    def test_decision_day_warning_is_silent_outside_the_lead_window(  # type: ignore[no-untyped-def]
+        env, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """…and stays quiet until the horizon is near. A canary that pages daily for eight
+        months trains you to ignore it, and this same canary guards the missed-forecast
+        dead-man — the worst failure this project can have."""
+        monkeypatch.setattr(
+            "urllib.request.urlopen",
+            _fake_urlopen({"status": "ok", "freshness_ok": True, "last_ingest": "now"}),
+        )
+        monkeypatch.setattr(handlers, "CANARY_DECISION_DAY_LEAD_DAYS", -10_000)
+        out = handlers.canary({}, None)
+        assert out["statusCode"] == 200
