@@ -334,5 +334,10 @@
   "defunct": [
     "Chivas USA"
   ],
-  "_note_defunct": "Chivas USA folded after 2014; appears only in pre-era (2012-2014) rows kept for the post-MVP sensitivity check. No live-provider id will ever exist."
+  "_note_defunct": "Chivas USA folded after 2014; appears only in pre-era (2012-2014) rows kept for the post-MVP sensitivity check. No live-provider id will ever exist.",
+  "deliberately_unmapped": {
+    "highlightly:15033699": "MLS All-Stars",
+    "highlightly:15032848": "Liga MX All-Stars"
+  },
+  "_note_deliberately_unmapped": "DO NOT ADD ALIASES FOR THESE. They are all-star SELECTIONS, not clubs, and the fixture they appear in is the annual MLS All-Star Game exhibition (seen 2026-07-30, 'MLS All-Stars v Liga MX All-Stars', Highlightly fixture 1331854930). Leaving them unmapped IS the exclusion: T-040 refuses to guess an unknown key, so ingest skips the fixture (ADR-006) and it never enters the record. Adding an alias would ingest an exhibition, and the T-281 playoff guard would NOT catch it \u2014 the All-Star Game is played in late July, months before any Decision Day horizon. This recurs EVERY SUMMER: expect a canary 'unmapped teams' raise for a few days each July and take no action. Recorded 2026-08-07 after the 2026 occurrence produced 43 skip events (2026-07-26 to 08-02)."
 }

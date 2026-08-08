@@ -276,7 +276,9 @@ def finalize_fixture(conn: psycopg.Connection, match_id: int, now: datetime) -> 
 
 def generate_draft(conn: psycopg.Connection, match_id: int, now: datetime) -> bool:
     """Overwritable preliminary forecast for fixtures inside the 7-day window.
-    Never hashed, never graded, refreshed daily (Contract A-drafts)."""
+    Never hashed, never graded, refreshed HOURLY (Contract A-drafts). Said "daily" until
+    2026-08-07: the caller is the feature job on `cron(10 * * * ? *)`, so a fixture a week out
+    has its draft rewritten ~168 times before kickoff, not 7."""
     fx = _fixture(conn, match_id)
     if not (now < fx.kickoff_utc <= now + DRAFT_WINDOW):
         return False

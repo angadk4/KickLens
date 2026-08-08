@@ -13,17 +13,21 @@ export const REPO_URL = "https://github.com/angadk4/KickLens";
 export const ANCHORS_URL = `${REPO_URL}/tree/main/anchors`;
 
 // ——— test suite (Engineering page + architecture diagram) ———
-// The count of the suite THIS deploy ships with: 199 passed, 1 skipped against the real
-// Postgres service container (verified locally 2026-07-23; the prior green CI run,
-// 29968808965, showed 197 before this change set added its 2 tests — the page deploys with
-// the push that makes it 199). The skip is data-gated: a market-aggregation check
-// (tests/test_market.py) that needs the full historical dataset, which a fresh CI database
-// doesn't hold; the recompute-parity leakage checks with the same need run in the sealed
-// training environment, where the history is loaded.
-export const TESTS_CI_PASSED = 199;
+// The count of the suite THIS deploy ships with: 218 passed, 1 skipped against the real
+// Postgres service container. Refreshed 2026-08-07 — it had sat at 199/2026-07-23 through
+// five green CI runs while the suite grew by 19 (the audit, verdict, RS-filter and
+// facts-vs-Terraform tickets each added their own), so the page understated its own coverage
+// on the one page whose eyebrow reads "everything links to proof". This file's header rule
+// is the fix: update on a new green CI run, never by editing page copy.
+// The skip is data-gated: a market-aggregation check (tests/test_market.py) that needs the
+// full historical dataset, which a fresh CI database doesn't hold; the recompute-parity
+// leakage checks with the same need run in the sealed training environment.
+// NOTE this is the BACKEND suite only, which is what the page's wording claims ("vs a real
+// Postgres in CI"). The frontend adds 282 vitest specs that are deliberately not counted here.
+export const TESTS_CI_PASSED = 218;
 export const TESTS_CI_SKIPPED = 1;
 /** UTC date the counts above were verified. */
-export const TESTS_ASOF = "2026-07-23";
+export const TESTS_ASOF = "2026-08-07";
 
 // ——— seal & evaluation dates (ISO everywhere — one format site-wide) ———
 /** Dev selection sealed: model + calibration frozen before the test — docs/selection.md. */
