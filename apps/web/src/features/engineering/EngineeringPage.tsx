@@ -1,9 +1,8 @@
 // The system, for people who build systems: invariants and their enforcement mechanisms,
 // the deployed architecture, how it's operated, and what went wrong. Every claim is
 // checkable — a file, a trigger, a workflow, or a public anchor. No new endpoints:
-// this page renders from verified static facts plus /health and /predictions/completed.
+// this page renders from verified static facts plus the shared app-shell board.
 import { Link } from "react-router-dom";
-import { api } from "../../api";
 import { useUpcoming } from "../../components/layout/UpcomingContext";
 import { Section } from "../../components/ui/Section";
 import { StatTile } from "../../components/ui/StatTile";
@@ -20,7 +19,6 @@ import {
   TESTS_CI_SKIPPED,
   TEST_EVAL_DATE,
 } from "../../lib/facts";
-import { useApi } from "../../lib/useApi";
 import { ActivityFeed } from "./ActivityFeed";
 import { ArchitectureDiagram, DiagramWhys } from "./ArchitectureDiagram";
 import { NextRunsBoard } from "./NextRunsBoard";
@@ -101,11 +99,13 @@ const OMISSIONS = [
 export function EngineeringPage() {
   // /health used to be fetched here for the Operations live-line; the NextRunsBoard now
   // reads the shared health store instead (one fetch for the whole app, matchday-fresh)
-  const latest = useApi(() => api.completed(1));
-  const { list } = useUpcoming();
+  // the shell already fetched this: /board carries the newest graded item, so asking for
+  // /predictions/completed?limit=1 again was a second request for a payload already in
+  // memory — and, on a cold backend, a second container waking the database for it
+  const { list, latestGraded } = useUpcoming();
   // graded match → its proof page; else the soonest fixture (whose page carries the
   // prover the moment its freeze lands, and the disarmed bench before that)
-  const latestId = latest.data?.items?.[0]?.match_id;
+  const latestId = latestGraded?.match_id;
   const fallbackId = list?.[0]?.match_id;
   const verifyTarget = latestId ?? fallbackId;
   const verifyLabel = latestId ? "Verify a real forecast" : "Verify the next frozen forecast";

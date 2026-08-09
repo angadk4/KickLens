@@ -83,9 +83,11 @@ budget only while present.
 - Loading placeholders (`.skeleton`, the juggling ball) are exempt from the cap **on the
   condition that they are composited-only**.
 - Transient loops bounded by an in-flight request (`.btn.busy`'s spinner) don't count.
-- A **transient rAF bounded by a single interaction**, running on framer-motion's shared
-  frameloop and cancelled the frame it goes to sleep, does not count and does not violate
-  rule 7. So is a **one-shot `setTimeout` bounded by a single event** (`HashProof`'s
+- A **transient rAF bounded by a single interaction**, cancelled the frame it goes to sleep,
+  does not count and does not violate rule 7. (This clause used to name framer-motion's shared
+  frameloop as the host. framer-motion was removed in the 2026-08-09 performance pass — it was
+  ~65 KB of first-paint bundle serving one number tween and a `MotionConfig` with no consumers.
+  Its two hosts are now `lib/tween.ts` for value tweens and `lib/useTilt.ts`'s coalesced rAF.) So is a **one-shot `setTimeout` bounded by a single event** (`HashProof`'s
   `MIN_BEAT_MS` pacing floors ship as this). Recurring timers remain forbidden — with ONE
   named, pre-existing exception: `HashProof`'s 25ms per-character reveal interval, which is
   interaction-bounded, cleared at completion and on unmount, and was part of the sanctioned
@@ -120,9 +122,10 @@ budget only while present.
    live in fixed `em` boxes with `overflow: hidden` for exactly this reason.
 6. **Every hover affordance has a `:focus-visible` twin**, wired to the same state, plus a
    `@media (hover: none)` path where the content matters.
-7. **No new timers.** All motion runs on CSS, framer-motion's single shared frameloop, or the
-   shared clock registry (`lib/clock.ts`). No new `setInterval`, no persistent rAF loop (see
-   the transient-rAF exemption above).
+7. **No new timers.** All motion runs on CSS, the shared clock registry (`lib/clock.ts`), or a
+   one-shot rAF bounded by a single event and cancelled on unmount (`lib/tween.ts`,
+   `lib/useTilt.ts`). No new `setInterval`, no persistent rAF loop (see the transient-rAF
+   exemption above).
 8. **Reads in render, writes in effects.** A `sessionStorage`/`localStorage` read-then-write
    inside a render function is double-invoked by StrictMode and will see its own write — that
    is precisely how the hero cascade suppressed itself on every dev reload while nobody could

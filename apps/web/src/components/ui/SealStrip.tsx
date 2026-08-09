@@ -6,11 +6,24 @@
 //
 // The caption (lib/sealStrip) is load-bearing and unit-tested: one cell is one CALENDAR DAY,
 // and an empty cell means no official forecast was issued — not a missed seal.
-import { api } from "../../api";
+import { api, paths, prefetchPath } from "../../api";
 import { buildStrip, sealedCount, stripCaption } from "../../lib/sealStrip";
 import { useApi } from "../../lib/useApi";
 
 const DAYS = 90;
+
+/**
+ * Start this strip's fetch WITHOUT mounting it.
+ *
+ * Both hosts render <SealStrip/> inside a `{data && …}` gate, so its request could not begin
+ * until the page's own request had resolved — two serial round trips, and on a cold backend two
+ * serial database wakes. Calling this at page mount starts it in parallel; the component then
+ * dedups onto the same in-flight promise (lib/requestCache) when it finally mounts. The gate and
+ * the layout are untouched.
+ */
+export function warmSealStrip(): void {
+  prefetchPath(paths.merkleRoots(DAYS));
+}
 
 export function SealStrip() {
   const { data } = useApi(() => api.merkleRoots(DAYS));

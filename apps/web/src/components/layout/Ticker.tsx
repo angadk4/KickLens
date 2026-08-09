@@ -12,7 +12,7 @@ import { tickerDuration } from "../../lib/ticker";
 import { useMediaQuery } from "../../lib/useMediaQuery";
 import { useNow, useRelativeTime } from "../../lib/useRelativeTime";
 import { useHealth } from "./HealthContext";
-import { useUpcoming } from "./UpcomingContext";
+import { useUpcomingNow } from "./UpcomingContext";
 
 // per-minute text — the hero owns seconds. `now` comes from the ONE shared clock: this
 // used to be a component with its own setInterval, one per non-frozen ticker item (≤6).
@@ -33,7 +33,7 @@ function freezeIn(cutoff: Date, now: number): string {
 export function Ticker() {
   // the already-kicked-off fixtures are filtered out upstream: a running match must never
   // scroll past as "freezes in 0m"
-  const { upcoming } = useUpcoming();
+  const upcoming = useUpcomingNow();
   const { health } = useHealth();
   const ingested = useRelativeTime(health?.last_ingest);
   const now = useNow();

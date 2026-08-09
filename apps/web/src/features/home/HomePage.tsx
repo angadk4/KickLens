@@ -4,7 +4,7 @@
 import { Link } from "react-router-dom";
 import { api } from "../../api";
 import { useHealth } from "../../components/layout/HealthContext";
-import { useUpcoming } from "../../components/layout/UpcomingContext";
+import { useUpcoming, useUpcomingNow } from "../../components/layout/UpcomingContext";
 import { FlapNumber } from "../../components/ui/FlapNumber";
 import { Section } from "../../components/ui/Section";
 import { StatTile } from "../../components/ui/StatTile";
@@ -213,7 +213,8 @@ function Hero() {
     never repeats the hero's next-freeze fact. */
 function StatusCell() {
   const { health, apiDown } = useHealth();
-  const { upcoming, inPlay } = useUpcoming();
+  const { inPlay } = useUpcoming();
+  const upcoming = useUpcomingNow();
   const ingested = useRelativeTime(health?.last_ingest);
   const graded = useRelativeTime(health?.last_grade);
   // a dead FULL fixture sweep is its own kind of stale: results kept flowing while the
@@ -254,7 +255,8 @@ function StatusCell() {
 }
 
 export function HomePage() {
-  const { upcoming, totalGraded } = useUpcoming();
+  const { totalGraded } = useUpcoming();
+  const upcoming = useUpcomingNow();
   const { health } = useHealth();
   const test = useApi(() => api.performance("test"));
   const dev = useApi(() => api.performance("dev"));

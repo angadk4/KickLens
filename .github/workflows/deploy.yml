@@ -75,8 +75,25 @@ jobs:
           VITE_API_URL=$API_URL npm run build
       - name: Sync to S3 + invalidate
         run: |
-          aws s3 sync apps/web/dist s3://$SITE_BUCKET --delete
-          aws cloudfront create-invalidation --distribution-id $CLOUDFRONT_ID --paths "/*"
+          # Two passes, because the two kinds of file want opposite caching.
+          #
+          # Everything under assets/ carries a content hash in its filename, so the bytes behind
+          # a given URL can never change: cache it for a year and mark it immutable, which tells
+          # the browser not to revalidate at all. Previously the sync set NO Cache-Control, so
+          # CloudFront fell back to its default TTL and the browser revalidated every asset on
+          # every navigation — a round trip per file for bytes it already had.
+          aws s3 sync apps/web/dist s3://$SITE_BUCKET --delete \
+            --exclude "index.html" \
+            --cache-control "public, max-age=31536000, immutable"
+          # index.html is the one mutable file: it names the hashed assets, so it must never be
+          # served stale or the page loads a previous deploy's bundle.
+          aws s3 cp apps/web/dist/index.html s3://$SITE_BUCKET/index.html \
+            --cache-control "no-cache, must-revalidate" \
+            --content-type "text/html; charset=utf-8"
+          # Only index.html can go stale at the edge now. Invalidating "/*" also flushed the
+          # fonts and hashed chunks on every deploy, discarding edge cache for files whose URLs
+          # guarantee they never needed it (and burning free-tier invalidation paths).
+          aws cloudfront create-invalidation --distribution-id $CLOUDFRONT_ID --paths "/index.html"
 
       # ---- infra drift ----
       - uses: hashicorp/setup-terraform@v3

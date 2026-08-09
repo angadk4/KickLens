@@ -1,7 +1,7 @@
 // Root layout: floodlight backdrop, nav, health banners, routed outlet, footer.
 // Evidence scopes are never merged anywhere in this app: every metric renders with its
 // scope + sample size (T-171). One shared upcoming fetch powers all liveness surfaces.
-import { useEffect, useState, type ReactNode } from "react";
+import { Suspense, useEffect, useState, type ReactNode } from "react";
 import { Outlet, ScrollRestoration, useLocation } from "react-router-dom";
 import { CommandPalette } from "./components/layout/CommandPalette";
 import { Floodlights } from "./components/layout/Floodlights";
@@ -78,9 +78,16 @@ export default function App() {
               distinction is documented at the register comment.) In document flow, not
               sticky: a sticky 36px strip under a sticky nav eats 4% of a 390×844 viewport. */}
           {!REFERENCE_PAGES.has(page) && <Ticker />}
-          <RouteMain key={pathname}>
-            <Outlet />
-          </RouteMain>
+          {/* Suspense sits OUTSIDE RouteMain, not inside: RouteMain applies the .route-enter
+              settle to <main>, and with the boundary inside, that animation would play on an
+              empty box and the page would pop in afterwards. React Router wraps navigations in
+              startTransition, so the previous page stays painted until the next chunk lands —
+              the null fallback is only reachable on a cold direct load of a lazy route. */}
+          <Suspense fallback={null}>
+            <RouteMain key={pathname}>
+              <Outlet />
+            </RouteMain>
+          </Suspense>
           <SiteFooter />
         </div>
         <ScrollRestoration />

@@ -11,19 +11,24 @@ import {
 import type { ConfidenceBucket } from "../../api";
 import { nats } from "../../lib/format";
 import { C, CURSOR_FILL, axisProps, gridProps } from "./theme";
+import { useChartWidth } from "./useChartWidth";
 
 export function ConfidenceChart({
   byConfidence,
 }: {
   byConfidence: Record<string, ConfidenceBucket>;
 }) {
+  // measured, not responsive — see useChartWidth for why
+  const [wrapRef, width] = useChartWidth();
   const data = Object.entries(byConfidence)
     .map(([bucket, v]) => ({ bucket, ...v }))
     .sort((a, b) => a.bucket.localeCompare(b.bucket));
   if (!data.length) return null;
   return (
     <figure className="chart-figure">
-      <ResponsiveContainer width="100%" height={220}>
+      <div ref={wrapRef} style={{ width: "100%", height: 220 }}>
+        {width > 0 && (
+        <ResponsiveContainer width={width} height={220}>
         {/* accessibilityLayer={false}: Recharts 3 defaults it ON, which stamps
             role="application" tabindex="0" on the <svg> with NO accessible name. That role
             tells screen readers to leave browse mode and forward every keystroke, so a
@@ -66,7 +71,9 @@ export function ConfidenceChart({
             isAnimationActive={false}
           />
         </BarChart>
-      </ResponsiveContainer>
+        </ResponsiveContainer>
+        )}
+      </div>
       <figcaption>Log loss by max-probability bucket (n varies per bucket).</figcaption>
       <details>
         <summary>View as table</summary>

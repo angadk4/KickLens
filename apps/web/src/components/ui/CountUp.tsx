@@ -3,13 +3,18 @@
 // before unmount. startOnView (default): the count begins on FIRST SIGHT — a below-the-fold
 // tile must not finish counting before anyone arrives (lib/reveal.ts, opposite policy to
 // scroll-settle: visible-at-mount elements DO count, that's the whole point).
-// Reduced motion via useMediaQuery, NOT framer's useReducedMotion — framer 12's hook reads
-// once at mount and never updates (verified in its source), so it can't stop a JS count
-// started after the user flips the OS setting.
-import { animate } from "framer-motion";
+// Reduced motion via useMediaQuery, NOT a library hook — framer 12's useReducedMotion read
+// once at mount and never updated, so it could not stop a JS count started after the user
+// flipped the OS setting. That reasoning is why lib/tween.ts could replace framer-motion here
+// with no behaviour change: this file never used framer's reduced-motion or layout machinery,
+// only its number tween. Same duration, same control points.
 import { useEffect, useRef } from "react";
 import { onFirstInView } from "../../lib/reveal";
+import { cubicBezier, tween, type TweenControls } from "../../lib/tween";
 import { useMediaQuery } from "../../lib/useMediaQuery";
+
+/** The site's settle curve, unchanged from the framer call this replaced. */
+const EASE = cubicBezier(0.16, 1, 0.3, 1);
 
 export function CountUp({
   value,
@@ -34,13 +39,15 @@ export function CountUp({
     // is what guarantees the DOM never shows a superseded number while offscreen.
     el.textContent = formatRef.current(value);
     if (reduced) return;
-    let controls: ReturnType<typeof animate> | null = null;
+    let controls: TweenControls | null = null;
     const run = () => {
       // count from the PREVIOUS value, not from zero: on an increment (23 → 24) restarting
       // at zero reads as a slot machine rather than a number ticking up.
-      controls = animate(fromRef.current ?? 0, value, {
-        duration: 0.8,
-        ease: [0.16, 1, 0.3, 1],
+      controls = tween({
+        from: fromRef.current ?? 0,
+        to: value,
+        durationMs: 800,
+        ease: EASE,
         onUpdate: (v) => {
           el.textContent = formatRef.current(v);
         },

@@ -1,4 +1,6 @@
 // Typed client for the read-only KickLens API (T-180 + dashboard-v2 additions).
+import { cachedGet, prefetch } from "./lib/requestCache";
+
 const BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 
 export type Forecast = {
@@ -262,34 +264,66 @@ export type Methodology = {
   anchor_repo_html_url?: string | null;
 };
 
-async function get<T>(path: string): Promise<T> {
-  const res = await fetch(`${BASE}${path}`);
-  if (!res.ok) throw new Error(`${res.status} ${path}`);
-  return (await res.json()) as T;
+// Every read goes through lib/requestCache: in-flight dedup (one cold start instead of eight)
+// plus a timeout. Staleness is unchanged — the cache's TTL is read from the server's own
+// Cache-Control, the same header the browser cache already obeys.
+function get<T>(path: string): Promise<T> {
+  return cachedGet<T>(`${BASE}${path}`, path);
+}
+
+// ONE definition of every path. `api.*` fetches it and `warm.*` prefetches it from the same
+// builder, so a warmed URL can never drift from the URL actually requested — a divergence would
+// silently prefetch something nobody asks for and leave the real call paying full cold price.
+/** The app shell's four reads in one response — see the /board docstring in apps/api/main.py.
+    `health` is nullable BY DESIGN: a failure in the freshness query alone must not take the
+    board down, and a null here means "keep the last known health", never "health is unknown". */
+export type Board = {
+  upcoming: UpcomingMatch[];
+  in_play: InPlayItem[];
+  completed: { total_graded: number; items: CompletedItem[] };
+  health: Health | null;
+};
+
+export const paths = {
+  health: () => "/health",
+  board: () => "/board",
+  upcoming: () => "/matches/upcoming",
+  inPlay: () => "/matches/in-play",
+  completed: (limit = 50, offset = 0) => `/predictions/completed?limit=${limit}&offset=${offset}`,
+  performance: (scope: Scope) => `/performance?scope=${scope}`,
+  methodology: () => "/methodology",
+  matchDetail: (id: number) => `/matches/${id}`,
+  verification: (id: number) => `/matches/${id}/verification`,
+  ratings: (history = 0) => `/teams/ratings${history > 0 ? `?history=${history}` : ""}`,
+  merkleRoots: (limit = 30) => `/merkle-roots?limit=${limit}`,
+  activity: (hours = 48) => `/activity?hours=${hours}`,
+  calibration: () => "/calibration",
+  modelVersions: () => "/model-versions",
+} as const;
+
+/** Warm an endpoint ahead of a navigation. Fire-and-forget; see requestCache.prefetch. */
+export function prefetchPath(path: string): void {
+  prefetch(`${BASE}${path}`, path);
 }
 
 export const api = {
-  health: () => get<Health>("/health"),
-  upcoming: () => get<UpcomingMatch[]>("/matches/upcoming"),
-  inPlay: () => get<InPlayItem[]>("/matches/in-play"),
+  health: () => get<Health>(paths.health()),
+  board: () => get<Board>(paths.board()),
+  upcoming: () => get<UpcomingMatch[]>(paths.upcoming()),
+  inPlay: () => get<InPlayItem[]>(paths.inPlay()),
   completed: (limit = 50, offset = 0) =>
-    get<{ total_graded: number; items: CompletedItem[] }>(
-      `/predictions/completed?limit=${limit}&offset=${offset}`,
-    ),
-  performance: (scope: Scope) => get<Performance>(`/performance?scope=${scope}`),
-  methodology: () => get<Methodology>("/methodology"),
-  matchDetail: (id: number) => get<MatchDetail>(`/matches/${id}`),
-  verification: (id: number) => get<Verification>(`/matches/${id}/verification`),
-  ratings: (history = 0) =>
-    get<TeamRatings>(`/teams/ratings${history > 0 ? `?history=${history}` : ""}`),
+    get<{ total_graded: number; items: CompletedItem[] }>(paths.completed(limit, offset)),
+  performance: (scope: Scope) => get<Performance>(paths.performance(scope)),
+  methodology: () => get<Methodology>(paths.methodology()),
+  matchDetail: (id: number) => get<MatchDetail>(paths.matchDetail(id)),
+  verification: (id: number) => get<Verification>(paths.verification(id)),
+  ratings: (history = 0) => get<TeamRatings>(paths.ratings(history)),
   merkleRoots: (limit = 30) =>
     get<{ repo: string | null; algorithm: string; items: MerkleRootItem[] }>(
-      `/merkle-roots?limit=${limit}`,
+      paths.merkleRoots(limit),
     ),
   activity: (hours = 48) =>
-    get<{ window_hours: number; as_of_utc: string; items: ActivityItem[] }>(
-      `/activity?hours=${hours}`,
-    ),
-  calibration: () => get<CalibrationResponse>("/calibration"),
-  modelVersions: () => get<ModelVersion[]>("/model-versions"),
+    get<{ window_hours: number; as_of_utc: string; items: ActivityItem[] }>(paths.activity(hours)),
+  calibration: () => get<CalibrationResponse>(paths.calibration()),
+  modelVersions: () => get<ModelVersion[]>(paths.modelVersions()),
 };

@@ -23,6 +23,7 @@ from common.config import Settings, load_settings
 from common.hashing import ForecastFields, canonical_json, forecast_hash
 from fastapi import Depends, FastAPI, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from features.elo import INIT_RATING, SEASON_REGRESS, EloMatch, run_chronologically
 
 FRESHNESS_LIMIT = timedelta(hours=36)
@@ -32,6 +33,16 @@ app = FastAPI(
     description="Methodologically honest MLS 1X2 forecasts with a tamper-evident record.",
     version="0.2.0",
 )
+# Order is load-bearing. add_middleware PREPENDS, so the LAST added is outermost: GZip first,
+# then CORS, leaves CORS outermost and its behaviour (including on error responses) exactly as
+# it was, with GZip transforming the body underneath.
+#
+# Nothing compressed API responses before this: API Gateway HTTP APIs cannot, and the API is not
+# behind CloudFront. /teams/ratings?history=40 was shipping 51,605 bytes of raw JSON.
+# compresslevel 5, not 9: at this Lambda's CPU allocation level 9 buys ~2% ratio for ~3x the CPU.
+# minimum_size 1024 leaves the ~200-byte /health body alone, where framing would cost more than
+# it saves.
+app.add_middleware(GZipMiddleware, minimum_size=1024, compresslevel=5)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET"], allow_headers=["*"])
 
 
@@ -42,7 +53,18 @@ def _settings() -> Settings:
 
 
 def db() -> Iterator[psycopg.Connection]:
-    conn = psycopg.connect(_settings().database_url)
+    # autocommit: every endpoint here is a pure read, so there is no atomicity to lose, and
+    # without it psycopg wraps each request in an implicit BEGIN/ROLLBACK — two extra round
+    # trips to Neon per request. It also stops pinning a PgBouncer server slot for the whole
+    # request: in transaction pooling the slot is held from first statement to close, so a
+    # read-only API without autocommit occupies the pool far longer than it needs to.
+    # packages/common/db.py and jobs/handlers.py already connect this way.
+    #
+    # connect_timeout is below the 29s Lambda ceiling so a failed Neon wake surfaces as a real
+    # error instead of a silent function timeout. It must stay GENEROUS: a cold wake from
+    # scale-to-zero legitimately takes seconds, and a tight timeout would abort the very request
+    # that is warming the database.
+    conn = psycopg.connect(_settings().database_url, autocommit=True, connect_timeout=20)
     try:
         yield conn
     finally:
@@ -61,22 +83,30 @@ def _full_iso(dt: datetime) -> str:
     return dt.astimezone(UTC).isoformat()
 
 
-@app.get("/health")
-def health(conn: Conn) -> dict[str, Any]:
+def _health_payload(conn: psycopg.Connection) -> dict[str, Any]:
+    """Shared by /health and /board so the two can never disagree about freshness."""
     row = conn.execute(
+        # This endpoint is fetched on EVERY page load and is the heaviest query in the API, so
+        # it is the one that most deserves to be cheap. It used to scan job_run TWICE — once for
+        # any completed ingest and again, with a per-row JSONB extraction, for the full-sweep
+        # one. The CTE walks that table once and splits the two answers with a FILTER; the
+        # semantics of both are unchanged.
+        "WITH ing AS ("
         # an UNCHANGED ingest sweep is still a successful poll: count the completed ingest
         # job_run, not only stored revisions (launch-review follow-up — quiet weeks are fresh)
-        "SELECT greatest((SELECT max(fetched_at_utc) FROM source_fixture),"
-        " (SELECT max(created_at_utc) FROM dataset_snapshot),"
-        " (SELECT max(finished_at_utc) FROM job_run"
-        "   WHERE job_name = 'ingest' AND status = 'done')),"
-        " (SELECT max(graded_at_utc) FROM prediction_grade),"
+        "  SELECT max(finished_at_utc) AS any_done,"
         # the FULL sweep specifically (fixtures, kickoff moves, supersession). Narrow
         # results-only night sweeps (ADR-005) must not be able to hold freshness green on
         # their own — that is precisely what masked the 2026-07-23 ingest outage for ~60h.
         # Runs predating the sweep-kind tag are counted as full (they were).
-        " (SELECT max(finished_at_utc) FROM job_run WHERE job_name = 'ingest'"
-        "   AND status = 'done' AND coalesce(details->>'sweep', 'full') = 'full')"
+        "         max(finished_at_utc) FILTER ("
+        "           WHERE coalesce(details->>'sweep', 'full') = 'full') AS full_done"
+        "  FROM job_run WHERE job_name = 'ingest' AND status = 'done')"
+        " SELECT greatest((SELECT max(fetched_at_utc) FROM source_fixture),"
+        " (SELECT max(created_at_utc) FROM dataset_snapshot),"
+        " (SELECT any_done FROM ing)),"
+        " (SELECT max(graded_at_utc) FROM prediction_grade),"
+        " (SELECT full_done FROM ing)"
     ).fetchone()
     last_ingest = row[0] if row else None
     last_full = row[2] if row else None
@@ -95,6 +125,71 @@ def health(conn: Conn) -> dict[str, Any]:
     }
 
 
+@app.get("/health")
+def health(conn: Conn) -> dict[str, Any]:
+    return _health_payload(conn)
+
+
+@app.get("/matches/upcoming")
+def matches_upcoming(
+    conn: Conn, response: Response, limit: int = Query(50, le=200)
+) -> list[dict[str, Any]]:
+    _cache(response, 60)
+    return _upcoming_payload(conn, limit)
+
+
+@app.get("/matches/in-play")
+def matches_in_play(
+    conn: Conn, response: Response, limit: int = Query(50, le=200)
+) -> list[dict[str, Any]]:
+    _cache(response, 60)
+    return _in_play_payload(conn, limit)
+
+
+@app.get("/predictions/completed")
+def predictions_completed(
+    conn: Conn, response: Response, limit: int = Query(50, le=200), offset: int = 0
+) -> dict[str, Any]:
+    _cache(response, 300)
+    return _completed_payload(conn, limit, offset)
+
+
+@app.get("/board")
+def board(conn: Conn) -> dict[str, Any]:
+    """The app shell's four reads, in ONE request.
+
+    Every route mounts UpcomingProvider, which fetched /matches/upcoming, /matches/in-play,
+    /predictions/completed?limit=1 and /health in parallel. Lambda scales by concurrency, so
+    against a scaled-to-zero stack that was FOUR containers each doing its own SSM read, TLS
+    handshake and Neon wake attempt — on a cold path measured at 26.3s. One request is one
+    container and one wake. Nothing is fetched that was not already being fetched; the four
+    payload functions above are shared verbatim with the individual endpoints, so the composite
+    cannot drift from them.
+
+    NO Cache-Control, deliberately. The components' own max-ages are 60/60/300/none, and a
+    composite may not be cached longer than its shortest part — but the shortest part is
+    /health, which is uncached ON PURPOSE (tests/test_api.py pins its absence: a page that says
+    "showing nothing rather than something stale without saying so" must not serve stale
+    freshness). So this stays live, and the request-count win stands on its own. The client
+    caches it briefly in memory anyway (lib/requestCache), and the provider fetches once per
+    app load rather than per navigation.
+    """
+    # health is computed defensively and separately: a failure in the freshness query alone
+    # must not take the board down with it. The frontend treats a null here as "keep the last
+    # known health", which is exactly what the four-request version did when only /health
+    # rejected — three other endpoints answering was proof the API was up.
+    try:
+        health_payload: dict[str, Any] | None = _health_payload(conn)
+    except Exception:  # any failure here is non-fatal to the board, by design
+        health_payload = None
+    return {
+        "upcoming": _upcoming_payload(conn, 50),
+        "in_play": _in_play_payload(conn, 50),
+        "completed": _completed_payload(conn, 1, 0),
+        "health": health_payload,
+    }
+
+
 @app.get("/leagues")
 def leagues(conn: Conn, response: Response) -> list[dict[str, Any]]:
     _cache(response, 3600)
@@ -104,12 +199,9 @@ def leagues(conn: Conn, response: Response) -> list[dict[str, Any]]:
     ]
 
 
-@app.get("/matches/upcoming")
-def matches_upcoming(
-    conn: Conn, response: Response, limit: int = Query(50, le=200)
-) -> list[dict[str, Any]]:
-    """Upcoming fixtures with their official (frozen) or draft (preliminary) forecast."""
-    _cache(response, 60)
+def _upcoming_payload(conn: psycopg.Connection, limit: int) -> list[dict[str, Any]]:
+    """Upcoming fixtures with their official (frozen) or draft (preliminary) forecast.
+    Shared by /matches/upcoming and /board."""
     rows = conn.execute(
         "SELECT m.match_id, m.kickoff_utc, h.canonical_name, a.canonical_name, s.year,"
         " p.p_home, p.p_draw, p.p_away, p.forecast_hash,"
@@ -154,16 +246,12 @@ def matches_upcoming(
     return out
 
 
-@app.get("/matches/in-play")
-def matches_in_play(
-    conn: Conn, response: Response, limit: int = Query(50, le=200)
-) -> list[dict[str, Any]]:
+def _in_play_payload(conn: psycopg.Connection, limit: int) -> list[dict[str, Any]]:
     """Frozen official forecasts whose match has kicked off but is not yet graded and not
     voided — the window between /matches/upcoming (future kickoff) and /predictions/completed
     (graded). A forecast stays here continuously from kickoff until it is actually graded, so
     it never disappears in between. Pure live-record read (T-171: no metrics, no scope merge,
     no odds); the current official is the newest is_official row with no Voided event."""
-    _cache(response, 60)
     rows = conn.execute(
         "SELECT m.match_id, m.kickoff_utc, h.canonical_name, a.canonical_name, s.year,"
         " p.p_home, p.p_draw, p.p_away, p.forecast_hash, m.status"
@@ -292,15 +380,20 @@ def match_detail(match_id: int, conn: Conn, response: Response) -> dict[str, Any
     }
 
 
-@app.get("/predictions/completed")
-def predictions_completed(
-    conn: Conn, response: Response, limit: int = Query(50, le=200), offset: int = 0
-) -> dict[str, Any]:
-    _cache(response, 300)
+def _completed_payload(conn: psycopg.Connection, limit: int, offset: int) -> dict[str, Any]:
+    """Shared by /predictions/completed and /board."""
     rows = conn.execute(
+        # count(*) OVER () replaces a second, unbounded count(DISTINCT …) query that ran the
+        # SAME scan and the SAME anti-join. It is exactly equivalent: the LATERAL emits one row
+        # per graded official prediction, and every other join is an inner join on a NOT NULL
+        # FK, so no row is added or lost. Postgres evaluates the window after WHERE and before
+        # LIMIT, so the total is over the whole filtered set, not the page.
+        #
+        # Worth halving because the app shell asks for limit=1 on EVERY page load of the site
+        # (UpcomingContext) — where the old second query ignored the limit and counted the lot.
         "SELECT p.match_id, h.canonical_name, a.canonical_name, m.kickoff_utc, m.result,"
         " p.p_home, p.p_draw, p.p_away, p.forecast_hash, g.log_loss, g.correct,"
-        " g.rps, g.brier"
+        " g.rps, g.brier, count(*) OVER () AS total_graded"
         " FROM prediction p JOIN match m USING (match_id)"
         " JOIN team h ON h.team_id = m.home_team_id JOIN team a ON a.team_id = m.away_team_id"
         " JOIN LATERAL (SELECT * FROM prediction_grade gg WHERE gg.prediction_id = p.prediction_id"
@@ -312,14 +405,10 @@ def predictions_completed(
         " ORDER BY m.kickoff_utc DESC LIMIT %s OFFSET %s",
         (limit, offset),
     ).fetchall()
-    total = conn.execute(
-        "SELECT count(DISTINCT g.prediction_id) FROM prediction_grade g"
-        " JOIN prediction p USING (prediction_id)"
-        " WHERE p.is_official AND NOT EXISTS (SELECT 1 FROM prediction_event e"
-        "   WHERE e.prediction_id = p.prediction_id AND e.event_type='Voided')"
-    ).fetchone()
     return {
-        "total_graded": 0 if total is None else int(total[0]),
+        # no rows on this page means either an empty record or an offset past the end; both
+        # report 0 exactly as the separate count query did
+        "total_graded": 0 if not rows else int(rows[0][13]),
         "items": [
             {
                 "match_id": int(r[0]),
@@ -373,22 +462,19 @@ def calibration(conn: Conn, response: Response) -> dict[str, Any]:
     accrues). Scopes are separate keys — never merged."""
     _cache(response, 300)
     out: dict[str, Any] = {}
-    for scope in ("dev", "test", "live"):
-        row = conn.execute(
-            "SELECT payload FROM metrics_snapshot WHERE scope = %s ORDER BY as_of_utc DESC LIMIT 1",
-            (scope,),
-        ).fetchone()
-        if row is not None:
-            payload = row[0] if isinstance(row[0], dict) else json.loads(row[0])
-            keys = (
-                "n",
-                "ece",
-                "by_confidence",
-                "classwise_ece_H",
-                "classwise_ece_D",
-                "classwise_ece_A",
-            )
-            out[scope] = {k: payload.get(k) for k in keys if k in payload}
+    # One round trip, not three. This merges TRANSPORT, not evidence: DISTINCT ON keeps each
+    # scope's newest snapshot strictly separate, every row stays keyed by its own scope, and no
+    # value is combined across scopes (T-171). A scope with no snapshot still produces no row
+    # and therefore no key, exactly as the per-scope loop did.
+    rows = conn.execute(
+        "SELECT DISTINCT ON (scope) scope, payload FROM metrics_snapshot"
+        " WHERE scope = ANY(%s) ORDER BY scope, as_of_utc DESC",
+        (["dev", "test", "live"],),
+    ).fetchall()
+    keys = ("n", "ece", "by_confidence", "classwise_ece_H", "classwise_ece_D", "classwise_ece_A")
+    for scope, raw in rows:
+        payload = raw if isinstance(raw, dict) else json.loads(raw)
+        out[str(scope)] = {k: payload.get(k) for k in keys if k in payload}
     return out
 
 

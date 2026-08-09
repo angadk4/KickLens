@@ -25,9 +25,6 @@ const MATCHDAY_POLL_MS = 180_000;
 type UpcomingState = {
   /** every fixture the last fetch returned — includes any that has kicked off since */
   list: UpcomingMatch[] | null;
-  /** `list` minus fixtures already kicked off, recomputed on the shared clock tick. Every
-      surface that renders "upcoming" fixtures reads THIS, so none can disagree. */
-  upcoming: UpcomingMatch[] | null;
   /** cutoff (kickoff−3h) of the next fixture not yet on the record */
   nextCutoff: Date | null;
   nextMatch: UpcomingMatch | null;
@@ -47,7 +44,6 @@ type UpcomingState = {
 
 const EMPTY: UpcomingState = {
   list: null,
-  upcoming: null,
   nextCutoff: null,
   nextMatch: null,
   inPlay: null,
@@ -59,6 +55,21 @@ const Ctx = createContext<UpcomingState>(EMPTY);
 
 export function useUpcoming(): UpcomingState {
   return useContext(Ctx);
+}
+
+/** `list` minus fixtures already kicked off, aged on the shared clock tick.
+ *
+ * This USED to be a field on the context value, which meant the provider re-rendered every
+ * consumer once a minute just to age a list most of them never read. It is a hook now, so
+ * the clock subscription belongs to the components that actually display time.
+ *
+ * The single-source invariant is unchanged: there is still exactly ONE filter function,
+ * called from exactly ONE place, so no two surfaces can disagree about what is upcoming.
+ * What moved is who subscribes to the clock, not who owns the truth. */
+export function useUpcomingNow(): UpcomingMatch[] | null {
+  const { list } = useContext(Ctx);
+  const now = useNow();
+  return useMemo(() => (list ? notYetKickedOff(list, now) : null), [list, now]);
 }
 
 /** The earliest fixture without an official-frozen forecast. A past-cutoff fixture is kept
@@ -117,39 +128,32 @@ export function UpcomingProvider({ children }: { children: React.ReactNode }) {
     const load = () => {
       if (inFlight) return;
       inFlight = true;
-      // /health rides along: it used to be fetched once at App mount and never again, so
+      // ONE request, not four. These four reads used to go out in parallel — which against a
+      // scale-to-zero backend meant four Lambda containers each doing their own SSM read, TLS
+      // handshake and database wake, on a cold path measured at 26.3s. /board returns exactly
+      // the same four payloads from one connection (and the API proves parity in its tests).
+      //
+      // /health still rides along: it used to be fetched once at App mount and never again, so
       // "ingested 4h ago" aged without refreshing on a long-open tab (healthStore.ts).
-      Promise.allSettled([api.upcoming(), api.inPlay(), api.completed(1), api.health()]).then(
-        ([u, ip, c, h]) => {
+      api
+        .board()
+        .then((b) => {
           inFlight = false;
           if (!alive) return;
-          // A /health-only failure must NOT claim "API unreachable": three other endpoints
-          // answering is proof the API is up. Blanking health on its own failure also lost the
-          // last-known freshness AND raised the banner, so a single flaky call libelled a
-          // healthy system. Only a total failure means down; otherwise keep what we knew.
-          const healthOk = h.status === "fulfilled";
-          const allFailed =
-            !healthOk &&
-            u.status === "rejected" &&
-            ip.status === "rejected" &&
-            c.status === "rejected";
-          if (healthOk) setHealth({ health: h.value, apiDown: false });
-          else if (allFailed) setHealth({ health: null, apiDown: true });
-          // health is part of the failure count, so a retry gets armed for it too
-          const anyFailed =
-            u.status === "rejected" ||
-            ip.status === "rejected" ||
-            c.status === "rejected" ||
-            !healthOk;
-          failures.current = anyFailed ? failures.current + 1 : 0;
-          // merge, never replace: a transient failure keeps the last-known truth on screen
-          // instead of blanking a live board (the data is at worst one poll interval old)
-          const list = u.status === "fulfilled" ? u.value : latest.current.list;
-          const inPlay = ip.status === "fulfilled" ? ip.value : latest.current.inPlay;
-          const totalGraded =
-            c.status === "fulfilled" ? c.value.total_graded : latest.current.totalGraded;
-          const latestGraded =
-            c.status === "fulfilled" ? (c.value.items[0] ?? null) : latest.current.latestGraded;
+          // A health failure must NOT claim "API unreachable" — the board answering is proof
+          // the API is up. The server degrades health to null rather than failing the request,
+          // and null here means KEEP WHAT WE KNEW: blanking it would lose the last-known
+          // freshness and raise the banner, which is a single flaky query libelling a healthy
+          // system. Only a rejected request (below) means down.
+          if (b.health) setHealth({ health: b.health, apiDown: false });
+          // a degraded (health-less) board still counts as a failure for retry purposes, so
+          // the loop comes back for it — it just never raises the "API unreachable" banner
+          const degraded = !b.health;
+          failures.current = degraded ? failures.current + 1 : 0;
+          const list = b.upcoming;
+          const inPlay = b.in_play;
+          const totalGraded = b.completed.total_graded;
+          const latestGraded = b.completed.items[0] ?? null;
           latest.current = { list, inPlay, totalGraded, latestGraded };
 
           // ---- the event layer. This is a CALLBACK, not a render, so publishing here is
@@ -176,7 +180,7 @@ export function UpcomingProvider({ children }: { children: React.ReactNode }) {
             .filter((m) => m.forecast?.type === "official-frozen")
             .map((m) => new Date(m.kickoff_utc).getTime() - Date.now())
             .sort((a, b) => a - b)[0];
-          if ((inPlay && inPlay.length > 0) || (anyFailed && failures.current <= 20)) {
+          if ((inPlay && inPlay.length > 0) || (degraded && failures.current <= 20)) {
             armPoll(load, MATCHDAY_POLL_MS);
           } else if (koSoon !== undefined && koSoon > 0) {
             // a sealed fixture is approaching kickoff: wake AT kickoff so an already-open
@@ -206,8 +210,20 @@ export function UpcomingProvider({ children }: { children: React.ReactNode }) {
               pending.current = st; // give up quietly — alarms/canary handle a real stall
             }
           }
-        },
-      );
+        })
+        .catch(() => {
+          // The whole request failed, which with one composite read IS the total failure the
+          // four-request version tested for with `allFailed`. State is deliberately NOT
+          // touched: a transient failure keeps the last-known board on screen rather than
+          // blanking it, exactly as the old merge-never-replace path did.
+          inFlight = false;
+          if (!alive) return;
+          setHealth({ health: null, apiDown: true });
+          failures.current += 1;
+          if (freezeT) clearTimeout(freezeT);
+          if (pollT) clearTimeout(pollT);
+          if (failures.current <= 20) armPoll(load, MATCHDAY_POLL_MS);
+        });
     };
     load();
     requestLoad.current = load;
@@ -243,18 +259,25 @@ export function UpcomingProvider({ children }: { children: React.ReactNode }) {
       requestLoad.current?.();
     }
   }, [now, state.list]);
+  // `now` is deliberately NOT a dependency here. It used to be, because `upcoming` was computed
+  // in this memo — which gave the context value a new identity every 60 seconds and re-rendered
+  // EVERY consumer on the clock: /record's 50-card grid, the 7000px /engineering page, the
+  // ticker, the nav. That is exactly the failure Floodlights.tsx and healthStore.ts are written
+  // to avoid, arriving through the back door.
+  //
+  // `upcoming` now lives in useUpcomingNow() below, so only components that actually display
+  // time subscribe to the clock. This value changes when a FETCH lands, and only then.
   const value = useMemo<UpcomingState>(() => {
     const next = state.list ? computeNext(state.list) : null;
     return {
       list: state.list,
-      upcoming: state.list ? notYetKickedOff(state.list, now) : null,
       nextCutoff: next?.cutoff ?? null,
       nextMatch: next?.m ?? null,
       inPlay: state.inPlay,
       totalGraded: state.totalGraded,
       latestGraded: state.latestGraded,
     };
-  }, [state, now]);
+  }, [state]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

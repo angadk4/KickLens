@@ -7,7 +7,7 @@ import { BaselineLadder } from "../../components/charts/BaselineLadder";
 import { ScopeChip } from "../../components/ui/ScopeChip";
 import { Section } from "../../components/ui/Section";
 import { Toc } from "../../components/ui/Toc";
-import { SealStrip } from "../../components/ui/SealStrip";
+import { SealStrip, warmSealStrip } from "../../components/ui/SealStrip";
 import { ErrorState, Skeleton } from "../../components/ui/states";
 import {
   CHAMPION_VS_B3_DELTA_NATS,
@@ -63,6 +63,9 @@ function tidy(s: string): string {
 }
 
 export function MethodologyPage() {
+  // same waterfall as /record: <SealStrip/> sits behind the `data &&` gate, so start its fetch
+  // in parallel with this page's own rather than after it.
+  warmSealStrip();
   const { data, error, loading, retrying, retry } = useApi(() => api.methodology());
   const versions = useApi(() => api.modelVersions());
 

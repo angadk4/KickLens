@@ -610,3 +610,44 @@ if DATABASE_URL:
         # clamp is a contract: out-of-range values are rejected, not silently coerced
         assert env["client"].get("/activity?hours=0").status_code == 422
         assert env["client"].get("/activity?hours=200").status_code == 422
+
+    def test_board_is_exactly_the_four_endpoints_it_replaces(env) -> None:  # type: ignore[no-untyped-def]
+        """/board exists to turn four cold starts into one. The moment it can DISAGREE with the
+        endpoints it stands in for, the shell and the pages are reading different truths — so
+        parity is the contract, not an implementation detail. Both paths call the same payload
+        functions; this proves the wiring."""
+        c = env["client"]
+        board = c.get("/board").json()
+        assert set(board) == {"upcoming", "in_play", "completed", "health"}
+        assert board["upcoming"] == c.get("/matches/upcoming?limit=50").json()
+        assert board["in_play"] == c.get("/matches/in-play?limit=50").json()
+        assert board["completed"] == c.get("/predictions/completed?limit=1&offset=0").json()
+        assert board["health"] == c.get("/health").json()
+
+    def test_board_asks_for_exactly_what_the_shell_needs(env) -> None:  # type: ignore[no-untyped-def]
+        """limit=1 on the completed section: the shell wants the count and the newest item, not
+        the record. Fetching 50 here would put the whole record on every page load."""
+        board = env["client"].get("/board").json()
+        assert len(board["completed"]["items"]) <= 1
+        assert "total_graded" in board["completed"]
+
+    def test_board_is_not_cached(env) -> None:  # type: ignore[no-untyped-def]
+        """A composite may not be cached longer than its shortest part, and its shortest part is
+        /health — which is uncached on purpose (see test_api.py). Caching /board would smuggle a
+        stale freshness reading past that contract."""
+        assert "cache-control" not in env["client"].get("/board").headers
+
+    def test_board_survives_a_health_failure(env) -> None:  # type: ignore[no-untyped-def]
+        """Four separate requests meant a broken /health could not take the board down with it —
+        three other endpoints answering was proof the API was up. One request must keep that
+        property: health degrades to null, the board still renders."""
+        import apps.api.main as api_main
+
+        real = api_main._health_payload
+        api_main._health_payload = lambda conn: (_ for _ in ()).throw(RuntimeError("boom"))
+        try:
+            board = env["client"].get("/board").json()
+        finally:
+            api_main._health_payload = real
+        assert board["health"] is None
+        assert board["upcoming"] == env["client"].get("/matches/upcoming?limit=50").json()

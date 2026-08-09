@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { NavLink, Link, useLocation } from "react-router-dom";
 import { FlapNumber } from "../ui/FlapNumber";
+import { cancelWarm, warmRouteNow, warmRouteOnDwell } from "../../lib/routeWarm";
 import { useCountdown } from "../../lib/useCountdown";
 import { useHealth } from "./HealthContext";
 import { openPalette } from "./paletteBus";
@@ -168,6 +169,11 @@ export function TopNav() {
               key={l.to}
               to={l.to}
               end={l.end}
+              // start the route's data on dwell/focus — see lib/routeWarm for why it is dwell
+              // and not hover, and why only one payload per route
+              onPointerEnter={() => warmRouteOnDwell(l.to)}
+              onPointerLeave={cancelWarm}
+              onFocus={() => warmRouteNow(l.to)}
               className={({ isActive }) =>
                 isActive || (l.to === "/forecasts" && onMatchPage) ? "active" : ""
               }

@@ -11,6 +11,7 @@ import {
   YAxis,
 } from "recharts";
 import type { ConfidenceBucket } from "../../api";
+import { useChartWidth } from "./useChartWidth";
 import { C, CURSOR_FILL, axisProps, gridProps } from "./theme";
 
 /** bucket key "0.4-0.5" → midpoint 0.45 (upper bucket "0.6-1.01" clamps sensibly). */
@@ -24,6 +25,8 @@ export function ReliabilityDiagram({
 }: {
   byConfidence: Record<string, ConfidenceBucket>;
 }) {
+  // measured, not responsive — see useChartWidth for why
+  const [wrapRef, width] = useChartWidth();
   const data = Object.entries(byConfidence)
     .map(([bucket, v]) => ({
       bucket,
@@ -37,7 +40,9 @@ export function ReliabilityDiagram({
   const maxN = Math.max(...data.map((d) => d.n));
   return (
     <figure className="chart-figure">
-      <ResponsiveContainer width="100%" height={260}>
+      <div ref={wrapRef} style={{ width: "100%", height: 260 }}>
+        {width > 0 && (
+        <ResponsiveContainer width={width} height={260}>
         {/* accessibilityLayer={false} — see ConfidenceChart for the full reasoning: the
             Recharts default stamps an unnamed role="application" tab stop on the svg, and
             this figure's caption + table already carry every number. */}
@@ -100,7 +105,9 @@ export function ReliabilityDiagram({
             isAnimationActive={false}
           />
         </ComposedChart>
-      </ResponsiveContainer>
+        </ResponsiveContainer>
+        )}
+      </div>
       <figcaption>
         Observed top-pick rate per confidence bucket. The dashed line marks bucket midpoints
         as a reference, not attainable confidences: a three-way top probability can't fall

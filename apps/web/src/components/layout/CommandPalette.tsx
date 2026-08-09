@@ -18,7 +18,7 @@ import {
   type PaletteItem,
 } from "../../lib/palette";
 import { onOpenPalette } from "./paletteBus";
-import { useUpcoming } from "./UpcomingContext";
+import { useUpcoming, useUpcomingNow } from "./UpcomingContext";
 
 const GROUP_LABEL: Record<PaletteItem["group"], string> = {
   pages: "pages",
@@ -37,7 +37,8 @@ export function CommandPalette() {
   const listRef = useRef<HTMLDivElement>(null);
   const restoreFocus = useRef<HTMLElement | null>(null);
   const copyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { upcoming, inPlay } = useUpcoming();
+  const { inPlay } = useUpcoming();
+  const upcoming = useUpcomingNow();
   const navigate = useNavigate();
   const { pathname } = useLocation();
 

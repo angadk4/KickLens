@@ -13,15 +13,16 @@
 // replaced a separate goal-mouth graphic that plotted the same number 40px lower on a
 // different x-axis. The colour says WHICH outcome occurred, never whether we were right — a
 // 12% away win and a 71% away win are both clay and differ only in length. See lib/probBar.ts.
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { pct } from "../../lib/format";
 import { outcomeMark, segments, type Outcome } from "../../lib/probBar";
+import { observeWidth } from "../../lib/sharedResize";
 
 /** A label is exactly 7 monospace glyphs ("D 26.0%") = 50.4px at --text-xs IBM Plex Mono
     600 (measured, not estimated); +8px so it never sets flush against a segment edge. */
 const LABEL_PX = 58;
 
-export function ProbBar({
+function ProbBarImpl({
   pHome,
   pDraw,
   pAway,
@@ -39,11 +40,9 @@ export function ProbBar({
   useEffect(() => {
     const el = barRef.current;
     if (!el) return;
-    const ro = new ResizeObserver((entries) => {
-      setWidth(entries[0]?.contentRect.width ?? 0);
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
+    // ONE shared observer for every bar on the page (lib/sharedResize): /record renders 50 of
+    // these, and an observer each meant 50 callbacks and a whole second commit of the grid
+    return observeWidth(el, setWidth);
   }, []);
 
   // ONE source for the cells. The mark row below renders from the same array, so its rules
@@ -97,3 +96,8 @@ export function ProbBar({
     </div>
   );
 }
+
+// memo: props are three numbers and an optional outcome letter, so the comparison is trivial
+// and there are 50 instances on /record. Anything that re-renders the grid (a parent state
+// change, a navigation) now stops at the bar instead of re-rendering every segment.
+export const ProbBar = memo(ProbBarImpl);

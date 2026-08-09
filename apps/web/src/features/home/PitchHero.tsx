@@ -19,7 +19,7 @@
 // get it right. Just keep it non interactive but rolling and bouncing." So the hero now has
 // no interactive surface at all, and lib/ballPhysics.ts, lib/flare.ts and the hit target are
 // gone rather than left dormant. docs/motion.md records the decision.
-import { useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import {
   BALL_CX,
   BALL_CY,
@@ -49,6 +49,11 @@ export function PitchHero({
   /** content below the line (the fixture) */
   bottom?: ReactNode;
 }) {
+  // The ball's geometry is fixed: ~30 trig calls and six path strings that produce the
+  // same result every time. Hero re-renders once a second for the countdown, so this ran
+  // 60x a minute to rebuild identical paths.
+  const seams = useMemo(() => ballSeams(), []);
+  const patches = useMemo(() => ballPatches(), []);
   // the bounce is phase-locked to the wall clock, so the ball lands WITH the seconds digit
   const [beatPhase] = useState(() => beatPhaseMs(Date.now()));
 
@@ -106,10 +111,10 @@ export function PitchHero({
                 <g className="ph-ball-spin">
                   <circle className="ph-ball-skin" cx={BALL_CX} cy={BALL_CY} r={BALL_R} />
                   <g clipPath={`url(#${CLIP})`}>
-                    {ballSeams().map((s, i) => (
+                    {seams.map((s, i) => (
                       <line key={`s${i}`} className="ph-ball-seam" {...s} />
                     ))}
-                    {ballPatches().map((d, i) => (
+                    {patches.map((d, i) => (
                       <path key={`p${i}`} className="ph-ball-patch" d={d} />
                     ))}
                   </g>

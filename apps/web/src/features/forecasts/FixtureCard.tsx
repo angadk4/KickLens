@@ -2,6 +2,7 @@
 // ProbBar, then a divided footer: state badge · freeze/kickoff cue · hash. Short labels only.
 // A sealed card within 2h of kickoff carries a "kicks off in…" cue so it can't be mistaken
 // for a game already underway (the FROZEN badge describes the forecast, not the match).
+import { memo } from "react";
 import { Link } from "react-router-dom";
 import type { UpcomingMatch } from "../../api";
 import { Badge } from "../../components/ui/Badge";
@@ -18,7 +19,7 @@ function inWords(mins: number): string {
   return mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`;
 }
 
-export function FixtureCard({
+function FixtureCardImpl({
   m,
   timeOnly = false,
   tilt = false,
@@ -126,3 +127,8 @@ export function FixtureCard({
     </Link>
   );
 }
+
+// memo: `m` keeps its identity across notYetKickedOff's filter, so this holds. /forecasts
+// re-renders on its own 60s clock and there are ~30 cards; without this, one tick
+// re-rendered every card, its ProbBar, its badges and its hash chip.
+export const FixtureCard = memo(FixtureCardImpl);

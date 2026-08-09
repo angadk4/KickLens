@@ -1,13 +1,13 @@
 // The live record — graded official forecasts only. Its empty state is a designed feature:
 // the record starts at zero and nothing is ever back-filled.
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../../api";
 import { CardDetail } from "../../components/ui/CardDetail";
 import { HashBadge } from "../../components/ui/HashBadge";
 import { ProbBar } from "../../components/ui/ProbBar";
 import { Reveal } from "../../components/ui/Reveal";
-import { SealStrip } from "../../components/ui/SealStrip";
+import { SealStrip, warmSealStrip } from "../../components/ui/SealStrip";
 import { ScopeChip } from "../../components/ui/ScopeChip";
 import { Section } from "../../components/ui/Section";
 import { Verdict } from "../../components/ui/Verdict";
@@ -26,6 +26,9 @@ import { InPlaySection } from "../forecasts/InPlaySection";
 
 export function RecordPage() {
   const [limit, setLimit] = useState(50);
+  // <SealStrip/> renders behind the `data &&` gate below, so its fetch used to queue BEHIND this
+  // one. Start it now; the component dedups onto the same promise when it mounts.
+  warmSealStrip();
   const { data, error, loading, retrying, retry, refresh } = useApi(
     () => api.completed(limit),
     [limit],
@@ -72,10 +75,17 @@ export function RecordPage() {
 
   // The `.landed` effect watches `shown`, i.e. the fetched page PLUS every paged-in row — it
   // watched only data.items at first, so paged rows never got the cue the comment promised.
-  const shownKey = shown.map((i) => i.match_id).join(",");
+  // Built once per change of `shown`, not on every render: this grid grows to 100, 150,
+  // 200 rows as you page in, and it used to build the joined string AND re-parse it back
+  // into a Set on every single render, including renders that changed nothing about it.
+  const shownKey = useMemo(() => shown.map((i) => i.match_id).join(","), [shown]);
+  const shownIds = useMemo(
+    () => new Set(shown.map((i) => i.match_id)),
+    [shown],
+  );
   useEffect(() => {
     if (!shownKey) return;
-    const ids = new Set(shownKey.split(",").map(Number));
+    const ids = shownIds;
     if (seenIds.current === null) {
       seenIds.current = ids; // first paint is never "landed"
       return;
