@@ -103,7 +103,7 @@ export function ReliabilityDiagram({
       </ResponsiveContainer>
       <figcaption>
         Observed top-pick rate per confidence bucket. The dashed line marks bucket midpoints
-        as a reference, not attainable confidences — a three-way top probability can't fall
+        as a reference, not attainable confidences: a three-way top probability can't fall
         below ⅓, so the bottom bucket sits above its midpoint by construction. Faint bars
         show each bucket's relative sample size.
       </figcaption>

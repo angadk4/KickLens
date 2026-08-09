@@ -10,14 +10,14 @@
 const SUFFIX = "KickLens";
 
 const TITLES: Record<string, string> = {
-  "/": "KickLens — tamper-evident MLS forecasts",
-  "/forecasts": `Forecasts — upcoming fixtures · ${SUFFIX}`,
-  "/record": `Record — graded official forecasts · ${SUFFIX}`,
-  "/performance": `Performance — four evidence scopes · ${SUFFIX}`,
-  "/calibration": `Calibration — reliability and ECE · ${SUFFIX}`,
-  "/ratings": `Ratings — Elo power ratings · ${SUFFIX}`,
-  "/methodology": `Methodology — how it works · ${SUFFIX}`,
-  "/engineering": `Engineering — how it's built · ${SUFFIX}`,
+  "/": "KickLens · tamper-evident MLS forecasts",
+  "/forecasts": `Forecasts: upcoming fixtures · ${SUFFIX}`,
+  "/record": `Record: graded official forecasts · ${SUFFIX}`,
+  "/performance": `Performance: four evidence scopes · ${SUFFIX}`,
+  "/calibration": `Calibration: reliability and ECE · ${SUFFIX}`,
+  "/ratings": `Ratings: Elo power ratings · ${SUFFIX}`,
+  "/methodology": `Methodology: how it works · ${SUFFIX}`,
+  "/engineering": `Engineering: how it's built · ${SUFFIX}`,
 };
 
 /** The title for a pathname. `/match/:id` is dynamic — the id alone is meaningless to a
@@ -27,6 +27,6 @@ const TITLES: Record<string, string> = {
 export function titleFor(pathname: string): string {
   const exact = TITLES[pathname];
   if (exact) return exact;
-  if (pathname.startsWith("/match/")) return `Match — forecast and proof · ${SUFFIX}`;
+  if (pathname.startsWith("/match/")) return `Match: forecast and proof · ${SUFFIX}`;
   return `Not found · ${SUFFIX}`;
 }

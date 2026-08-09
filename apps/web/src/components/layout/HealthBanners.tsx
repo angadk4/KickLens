@@ -14,7 +14,7 @@ export function HealthBanners() {
     <>
       {apiDown && (
         <div className="banner error banner-in" role="status">
-          API unreachable — showing nothing rather than something stale without saying so.
+          API unreachable. Showing nothing rather than something stale without saying so.
         </div>
       )}
       {/* the general staleness notice steps aside when the schedule banner below owns
@@ -22,7 +22,7 @@ export function HealthBanners() {
           ingest 40 minutes ago)", which is its own small lie */}
       {health && !health.freshness_ok && health.schedule_fresh !== false && (
         <div className="banner stale banner-in" role="status">
-          Data is stale — the last results ingest finished{" "}
+          Data is stale. The last results ingest finished{" "}
           <span title={health.last_ingest ?? undefined}>
             {health.last_ingest ? ingested : "never"}
           </span>
@@ -31,7 +31,7 @@ export function HealthBanners() {
       )}
       {health && health.schedule_fresh === false && (
         <div className="banner stale banner-in" role="status">
-          Fixture schedule not current — the last full fixture sweep finished{" "}
+          Fixture schedule not current. The last full fixture sweep finished{" "}
           <span title={health.last_full_ingest ?? undefined}>
             {health.last_full_ingest ? fullSweep : "never"}
           </span>

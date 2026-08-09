@@ -29,8 +29,8 @@ const SCOPES: { scope: Scope; label: string; blurb: string; emptyNote: string }[
     scope: "dev",
     label: "Development (2018–2024 walk-forward)",
     blurb:
-      "Expanding walk-forward over seven seasons with strict point-in-time features — the " +
-      "evidence the model was selected on. Selection was sealed before the test below.",
+      "Expanding walk-forward over seven seasons with strict point-in-time features. This is " +
+      "the evidence the model was selected on, and selection was sealed before the test below.",
     emptyNote: "Dev evidence publishes with the selection record.",
   },
   {
@@ -39,9 +39,9 @@ const SCOPES: { scope: Scope; label: string; blurb: string; emptyNote: string }[
     blurb:
       "The sealed touch-once test: evaluated exactly once, after selection was frozen. This " +
       "season can never be re-used. 2025 ran harder for every model including the market " +
-      `(${MARKET_LOG_LOSS_TEST.toFixed(4)} vs ${MARKET_LOG_LOSS_DEV.toFixed(4)} on dev) — ` +
-      "it had the era's weakest home advantage — and every relative comparison from " +
-      "selection replicated out-of-time.",
+      `(${MARKET_LOG_LOSS_TEST.toFixed(4)} vs ${MARKET_LOG_LOSS_DEV.toFixed(4)} on dev), ` +
+      "since it had the era's weakest home advantage. Every relative comparison from " +
+      "selection still replicated out-of-time.",
     emptyNote: "The sealed 2025 snapshot failed to load.",
   },
   {
@@ -57,8 +57,8 @@ const SCOPES: { scope: Scope; label: string; blurb: string; emptyNote: string }[
     label: "Live record",
     blurb:
       "Official frozen forecasts graded against real results. This is the record that " +
-      "matters, and it only accrues in real time. Small live samples are extremely noisy — " +
-      "judge trends here in months, not matchdays.",
+      "matters, and it only accrues in real time. Small live samples are extremely noisy, " +
+      "so judge trends here in months, not matchdays.",
     emptyNote: "First graded forecasts land after the first official kickoffs.",
   },
 ];
@@ -244,7 +244,7 @@ function ScopePanel({ scope, label, blurb, emptyNote }: (typeof SCOPES)[number])
                   {buckets.length > 0 && !showBuckets && (
                     <p className="blurb">
                       The by-confidence breakdown appears once the live record reaches n≥
-                      {MIN_N_BUCKET_DETAIL} — at n={m.n ?? 0} its {buckets.length} confidence
+                      {MIN_N_BUCKET_DETAIL}. At n={m.n ?? 0} its {buckets.length} confidence
                       buckets hold no more than {biggestBucket} forecast
                       {biggestBucket === 1 ? "" : "s"} each, so the chart would show noise,
                       not skill.
@@ -252,8 +252,8 @@ function ScopePanel({ scope, label, blurb, emptyNote }: (typeof SCOPES)[number])
                   )}
                   {scope === "live" && monthly.length === 1 && (
                     <p className="blurb">
-                      The month-by-month record appears once it spans two calendar months —
-                      every graded forecast so far sits inside {monthly[0]!.label}, so a
+                      The month-by-month record appears once it spans two calendar months.
+                      Every graded forecast so far sits inside {monthly[0]!.label}, so a
                       one-dot chart would dress a single number up as a trend.
                     </p>
                   )}
@@ -262,7 +262,7 @@ function ScopePanel({ scope, label, blurb, emptyNote }: (typeof SCOPES)[number])
                     typeof m.log_loss === "number" && (
                       <div className="callout">
                         Closing odds embed the final 3 hours of information the kickoff−3h
-                        cutoff can't see — the market gap is shown in every scope where it
+                        cutoff can't see. The market gap is shown in every scope where it
                         exists, and no "beats the market" claim is made anywhere.
                       </div>
                     )}
@@ -293,15 +293,15 @@ export function PerformancePage() {
         eyebrow="Evidence"
         meta={["4 scopes", "log loss decides"]}
         title="Performance"
-        description="Four evidence scopes, four separate panels — never merged, never blended,
+        description="Four evidence scopes in four separate panels. Never merged, never blended,
         each with its own sample size."
       >
         <div className="callout">
           <strong>How to read these numbers.</strong> Log loss measures how surprised the model
-          is by actual results — <em>lower is better</em>. A model that knows nothing (⅓/⅓/⅓
+          is by actual results, and <em>lower is better</em>. A model that knows nothing (⅓/⅓/⅓
           every match) scores <span className="mono">{KNEW_NOTHING_LL.toFixed(4)}</span>; every
           hundredth below that
-          is real, hard-won signal. It rewards well-calibrated probabilities, not lucky picks —
+          is real, hard-won signal. It rewards well-calibrated probabilities, not lucky picks,
           which is why it, and not accuracy, decides everything here.
         </div>
       </Section>

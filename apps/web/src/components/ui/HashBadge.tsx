@@ -20,7 +20,7 @@ export function HashBadge({ hash, href }: { hash: string; href?: string | null }
     [],
   );
   return (
-    <span className="hashbadge" title="SHA-256 of the frozen forecast — anchored publicly at creation">
+    <span className="hashbadge" title="SHA-256 of the frozen forecast, anchored publicly at creation">
       <span aria-hidden>⬡</span>
       <span className="hash">{shortHash(hash)}</span>
       <button

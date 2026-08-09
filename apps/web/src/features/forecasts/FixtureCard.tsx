@@ -54,11 +54,11 @@ export function FixtureCard({
           <ProbBar pHome={f.p_home} pDraw={f.p_draw} pAway={f.p_away} />
           <div className="meta">
             {f.type === "official-frozen" ? (
-              <Badge kind="frozen" title="Official — immutable, hashed, publicly anchored" />
+              <Badge kind="frozen" title="Official: immutable, hashed, publicly anchored" />
             ) : (
               <Badge
                 kind="draft"
-                title="Preliminary — refreshes until kickoff−3h, then the official forecast freezes"
+                title="Preliminary: refreshes until kickoff−3h, then the official forecast freezes"
               />
             )}
             {f.type === "official-frozen" &&
@@ -66,7 +66,7 @@ export function FixtureCard({
               minsToKickoff <= IMMINENT_KICKOFF_MIN && (
                 <span
                   className="chip"
-                  title="Forecast sealed at kickoff−3h — the match starts soon"
+                  title="Forecast sealed at kickoff−3h; the match starts soon"
                 >
                   kicks off in {inWords(minsToKickoff)}
                 </span>
@@ -78,7 +78,7 @@ export function FixtureCard({
                 <span
                   className="chip hint"
                   title="When the official forecast freezes"
-                  data-hint="When the official forecast freezes — sealed at kickoff−3h, hashed, and anchored publicly."
+                  data-hint="When the official forecast freezes: sealed at kickoff−3h, hashed, and anchored publicly."
                 >
                   {/* drop the day ONLY when the freeze shares the kickoff's UTC day —
                       the day headings group by UTC, so the check must agree with them

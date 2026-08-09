@@ -30,7 +30,7 @@ export function SealStrip() {
           const label = d.root
             ? `${d.day} · root ${d.root.slice(0, 12)}…${d.committedAt ? ` · committed ${d.committedAt}` : ""}`
             : d.pending
-              ? `${d.day} · seal pending — roots are committed at 12:00 UTC the following day`
+              ? `${d.day} · seal pending: roots are committed at 12:00 UTC the following day`
               : `${d.day} · no official forecast issued`;
           // cells fill left→right as the strip appears: the steps ARE the data, which
           // docs/motion.md licenses as an exception to the 3-step stagger cap

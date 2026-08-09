@@ -58,12 +58,12 @@ export function Ticker() {
           {frozen ? (
             <>
               <span className="t-gold">⬡</span>
-              {teamName(m.home)} vs {teamName(m.away)} — frozen
+              {teamName(m.home)} vs {teamName(m.away)} · frozen
               {m.forecast?.forecast_hash ? ` · ${shortHash(m.forecast.forecast_hash, 8)}` : ""}
             </>
           ) : (
             <>
-              {teamName(m.home)} vs {teamName(m.away)} —{" "}
+              {teamName(m.home)} vs {teamName(m.away)} ·{" "}
               {freezeIn(new Date(new Date(m.kickoff_utc).getTime() - 3 * 3600 * 1000), now)}
             </>
           )}

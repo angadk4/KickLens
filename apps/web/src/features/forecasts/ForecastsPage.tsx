@@ -39,7 +39,7 @@ export function ForecastsPage() {
         title="Forecasts"
         description="Preliminary probabilities refresh until kickoff−3h; at the cutoff the
         official forecast freezes, is SHA-256 hashed, and is anchored publicly. After that it
-        can never change. Days group by UTC — the record's clock; card times are local."
+        can never change. Days group by UTC, the record's clock; card times are local."
       >
         <div className="probbar-legend" aria-hidden>
           <span>
@@ -70,7 +70,7 @@ export function ForecastsPage() {
         {upcoming && upcoming.length === 0 && (
           <EmptyState title="No upcoming fixtures with forecasts yet">
             {health?.schedule_fresh === false
-              ? `Our fixture feed is stale — the last full schedule sync finished ${health.last_full_ingest ?? "never"}, so fixtures are missing here rather than absent from the league. Results and grading are unaffected.`
+              ? `Our fixture feed is stale. The last full schedule sync finished ${health.last_full_ingest ?? "never"}, so fixtures are missing here rather than absent from the league. Results and grading are unaffected.`
               : "Fixtures appear here as the 7-day schedule sweep picks them up; drafts generate inside the same 7-day window."}
           </EmptyState>
         )}

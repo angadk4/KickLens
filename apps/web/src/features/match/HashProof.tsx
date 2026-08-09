@@ -190,7 +190,7 @@ export function HashProof({
       <div className="prover">
         <span className="pv-caption">verify in this browser</span>
         <p className="blurb">
-          This browser doesn't expose WebCrypto here, so use the offline recipe on the left —
+          This browser doesn't expose WebCrypto here, so use the offline recipe on the left:
           same document, same hash, your machine.
         </p>
       </div>
@@ -212,7 +212,7 @@ export function HashProof({
 
   // ——— step 4: the record (was this hash published by a third party?) ———
   let recordMark: Mark = "pending";
-  let recordText: React.ReactNode = "found in the public anchor file on GitHub — not our API";
+  let recordText: React.ReactNode = "found in the public anchor file on GitHub, not our API";
   if (phase === "mismatch") {
     recordMark = "skip";
   } else if (phase === "done" && outcome) {
@@ -222,7 +222,7 @@ export function HashProof({
         <>
           {/* "of N" counts FILE lines (what GitHub shows), never leaves — with a blank or
               malformed line in the file the two differ, and "line 12 of 11" is nonsense */}
-          found — line {line.n} of {audit!.lineCount} in{" "}
+          found on line {line.n} of {audit!.lineCount} in{" "}
           {lineUrl ? (
             <a href={lineUrl} target="_blank" rel="noreferrer">
               {fileLabel} ↗
@@ -236,20 +236,20 @@ export function HashProof({
     } else if (audit?.kind === "absent") {
       recordMark = audit.sealed ? "fail" : "skip";
       recordText = audit.sealed
-        ? `NOT in ${fileLabel} — absent from a sealed day`
-        : `not in ${fileLabel} yet — pushes are eventual, GitHub's CDN caches ~5 min`;
+        ? `NOT in ${fileLabel}, absent from a sealed day`
+        : `not in ${fileLabel} yet; pushes are eventual, GitHub's CDN caches ~5 min`;
     } else if (outcome.kind === "unreachable") {
-      recordText = "GitHub unreachable from this page — the check didn't run";
+      recordText = "GitHub unreachable from this page, so the check didn't run";
       recordMark = "skip";
     } else if (outcome.kind === "timeout") {
-      recordText = "GitHub didn't answer within 5 s — the check didn't run";
+      recordText = "GitHub didn't answer within 5 s, so the check didn't run";
       recordMark = "skip";
     } else if (outcome.kind === "http") {
       const hard = outcome.status === 404 && sealed;
       recordMark = hard ? "fail" : "skip";
       recordText = hard
         ? `GitHub returned 404 for a SEALED day's file`
-        : `GitHub returned ${outcome.status} — the check didn't run`;
+        : `GitHub returned ${outcome.status}, so the check didn't run`;
     } else if (outcome.kind === "no-anchor") {
       recordMark = "skip";
       recordText = "no public anchor location recorded for this forecast";
@@ -270,7 +270,7 @@ export function HashProof({
           : `sealed root reproduced from the ${audit.leafCount} well-formed lines · ${short(audit.root)}`;
     } else if (audit?.kind === "seal-pending") {
       sealMark = "pending";
-      sealText = `computed ${short(audit.computedRoot)} from ${audit.leafCount} lines — day seals at 12:00 UTC`;
+      sealText = `computed ${short(audit.computedRoot)} from ${audit.leafCount} lines · day seals at 12:00 UTC`;
     } else if (audit?.kind === "root-mismatch") {
       sealMark = "fail";
       sealText =
@@ -279,7 +279,7 @@ export function HashProof({
           : `computed ${short(audit.computedRoot)} ≠ sealed ${short(audit.expectedRoot)} · ${audit.malformed.length} malformed line(s)`;
     } else {
       sealMark = "skip";
-      sealText = "Merkle root not recomputed — no public file to audit";
+      sealText = "Merkle root not recomputed: no public file to audit";
     }
   }
 
@@ -312,7 +312,7 @@ export function HashProof({
 
   return (
     <div className="prover">
-      <span className="pv-caption">verify in this browser — no server, no trust</span>
+      <span className="pv-caption">verify in this browser · no server, no trust</span>
       {/* aria-disabled, NOT disabled: a disabled button drops keyboard focus to <body>
           mid-interaction (the states.tsx rule) — the click is guarded instead */}
       <button
@@ -353,7 +353,7 @@ export function HashProof({
             <span className="pv-verdict mismatch">✕ hash mismatch</span>
             <p className="blurb">
               The recomputed digest does not reproduce the stored value. That would indicate
-              tampering — surfaced, never hidden. The offline recipe on the left is the
+              tampering. Surfaced, never hidden. The offline recipe on the left is the
               independent check.
             </p>
           </>
@@ -363,7 +363,7 @@ export function HashProof({
             <span className="pv-verdict holds">⬡ proof holds</span>
             <p className="blurb" style={{ fontSize: "var(--text-xs)" }}>
               The hash was recomputed from the document in this browser, found in the public
-              anchor file served by GitHub — not our API — and the day's Merkle root reproduced
+              anchor file served by GitHub (not our API), and the day's Merkle root reproduced
               from all {audit.leafCount} public lines. The server supplied the document; a third
               party supplied the record.
             </p>
@@ -375,12 +375,12 @@ export function HashProof({
                 anchor records, and says nothing about lines that aren't anchor records. On a
                 sealed day such lines can only postdate the seal (a non-JSON line present at
                 sealing crashes the sealer; a junk hash makes the roots disagree). */}
-            <span className="pv-verdict partial">✓ sealed set verified — foreign lines in file</span>
+            <span className="pv-verdict partial">✓ sealed set verified, foreign lines in file</span>
             <p className="blurb" style={{ fontSize: "var(--text-xs)" }}>
               The day's sealed root reproduces from the file's {audit.leafCount} well-formed
               anchor lines, but the file also carries {foreignLines.length} line
               {foreignLines.length === 1 ? "" : "s"} that {foreignLines.length === 1 ? "is" : "are"}{" "}
-              not an anchor record (line {foreignLines.join(", ")}) — on a sealed day that means
+              not an anchor record (line {foreignLines.join(", ")}). On a sealed day that means
               content entered the file after sealing. Surfaced, never hidden.{" "}
               {historyUrl && (
                 <a href={historyUrl} target="_blank" rel="noreferrer">
@@ -392,10 +392,10 @@ export function HashProof({
         )}
         {phase === "done" && audit?.kind === "seal-pending" && (
           <>
-            <span className="pv-verdict partial">✓ hash verified — seal pending</span>
+            <span className="pv-verdict partial">✓ hash verified, seal pending</span>
             <p className="blurb" style={{ fontSize: "var(--text-xs)" }}>
               This line is already in the public file. The day's Merkle seal lands at{" "}
-              {sealDue ?? "12:00 UTC the next day"} — run this again after that and the root
+              {sealDue ?? "12:00 UTC the next day"}. Run this again after that and the root
               check goes live. The computed root above is shown now so you can hold us to it.
             </p>
           </>
@@ -405,7 +405,7 @@ export function HashProof({
             <span className="pv-verdict mismatch">✕ missing from sealed day</span>
             <p className="blurb">
               This forecast's hash is not in the sealed public file. That would indicate the
-              record was altered after the fact — surfaced, never hidden.{" "}
+              record was altered after the fact. Surfaced, never hidden.{" "}
               {historyUrl && (
                 <a href={historyUrl} target="_blank" rel="noreferrer">
                   file history ↗
@@ -416,9 +416,9 @@ export function HashProof({
         )}
         {phase === "done" && audit?.kind === "absent" && !audit.sealed && (
           <>
-            <span className="pv-verdict partial">✓ hash verified — not published yet</span>
+            <span className="pv-verdict partial">✓ hash verified, not published yet</span>
             <p className="blurb" style={{ fontSize: "var(--text-xs)" }}>
-              The line isn't visible in the public file yet — GitHub's CDN caches for ~5 minutes
+              The line isn't visible in the public file yet; GitHub's CDN caches for ~5 minutes
               and anchor pushes are eventual. The day seals at{" "}
               {sealDue ?? "12:00 UTC the next day"}; absence only becomes a failure after that.
             </p>
@@ -431,10 +431,10 @@ export function HashProof({
               The Merkle root recomputed from the file's {audit.leafCount} well-formed anchor
               lines ({audit.lineCount} lines in total
               {audit.malformed.length > 0
-                ? `, ${audit.malformed.length} of them not an anchor record — line ${audit.malformed.join(", ")}`
+                ? `, ${audit.malformed.length} of them not an anchor record (line ${audit.malformed.join(", ")})`
                 : ""}
               ) does not reproduce the sealed root. That would indicate the file was rewritten
-              after sealing — surfaced, never hidden.{" "}
+              after sealing. Surfaced, never hidden.{" "}
               {historyUrl && (
                 <a href={historyUrl} target="_blank" rel="noreferrer">
                   file history ↗
@@ -445,11 +445,11 @@ export function HashProof({
         )}
         {phase === "done" && (outcome?.kind === "unreachable" || outcome?.kind === "timeout") && (
           <>
-            <span className="pv-verdict partial">✓ hash verified — record unchecked</span>
+            <span className="pv-verdict partial">✓ hash verified, record unchecked</span>
             <p className="blurb" style={{ fontSize: "var(--text-xs)" }}>
               {outcome.kind === "timeout"
-                ? "GitHub didn't answer within 5 seconds, so the record check didn't run — nothing failed."
-                : "This page couldn't reach raw.githubusercontent.com (network, or this deployment's content-security policy), so the record check didn't run — nothing failed."}{" "}
+                ? "GitHub didn't answer within 5 seconds, so the record check didn't run. Nothing failed."
+                : "This page couldn't reach raw.githubusercontent.com (network, or this deployment's content-security policy), so the record check didn't run. Nothing failed."}{" "}
               Audit it yourself:{" "}
               {anchorRawUrl && (
                 <a href={anchorRawUrl} target="_blank" rel="noreferrer">
@@ -464,14 +464,14 @@ export function HashProof({
             <span className={`pv-verdict ${outcome.status === 404 && sealed ? "mismatch" : "partial"}`}>
               {outcome.status === 404 && sealed
                 ? "✕ sealed file missing"
-                : "✓ hash verified — record unchecked"}
+                : "✓ hash verified, record unchecked"}
             </span>
             <p className="blurb" style={{ fontSize: "var(--text-xs)" }}>
               {outcome.status === 404 && sealed
-                ? "GitHub returned 404 for a sealed day's anchor file — a sealed file should never disappear. Surfaced, never hidden."
+                ? "GitHub returned 404 for a sealed day's anchor file, and a sealed file should never disappear. Surfaced, never hidden."
                 : outcome.status === 404
-                  ? "GitHub returned 404 — the day's file may simply not be pushed yet; publication is eventual until the 12:00 UTC seal."
-                  : `GitHub returned ${outcome.status}, so the record check didn't run — nothing failed.`}{" "}
+                  ? "GitHub returned 404. The day's file may simply not be pushed yet; publication is eventual until the 12:00 UTC seal."
+                  : `GitHub returned ${outcome.status}, so the record check didn't run. Nothing failed.`}{" "}
               {historyUrl && (
                 <a href={historyUrl} target="_blank" rel="noreferrer">
                   file history ↗

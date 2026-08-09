@@ -25,7 +25,7 @@ const LEDGER_ACTION: Record<string, string> = {
   Regraded: "regraded after a result correction",
   Corrected: "result corrected by the provider",
   AnchorPublished: "anchor pushed to the public repository",
-  AnchorPushFailed: "anchor push failed — the next run re-pushes it",
+  AnchorPushFailed: "anchor push failed; the next run re-pushes it",
 };
 
 export function activityPhrase(item: ActivityItem): ActivityPhrase {
@@ -46,7 +46,7 @@ export function activityPhrase(item: ActivityItem): ActivityPhrase {
   if (item.type === "Voided") {
     const reason = item.details?.["reason"];
     const vp = voidPhrase(typeof reason === "string" ? reason : undefined);
-    return { action: vp ? `forecast voided — ${vp}` : "forecast voided", matchup, flag: "voided" };
+    return { action: vp ? `forecast voided: ${vp}` : "forecast voided", matchup, flag: "voided" };
   }
   return {
     // an unknown event type prints AS ITSELF — the ledger may grow types before this map does,

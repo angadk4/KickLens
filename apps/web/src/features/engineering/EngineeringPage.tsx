@@ -43,7 +43,7 @@ const REPO = REPO_URL; // ONE definition (lib/facts) — pages never hand-roll t
 const INVARIANTS = [
   {
     what: "Official forecasts are write-once",
-    how: "Postgres BEFORE UPDATE OR DELETE triggers raise on the prediction ledger, belt-and-braces with an app-level guard. State changes append events; a postponement voids the old row and freezes a new one — the original is kept forever.",
+    how: "Postgres BEFORE UPDATE OR DELETE triggers raise on the prediction ledger, belt-and-braces with an app-level guard. State changes append events; a postponement voids the old row and freezes a new one, and the original is kept forever.",
     where: "migrations/0002",
     href: "/blob/main/migrations/versions/0002_audit_ops.py",
   },
@@ -55,7 +55,7 @@ const INVARIANTS = [
   },
   {
     what: "Evidence scopes never merge",
-    how: "Dev, test, backtest, and live are separate keys end-to-end. The API rejects unknown scopes, and the UI's stat component declares evidence scope and sample size as required props — a metric cannot be added to the site without stating both.",
+    how: "Dev, test, backtest, and live are separate keys end-to-end. The API rejects unknown scopes, and the UI's stat component declares evidence scope and sample size as required props, so a metric cannot be added to the site without stating both.",
     where: "apps/api/main.py",
     href: "/blob/main/apps/api/main.py",
   },
@@ -71,22 +71,22 @@ const INCIDENTS = [
   {
     when: "Jul 2026",
     what: "The first live alarm was a false positive",
-    how: "The 09:00 canary timed out on a cold Lambda + Neon wake and self-cleared. The fix made the canary tolerate a cold start (3 attempts × 40s) instead of making the alarm quieter — a real outage still fails every attempt.",
-    where: "jobs/handlers.py — canary retry loop",
+    how: "The 09:00 canary timed out on a cold Lambda + Neon wake and self-cleared. The fix made the canary tolerate a cold start (3 attempts × 40s) instead of making the alarm quieter; a real outage still fails every attempt.",
+    where: "jobs/handlers.py (canary retry loop)",
     href: "/blob/main/jobs/handlers.py",
   },
   {
     when: "Jul 2026",
     what: "Byte-identical dependencies, different lineage hashes",
     how: "uv.lock materializes with CRLF line endings on a fresh Windows clone, so the same dependency set stamped different lockfile hashes across platforms. Fixed with in-code normalization, scoped so already-sealed experiment records keep their existing seal.",
-    where: "packages/models/runlog.py — lockfile_hash",
+    where: "packages/models/runlog.py (lockfile_hash)",
     href: "/blob/main/packages/models/runlog.py",
   },
   {
     when: "Jul 2026",
     what: "A pre-launch adversarial review made failures loud",
     how: "Silent per-provider failures became raises (so the Errors alarm fires), the Merkle job was moved to read yesterday's file from the public repo, and anchor pushes gained a catch-up republisher for eventual publication.",
-    where: "jobs/handlers.py — launch-review fixes",
+    where: "jobs/handlers.py (launch-review fixes)",
     href: "/blob/main/jobs/handlers.py",
   },
 ];
@@ -122,10 +122,9 @@ export function EngineeringPage() {
           <>
             KickLens is an MLS forecaster whose real product is the tamper-evident public
             record; this page covers the system, <Link to="/methodology">Methodology</Link>{" "}
-            covers the modeling discipline. Constraints: one developer (AI-assisted, working
-            against a written operating manual with hard rules and stop conditions), ~$0
-            monthly infrastructure with a $5 tripwire, no staging environment, and a
-            read-only public surface.
+            covers the modeling discipline. Constraints: one developer, ~$0 monthly
+            infrastructure with a $5 tripwire, no staging environment, and a read-only
+            public surface.
           </>
         }
       >
@@ -179,7 +178,7 @@ export function EngineeringPage() {
         description="Serverless end to end: EventBridge crons invoke six handlers baked into
         one container image; the public API is a separate 8 MB zip with no ML libraries; the
         database is Neon Postgres on a pooled endpoint, reached without a VPC. On desktop,
-        hover any box for the why — or open the one-reason-each list below."
+        hover any box for the why, or open the one-reason-each list below."
       >
         <ArchitectureDiagram />
         <DiagramWhys />
@@ -197,23 +196,23 @@ export function EngineeringPage() {
         meta={[`${CRON_RULES} crons`, "leased claims"]}
         title="Orchestration without an orchestrator"
         description="EventBridge crons, database state-gating, and idempotency. Each job is
-        safe to re-run or fire out of order — simpler than a workflow engine, at no cost."
+        safe to re-run or fire out of order. Simpler than a workflow engine, at no cost."
       >
         <div className="prose">
           <p>
             The build contract originally froze "choreography with Postgres advisory locks."
             That turned out to be wrong: session advisory locks are void behind PgBouncer's
-            transaction pooling — the lock releases the moment the transaction ends, which is
+            transaction pooling, because the lock releases the moment the transaction ends, which is
             exactly when it's still needed. Production uses leased, hour-bucketed job claims
             instead: a duplicate EventBridge delivery no-ops, and a crashed run's claim
-            expires so the next run picks it up. The deviation is recorded, not hidden — ADR-004
+            expires so the next run picks it up. The deviation is recorded, not hidden: ADR-004
             documents it, and Contract §8 carries the annotation in place.
           </p>
           <p>
             Failure handling is loud, and publication is eventual: if an anchor push to GitHub
             fails, the next run re-pushes it and the daily canary counts anchors stuck
             unpublished. The daily Merkle root is computed from the public repo's copy of
-            yesterday's anchor file — the public file is the authoritative record. A total
+            yesterday's anchor file, since the public file is the authoritative record. A total
             provider outage raises an error, so the Errors alarm fires; silent degradation was
             audited out as a failure mode.
           </p>
@@ -224,18 +223,18 @@ export function EngineeringPage() {
         eyebrow="Testing"
         meta={[`${TESTS_CI_PASSED} green`, "run in CI"]}
         title="Tests are the enforcement layer"
-        description="Named suites own named guarantees — leakage (R1–R8), the write-once
+        description="Named suites own named guarantees: leakage (R1–R8), the write-once
         ledger, forecast hashing and anchoring, the canary's dead-man checks, schema audit,
         and the touch-once gate."
       >
         <div className="prose">
           <p>
             CI runs ruff, mypy, and the full suite against a real Postgres service container,
-            so the database-backed guarantees execute in CI — the suite this deploy ships
+            so the database-backed guarantees execute in CI. The suite this deploy ships
             with is {TESTS_CI_PASSED} passed, {TESTS_CI_SKIPPED} skipped, verified{" "}
             {TESTS_ASOF}. A final
             step re-runs the never-cut suites on their own and fails the build if they don't
-            run at all — a green run with everything silently skipped is itself a failure. The
+            run at all, because a green run with everything silently skipped is itself a failure. The
             recompute-parity checks that need the full match history run in the sealed
             training environment, where it's loaded; gitleaks scans every push. The one
             documented skip is data-gated: a market-aggregation check that needs the full
@@ -247,10 +246,10 @@ export function EngineeringPage() {
       <Section
         eyebrow="Lineage"
         meta={["6 fields per forecast"]}
-        title="Every forecast records its full lineage — and the server verifies the record"
+        title="Every forecast records its full lineage, and the server verifies the record"
         description="Two separate claims, each scoped precisely. Lineage: every official
         forecast records the dataset snapshot hash, feature-set version, model version, code
-        git SHA, seed, and lockfile hash — enough to reproduce the run. The git SHA is baked
+        git SHA, seed, and lockfile hash, which is enough to reproduce the run. The git SHA is baked
         into the container at build time, because Lambda has no git binary and lineage must
         never degrade to 'unknown' in production."
       >
@@ -260,7 +259,7 @@ export function EngineeringPage() {
             11-field set, anchored to a public GitHub file before kickoff by construction.
             The verification endpoint recomputes the hash server-side from the database fields
             and exposes the canonical document only when it matches the stored write-once
-            value — it proves the record hasn't changed and was anchored in time, not that
+            value. That proves the record hasn't changed and was anchored in time, not that
             the model re-runs bit-for-bit (feature recompute parity is separately enforced by
             the leakage suite).
           </p>
@@ -285,7 +284,7 @@ export function EngineeringPage() {
       >
         <div className="prose">
           <p>
-            Every job gets an Errors alarm and a Throttles alarm — a throttled job never
+            Every job gets an Errors alarm and a Throttles alarm. A throttled job never
             runs, so it never errors, and needs its own tripwire. The API gets both, and its
             Errors alarm fires at a single 5xx: on a read-only surface, one server error is a
             real bug. The daily canary goes
@@ -297,7 +296,7 @@ export function EngineeringPage() {
           <p>
             The canary retries through a cold API + database wake, so scale-to-zero is a
             non-event while a real outage still fails every attempt. Costs are guarded by a
-            $5/month AWS budget with alerts at 80% actual and 100% forecasted — tripping it
+            $5/month AWS budget with alerts at 80% actual and 100% forecasted; tripping it
             is a documented stop condition. Missed cutoff → an honest "no forecast issued,"
             never back-filled. Provider down → last-known data plus a stale banner. Bad model
             → repoint the registry's production flag.
@@ -323,7 +322,7 @@ export function EngineeringPage() {
             and all six functions are repointed to that commit's image; the API zip is
             rebuilt; the site is synced to S3 with a CloudFront invalidation; then Terraform
             applies any drift. Training runs monthly on GitHub Actions and produces a
-            challenger that is never auto-promoted — promotion is manual behind a frozen gate
+            challenger that is never auto-promoted. Promotion is manual behind a frozen gate
             (≥0.005 nats improvement, a 95% CI excluding zero, and calibration not degraded),
             and rollback is repointing one flag. Local development is prod-shaped: Docker
             Compose runs the API, Postgres, and the job container against Alembic migrations.
@@ -358,7 +357,7 @@ export function EngineeringPage() {
         meta={["ADR-002 · Contract §8"]}
         title="Deliberately not here"
         description="Pre-empting the 'why didn't you use X' question: each omission was a
-        decision — recorded in ADR-002 or frozen in the build contract (§8)."
+        decision, recorded in ADR-002 or frozen in the build contract (§8)."
       >
         <div className="fact-rows">
           {OMISSIONS.map(([what, why]) => (

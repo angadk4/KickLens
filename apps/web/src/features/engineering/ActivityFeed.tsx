@@ -45,7 +45,7 @@ export function ActivityFeed() {
                 {p.action}
                 {p.matchup && it.kind === "ledger" && (
                   <>
-                    {" — "}
+                    {" · "}
                     <Link to={`/match/${it.match_id}`}>{p.matchup}</Link>
                   </>
                 )}
@@ -55,7 +55,7 @@ export function ActivityFeed() {
         })}
       </div>
       <p className="blurb" style={{ fontSize: "var(--text-xs)" }}>
-        Record-affecting events and ingest sweeps only — feature, odds and canary runs leave
+        Record-affecting events and ingest sweeps only. Feature, odds and canary runs leave
         no queryable trace on the read-only API, so they are honestly absent here (their
         SCHEDULED runs are on the board above).
       </p>

@@ -267,7 +267,7 @@ export function CommandPalette() {
         </div>
         {/* outside the listbox — a non-option child of role="listbox" is invalid ARIA */}
         {ranked.length === 0 && (
-          <div className="pal-empty">nothing matches “{query}” — try a team code or a page name</div>
+          <div className="pal-empty">nothing matches “{query}” · try a team code or a page name</div>
         )}
         <div className="sr-only" aria-live="polite">
           {ranked.length} result{ranked.length === 1 ? "" : "s"}

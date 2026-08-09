@@ -76,8 +76,8 @@ function Hero() {
             <h1>Every official forecast goes on the record. None come off.</h1>
             <p className="sub">
               Each one freezes 3 hours before kickoff, is SHA-256 hashed and anchored to a
-              public GitHub repository, then graded automatically against the result — and
-              the limitations are printed on the same pages as the results.
+              public GitHub repository, then graded automatically against the result. The
+              limitations are printed on the same pages as the results.
             </p>
             <div className="hero-ctas">
               <Link to="/forecasts" className="btn primary">
@@ -292,7 +292,7 @@ export function HomePage() {
         eyebrow="Evidence"
         meta={["4 scopes", "never merged"]}
         title="The numbers, with their receipts"
-        description="Four separate evidence scopes — development, the sealed touch-once test,
+        description="Four separate evidence scopes: development, the sealed touch-once test,
         labelled backtests, and the live record. They are never merged, and every figure
         carries its sample size."
       >
@@ -373,9 +373,9 @@ export function HomePage() {
           <StatusCell />
         </div>
         <p className="blurb" style={{ fontSize: "var(--text-xs)" }}>
-          Log loss — lower is better. Guessing ⅓/⅓/⅓ every match scores{" "}
+          Log loss, where lower is better. Guessing ⅓/⅓/⅓ every match scores{" "}
           {KNEW_NOTHING_LL.toFixed(4)}; on the same
-          sealed test the closing market scored {MARKET_LOG_LOSS_TEST.toFixed(4)} — ahead of
+          sealed test the closing market scored {MARKET_LOG_LOSS_TEST.toFixed(4)}, ahead of
           the model, and said so plainly. The full ladder is on{" "}
           <Link to="/performance">Performance</Link>.
         </p>
@@ -410,7 +410,7 @@ export function HomePage() {
               <EmptyState title="No upcoming fixtures">
                 {scheduleStale
                   ? `The fixture schedule has not refreshed since ${health?.last_full_ingest ?? "never"}, so this list is incomplete until the next full sweep.`
-                  : "The schedule sweep is current and holds no fixture ahead of now — it looks 7 days out, so later fixtures appear as they enter that window."}
+                  : "The schedule sweep is current and holds no fixture ahead of now. It looks 7 days out, so later fixtures appear as they enter that window."}
               </EmptyState>
             )
           ) : (

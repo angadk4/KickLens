@@ -34,7 +34,7 @@ function Forecast({ f, repo }: { f: VerifiedForecast; repo: string | null }) {
           <>
             <span style={{ color: "var(--success)" }}>✓</span>
             <span>
-              hash verified — recomputed from the database and it matches the stored,
+              hash verified: recomputed from the database and it matches the stored,
               write-once value
             </span>
           </>
@@ -42,7 +42,7 @@ function Forecast({ f, repo }: { f: VerifiedForecast; repo: string | null }) {
           <>
             <span style={{ color: "var(--danger)" }}>✕</span>
             <span>
-              HASH MISMATCH — the stored value does not reproduce from the stored fields. This
+              HASH MISMATCH. The stored value does not reproduce from the stored fields. This
               would indicate tampering and is surfaced, never hidden.
             </span>
           </>
@@ -119,7 +119,7 @@ function Forecast({ f, repo }: { f: VerifiedForecast; repo: string | null }) {
                   <span className="tl-time">{e.at ?? ""}</span>
                   <span>
                     {e.type}
-                    {e.details ? ` — ${JSON.stringify(e.details)}` : ""}
+                    {e.details ? `: ${JSON.stringify(e.details)}` : ""}
                   </span>
                 </div>
               ))}
@@ -151,7 +151,7 @@ export function VerificationPanel({ v }: { v: Verification }) {
         <div className="proof-bench">
           <div style={{ display: "grid", gap: "var(--space-4)", minWidth: 0 }}>
             <p className="blurb">
-              No official forecast exists for this match yet — every field below is written
+              No official forecast exists for this match yet. Every field below is written
               once at the freeze (kickoff−3h) and never edited afterwards.
             </p>
             <dl className="kv">
@@ -171,7 +171,7 @@ export function VerificationPanel({ v }: { v: Verification }) {
             <FieldLedgerPending names={HASHED_FIELD_NAMES} />
           </div>
           <div className="prover">
-            <span className="pv-caption">verify in this browser — no server, no trust</span>
+            <span className="pv-caption">verify in this browser · no server, no trust</span>
             <button type="button" className="btn primary" disabled>
               Prover activates at the freeze
             </button>
@@ -180,7 +180,7 @@ export function VerificationPanel({ v }: { v: Verification }) {
                 "canonical bytes assembled",
                 "SHA-256 computed in this browser (WebCrypto)",
                 "matches the stored write-once hash",
-                "found in the public anchor file on GitHub — not our API",
+                "found in the public anchor file on GitHub, not our API",
                 "day's Merkle root reproduced from the public lines",
               ].map((t, i) => (
                 <div key={i} className="pv-step">
@@ -222,7 +222,7 @@ export function VerificationPanel({ v }: { v: Verification }) {
           "raw"
         )}
         ), find the line above, confirm it entered the public history before kickoff (
-        {dateShort(v.kickoff_utc)}), and recompute the day's Merkle root yourself — the exact
+        {dateShort(v.kickoff_utc)}), and recompute the day's Merkle root yourself; the exact
         algorithm is stated at the top of this section. The audit button does precisely that in
         your browser; doing it by hand takes even our JavaScript out of the loop.
       </p>

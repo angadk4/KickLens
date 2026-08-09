@@ -147,7 +147,7 @@ export function MatchPage() {
             <div className="meta" style={{ border: "none", padding: 0, margin: 0 }}>
               <Badge
                 kind="draft"
-                title="Preliminary — refreshes until kickoff−3h, then the official forecast freezes"
+                title="Preliminary: refreshes until kickoff−3h, then the official forecast freezes"
               />
               {m.kickoff_utc &&
                 (new Date(m.kickoff_utc).getTime() - 3 * 3600 * 1000 > Date.now() ? (
@@ -160,7 +160,7 @@ export function MatchPage() {
                     )}
                   </span>
                 ) : (
-                  <span className="chip" title="Cutoff passed — the official freezes at the next hourly run">
+                  <span className="chip" title="Cutoff passed. The official freezes at the next hourly run">
                     freezing at the next run
                   </span>
                 ))}
@@ -173,8 +173,8 @@ export function MatchPage() {
             </div>
             <ProbBar pHome={m.draft.p_home} pDraw={m.draft.p_draw} pAway={m.draft.p_away} />
             <p className="blurb">
-              Preliminary draft — the official forecast freezes at kickoff−3h, is hashed, and
-              is anchored publicly. <Link to="/methodology">How verification works →</Link>
+              This is a preliminary draft. The official forecast freezes at kickoff−3h, is
+              hashed, and is anchored publicly. <Link to="/methodology">How verification works →</Link>
             </p>
           </div>
         ) : (
@@ -189,7 +189,7 @@ export function MatchPage() {
         <Section
           eyebrow="History"
           title="Forecast timeline"
-          description="Every official version ever issued for this fixture — voided versions
+          description="Every official version ever issued for this fixture. Voided versions
           are kept forever, never deleted."
         >
           <div className="timeline">
@@ -223,7 +223,7 @@ export function MatchPage() {
                     <span className="tl-time">{e.at ?? ""}</span>
                     <span>
                       {e.type}
-                      {e.details ? ` — ${JSON.stringify(e.details)}` : ""}
+                      {e.details ? `: ${JSON.stringify(e.details)}` : ""}
                     </span>
                   </div>
                 ))}
@@ -239,8 +239,8 @@ export function MatchPage() {
         title="Verify this forecast"
         description={
           current
-            ? "Recompute the hash — right here in your browser, or offline — find the anchor line in the public repository, and check it entered public history before kickoff. No trust required."
-            : "Once the official forecast freezes at kickoff−3h, its SHA-256 appears here — recompute it in your browser, find the anchor line in the public repository, and check it entered public history before kickoff."
+            ? "Recompute the hash yourself, right here in your browser or offline. Find the anchor line in the public repository, and check it entered public history before kickoff. No trust required."
+            : "Once the official forecast freezes at kickoff−3h, its SHA-256 appears here. Recompute it in your browser, find the anchor line in the public repository, and check it entered public history before kickoff."
         }
       >
         {verify.loading && <Skeleton height={160} />}

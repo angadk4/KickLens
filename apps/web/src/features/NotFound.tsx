@@ -15,7 +15,7 @@ export function NotFound() {
           no document outline. The .code class holds every visual property, so nothing moves —
           only the margin reset the UA stylesheet would otherwise apply to an h1. */}
       <h1 className="code">404</h1>
-      <p>no forecast at this address — and we never back-fill.</p>
+      <p>no forecast at this address, and we never back-fill.</p>
       <Link to="/">← back to the overview</Link>
     </div>
   );

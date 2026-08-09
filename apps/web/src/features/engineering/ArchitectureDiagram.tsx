@@ -46,7 +46,7 @@ function DiagramSvg() {
         </text>
         <rect className="dg-zone" x="310" y="76" width="780" height="546" rx="8" />
         <text className="dg-zone-label" x="324" y="70">
-          AWS US-EAST-1 — NO VPC
+          AWS US-EAST-1 · NO VPC
         </text>
 
         {/* edges under nodes */}
@@ -112,7 +112,7 @@ export function ArchitectureDiagram() {
   if (!narrow) return <DiagramSvg />;
   return (
     <details className="diagram-toggle">
-      <summary>View the architecture diagram — wide canvas, scrolls sideways</summary>
+      <summary>View the architecture diagram (wide canvas, scrolls sideways)</summary>
       <DiagramSvg />
     </details>
   );
@@ -125,11 +125,11 @@ export function DiagramWhys() {
   const narrow = useNarrow();
   return (
     <details className="blurb diagram-whys" open={narrow || undefined}>
-      <summary>Why each box — the one-reason-each list</summary>
+      <summary>Why each box: the one-reason-each list</summary>
       <ul>
         {NODES.map((n) => (
           <li key={n.id}>
-            <strong>{n.name ?? n.lines[0]}</strong> — {n.title}
+            <strong>{n.name ?? n.lines[0]}</strong>: {n.title}
           </li>
         ))}
       </ul>

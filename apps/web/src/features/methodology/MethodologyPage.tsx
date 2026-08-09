@@ -36,7 +36,7 @@ const GUARANTEES = [
   {
     kicker: "WRITE-ONCE",
     title: "Frozen at kickoff−3h",
-    body: "Official forecasts are written once to an append-only ledger. Post-kickoff writes are rejected outright — an honest 'no forecast' beats a back-filled one.",
+    body: "Official forecasts are written once to an append-only ledger. Post-kickoff writes are rejected outright, because an honest 'no forecast' beats a back-filled one.",
   },
   {
     kicker: "SHA-256",
@@ -55,9 +55,10 @@ const GUARANTEES = [
   },
 ];
 
-/** Sentence-case + typographic dash cleanup for API-sourced prose. */
+/** Sentence-case + punctuation cleanup for API-sourced prose. The dash rewrite only fires
+    against an older API that still separates clauses with a bare hyphen. */
 function tidy(s: string): string {
-  const t = s.replaceAll(" - ", " — ");
+  const t = s.replaceAll(" - ", "; ");
   return t.charAt(0).toUpperCase() + t.slice(1);
 }
 
@@ -98,13 +99,13 @@ export function MethodologyPage() {
           <Section
             eyebrow="The pipeline"
                 title="Six steps, fully automated"
-            description="From result ingestion to a sealed daily Merkle root — no human touches
+            description="From result ingestion to a sealed daily Merkle root. No human touches
             a forecast at any point."
           >
             <div className="stepper">
               <div className="st">
                 <strong>Ingest</strong>
-                <span>results & fixtures — twice daily, plus hourly overnight result sweeps</span>
+                <span>results & fixtures: twice daily, plus hourly overnight result sweeps</span>
               </div>
               <div className="st">
                 <strong>Features</strong>
@@ -132,13 +133,13 @@ export function MethodologyPage() {
           <Section
             eyebrow="The model"
             meta={[`sealed ${DEV_SEAL_DATE}`]}
-            title="Simplest defensible — on purpose"
+            title="Simplest defensible, on purpose"
             description={`${tidy(data.model)}.`}
           >
             <div className="prose">
               <p>
                 Feature ablations (form, rest, congestion) added no measurable signal and a
-                LightGBM challenger scored worse out-of-fold — so the simplest model that
+                LightGBM challenger scored worse out-of-fold, so the simplest model that
                 survived the evidence won. Probabilities are calibrated with temperature
                 scaling
                 {/* the API's own calibration note is authoritative when present; the
@@ -215,8 +216,8 @@ export function MethodologyPage() {
                 <p className="blurb">
                   The champion stood against the full pre-registered ladder before it was
                   frozen: it beat B0–B2, B4 and B5, and is statistically equivalent to the
-                  best rung, B3 Elo ({CHAMPION_VS_B3_DELTA_NATS} nats, 95% CI including zero)
-                  — so no better-than-Elo claim is made; the tie-break was calibration (ECE{" "}
+                  best rung, B3 Elo ({CHAMPION_VS_B3_DELTA_NATS} nats, 95% CI including zero),
+                  so no better-than-Elo claim is made; the tie-break was calibration (ECE{" "}
                   {ECE_DEV_CHAMPION.toFixed(3)} vs {ECE_DEV_B3.toFixed(3)}) and simplicity.
                   It was frozen <em>before</em> the touch-once 2025
                   test was run. The de-vigged closing market is plotted as a
@@ -230,12 +231,12 @@ export function MethodologyPage() {
           <Section
             eyebrow="Trust, but verify"
                 title="Check any forecast yourself"
-            description="No trust required — three steps and a terminal."
+            description="No trust required. Three steps and a terminal."
           >
             <div className="card verify-panel">
               <dl className="kv">
                 <dt>1 · get the hash</dt>
-                <dd>open any match page — every official forecast shows its SHA-256</dd>
+                <dd>open any match page; every official forecast shows its SHA-256</dd>
                 <dt>2 · find the anchor</dt>
                 <dd>
                   {data.anchor_repo_html_url ? (
@@ -245,12 +246,12 @@ export function MethodologyPage() {
                   ) : (
                     "anchors/<date>.jsonl in the public repo"
                   )}{" "}
-                  — the same hash, committed before kickoff
+                  holds the same hash, committed before kickoff
                 </dd>
                 <dt>3 · check the clock</dt>
                 <dd>
                   the anchor line entered the public repository's history before kickoff, and
-                  the day was sealed by the next day's Merkle-root commit — inserting or
+                  the day was sealed by the next day's Merkle-root commit; inserting or
                   editing a line later would rewrite public history and break the chain
                 </dd>
               </dl>
@@ -259,7 +260,7 @@ python -c "import hashlib;print(hashlib.sha256(open('forecast.json','rb').read()
               <p className="blurb">
                 Or <Link to="/record">pick any graded match</Link> and verify one live in your
                 browser. To catch this project cheating: recompute any hash, find its line in{" "}
-                <code>anchors/</code>, and check the public history — an edit anywhere breaks
+                <code>anchors/</code>, and check the public history. An edit anywhere breaks
                 one of those three.
               </p>
               {/* the chain itself, day by day */}
@@ -363,7 +364,7 @@ python -c "import hashlib;print(hashlib.sha256(open('forecast.json','rb').read()
                         <td>
                           {v.is_production
                             ? `production (promoted ${dateShort(v.promoted_utc)})`
-                            : "challenger — never auto-promoted"}
+                            : "challenger (never auto-promoted)"}
                         </td>
                       </tr>
                     ))}

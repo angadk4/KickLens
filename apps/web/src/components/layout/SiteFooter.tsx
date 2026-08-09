@@ -6,7 +6,7 @@ export function SiteFooter() {
   return (
     <footer className="footer">
       <span className="mono" style={{ fontSize: "var(--text-sm)", color: "var(--ink-muted)" }}>
-        Frozen at kickoff−3h · SHA-256 anchored · never revised —{" "}
+        Frozen at kickoff−3h · SHA-256 anchored · never revised ·{" "}
         <Link to="/methodology">how it works</Link>
       </span>
       <div className="footer-links">
@@ -25,7 +25,7 @@ export function SiteFooter() {
       </span>
       {/* one line for the reader this site is quietly built for — no badge, no banner */}
       <span className="buildline">
-        Reviewing this build? <Link to="/engineering">Engineering</Link> is the map —
+        Reviewing this build? <Link to="/engineering">Engineering</Link> is the map:
         invariants, architecture, operations.
       </span>
     </footer>

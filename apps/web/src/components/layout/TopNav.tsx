@@ -21,7 +21,7 @@ function NavFreeze() {
       <Link
         to="/record"
         className="nav-freeze freezing"
-        title="Games between kickoff and the record — sealed forecasts awaiting results"
+        title="Games between kickoff and the record: sealed forecasts awaiting results"
       >
         <span className="nf-label">matchday · </span>
         <FlapNumber value={inPlay.length} pad={1} label="matches running" />
@@ -183,7 +183,7 @@ export function TopNav() {
           type="button"
           className="nav-kbd"
           onClick={openPalette}
-          title="Command palette — search pages, matches, actions"
+          title="Command palette: search pages, matches, actions"
         >
           {IS_MAC ? "⌘K" : "Ctrl K"}
         </button>

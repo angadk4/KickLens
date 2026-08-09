@@ -53,8 +53,8 @@ export function showMonthly(rows: MonthlyRow[]): boolean {
 /** The figcaption. The hollow-dot explanation appears ONLY when a hollow dot does. */
 export function monthlyCaption(rows: MonthlyRow[]): string {
   const total = rows.reduce((s, r) => s + r.n, 0);
-  const base = `Live log loss by calendar month (n=${total.toLocaleString()}) — lower is better; the rule marks the knew-nothing baseline (${KNEW_NOTHING_LL.toFixed(4)}).`;
+  const base = `Live log loss by calendar month (n=${total.toLocaleString()}), where lower is better; the rule marks the knew-nothing baseline (${KNEW_NOTHING_LL.toFixed(4)}).`;
   return rows.some((r) => r.small)
-    ? `${base} Hollow dots are months below n=${MIN_N_BUCKET_DETAIL} — anecdotes, not evidence.`
+    ? `${base} Hollow dots are months below n=${MIN_N_BUCKET_DETAIL}: anecdotes, not evidence.`
     : base;
 }

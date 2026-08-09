@@ -41,7 +41,7 @@ function HeroCountdown({ atMs, nowMs }: { atMs: number; nowMs: number }) {
 
 const NOT_SURFACED = {
   text: "not surfaced by the API",
-  title: "The API surfaces records, not job telemetry — by design.",
+  title: "The API surfaces records, not job telemetry. That is by design.",
 };
 
 export function NextRunsBoard() {
@@ -99,7 +99,7 @@ export function NextRunsBoard() {
         >
           schedules.tf ↗
         </a>
-        ) — a countdown promises an attempt, not a success. “Last seen” shows only what the
+        ). A countdown promises an attempt, not a success. “Last seen” shows only what the
         read-only API can prove.
       </p>
       <div className="table-scroll">
@@ -152,7 +152,7 @@ export function NextRunsBoard() {
       </div>
       {health && !health.freshness_ok && (
         <p className="mono" style={{ fontSize: "var(--text-xs)", color: "var(--warn)" }}>
-          inputs stale — the 36 h freshness threshold is exceeded; a forecast issued now
+          inputs stale: the 36 h freshness threshold is exceeded; a forecast issued now
           would be tagged STALE on its own record
         </p>
       )}

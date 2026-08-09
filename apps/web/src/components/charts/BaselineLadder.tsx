@@ -32,14 +32,14 @@ const LABEL_SHARE = 0.46;
 
 /** one honest line per rung — shown in the sidecar on hover/focus */
 const RUNG_NOTES: Record<string, string> = {
-  B0: "uniform ⅓/⅓/⅓ — the know-nothing floor",
+  B0: "uniform ⅓/⅓/⅓, the know-nothing floor",
   B1: "home/away base rates only",
   B2: "expanding-window base rates",
-  B3: "Elo ordinal — the pre-registered fallback",
+  B3: "Elo ordinal, the pre-registered fallback",
   B4: "independent Poisson goals",
   B5: "Dixon-Coles adjusted Poisson",
-  champion: "the production model — multinomial logistic on Elo difference",
-  market: "de-vigged closing odds — a stronger-information reference, not a model",
+  champion: "the production model, multinomial logistic on Elo difference",
+  market: "de-vigged closing odds, a stronger-information reference, not a model",
 };
 
 function noteFor(name: string): string {
@@ -241,7 +241,7 @@ export function BaselineLadder({ rows, n }: { rows: LadderRow[]; n?: number | nu
       </p>
       <p className="ladder-sidecar" aria-live="off">
         {h
-          ? `${h.name} — ${noteFor(h.name)}${
+          ? `${h.name} · ${noteFor(h.name)}${
               h.ci95 ? ` · CI [${nats(h.ci95[0])}, ${nats(h.ci95[1])}]` : ""
             }${
               delta !== null
@@ -251,7 +251,7 @@ export function BaselineLadder({ rows, n }: { rows: LadderRow[]; n?: number | nu
           : ""}
       </p>
       <figcaption>
-        Log loss{typeof n === "number" ? ` (n=${n.toLocaleString()})` : ""} — lower is better;
+        Log loss{typeof n === "number" ? ` (n=${n.toLocaleString()})` : ""}, where lower is better;
         dots mark the point estimate, whiskers the 95% matchweek-block-bootstrap CI where one
         exists.
       </figcaption>

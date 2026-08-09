@@ -87,11 +87,11 @@ export function RatingsPage() {
           data?.generated_at_utc ? `replayed ${dateShort(data.generated_at_utc)}` : "replayed on demand",
           "model inputs",
         ]}
-        title={`Elo ratings${data?.season ? ` — ${data.season} season` : ""}`}
+        title={`Elo ratings${data?.season ? `, ${data.season} season` : ""}`}
         description={
           data
             ? `Chronological Elo replay (K=20, home advantage 60, margin-of-victory
-               multiplier; draws move ratings) — the same engine that feeds the model's
+               multiplier; draws move ratings), run by the same engine that feeds the model's
                Elo-difference feature. Replayed over ${compactInt(data.n_rated_matches)}
                completed regular-season matches since 2012${data.as_of_utc ? `, as of ${dateShort(data.as_of_utc)}` : ""}.`
             : "Replay of the model's own rating engine over every completed regular-season match."
@@ -106,7 +106,7 @@ export function RatingsPage() {
         )}
         {notFound && (
           <EmptyState title="Ratings are not available yet">
-            The ratings endpoint publishes with the next API deploy — nothing is shown that
+            The ratings endpoint publishes with the next API deploy. Nothing is shown that
             can't be backed by data.
           </EmptyState>
         )}
@@ -166,7 +166,7 @@ export function RatingsPage() {
 
             <div style={{ display: "grid", gap: "var(--space-3)", minWidth: 0 }}>
               <p className="blurb">
-                Select any row to add it to the comparison — up to {MAX_COMPARE} teams, each
+                Select any row to add it to the comparison, up to {MAX_COMPARE} teams, each
                 with its own colour on the chart above
                 {canHover ? ", or click a faint line to name and add it." : "."}{" "}
                 {teams.some((t) => t.provisional) &&

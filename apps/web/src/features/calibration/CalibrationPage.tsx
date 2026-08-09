@@ -26,17 +26,17 @@ const LABELS: Record<string, { label: string; blurb: string }> = {
   test: {
     label: "Test (2025, touch-once)",
     blurb:
-      "Calibration on the sealed touch-once test — all seven pre-registered models plus the " +
+      "Calibration on the sealed touch-once test. All seven pre-registered models plus the " +
       "market reference were scored in that single run; the champion was frozen before it, " +
       `and its ECE (${ECE_TEST_CHAMPION.toFixed(4)}) was the best of the seven pre-registered ` +
-      `models. The de-vigged closing market was better calibrated still (${ECE_TEST_MARKET.toFixed(4)}) ` +
-      "— it sees three hours of information the kickoff−3h cutoff cannot.",
+      `models. The de-vigged closing market was better calibrated still (${ECE_TEST_MARKET.toFixed(4)}), ` +
+      "since it sees three hours of information the kickoff−3h cutoff cannot.",
   },
   live: {
     label: "Live record",
     blurb:
       "Appears as graded official forecasts accrue. Never merged with the scopes above. " +
-      "Small live samples are extremely noisy — judge trends here in months, not matchdays.",
+      "Small live samples are extremely noisy, so judge trends here in months, not matchdays.",
   },
 };
 
@@ -70,7 +70,7 @@ function DotDemo() {
         </div>
         <p>
           That's calibration: the probability <em>means</em> what it says. ECE (expected
-          calibration error) is the average gap between what we said and what happened —{" "}
+          calibration error) is the average gap between what we said and what happened, and{" "}
           <strong>0 is perfect</strong>. For scale, on the dev walk-forward: the raw model
           scored {ECE_DEV_RAW.toFixed(3)}, the market {ECE_DEV_MARKET.toFixed(3)}, and the
           calibrated champion {ECE_DEV_CHAMPION.toFixed(3)}. A forecaster can be calibrated
@@ -121,7 +121,7 @@ function ClasswiseBars({
       <p className="blurb" style={{ marginBottom: "var(--space-2)" }}>
         Per-outcome calibration error
         {scope === "test" && drawsBest
-          ? " — on the sealed 2025 test, draws (the hardest outcome for any model in this class) were the champion's best-calibrated outcome:"
+          ? ". On the sealed 2025 test, draws (the hardest outcome for any model in this class) were the champion's best-calibrated outcome:"
           : ":"}
       </p>
       <div className="classwise">
@@ -216,7 +216,7 @@ export function CalibrationPage() {
                   {(!s || (s.n ?? 0) === 0) && (
                     <EmptyState title="No calibration data for this scope yet">
                       {scope === "live"
-                        ? "Fills as graded official forecasts accrue — nothing is back-filled."
+                        ? "Fills as graded official forecasts accrue. Nothing is back-filled."
                         : "Publishes with this scope's evidence."}
                     </EmptyState>
                   )}
@@ -238,7 +238,7 @@ export function CalibrationPage() {
                         ) : (
                           <p className="blurb">
                             The reliability curve and per-outcome bars appear once the live
-                            sample reaches n≥{MIN_N_BUCKET_DETAIL} — at n={s.n ?? 0},
+                            sample reaches n≥{MIN_N_BUCKET_DETAIL}. At n={s.n ?? 0},
                             each confidence bucket holds only a handful of forecasts, so a
                             curve would show noise, not calibration.
                           </p>

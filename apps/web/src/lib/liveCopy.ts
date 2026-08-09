@@ -28,7 +28,7 @@ export function freezeAnnouncement(
   ];
   if (hash) parts.push(shortHash(hash, 12));
   return {
-    head: `OFFICIAL FORECAST FROZEN — ${teamName(home)} vs ${teamName(away)}`,
+    head: `OFFICIAL FORECAST FROZEN · ${teamName(home)} vs ${teamName(away)}`,
     sub: parts.join(" · "),
   };
 }
@@ -55,7 +55,7 @@ export function composeTakeover(
     const more = freezes.length - 2;
     return {
       tone: "official",
-      head: `${freezes.length} OFFICIAL FORECASTS FROZEN — this run`,
+      head: `${freezes.length} OFFICIAL FORECASTS FROZEN THIS RUN`,
       sub: more > 0 ? `${names} …and ${more} more` : names,
     };
   }
@@ -71,7 +71,7 @@ export function composeTakeover(
     return {
       tone: "chalk",
       head: "A NEW OFFICIAL FORECAST REPLACED AN EARLIER ONE",
-      sub: "usually a voided fixture reissued after a postponement or kickoff move — open the match to see the timeline and both hashes",
+      sub: "usually a voided fixture reissued after a postponement or kickoff move; open the match to see the timeline and both hashes",
     };
   }
 

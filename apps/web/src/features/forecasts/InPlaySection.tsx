@@ -40,7 +40,7 @@ export function InPlaySection() {
       eyebrow="Matchday"
       meta={meta}
       title="Between kickoff and the record"
-      description="Frozen before kickoff, now being played — or finished and waiting for the
+      description="Frozen before kickoff, now being played, or finished and waiting for the
       final score to sync. Results post at the next results run; grading follows
       automatically. Nothing here can change."
     >
@@ -67,7 +67,7 @@ export function InPlaySection() {
                 pAway={m.forecast.p_away}
               />
               <div className="meta">
-                <Badge kind="frozen" title="Official — immutable, hashed, publicly anchored" />
+                <Badge kind="frozen" title="Official: immutable, hashed, publicly anchored" />
                 <span className="chip">
                   {/* the equaliser is gated on isLiveNow — `result-pending` means "expected
                       full time has passed", which we will not call live */}

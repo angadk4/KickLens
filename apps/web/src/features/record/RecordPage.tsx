@@ -104,7 +104,7 @@ export function RecordPage() {
         title="Graded official forecasts"
         description={
           <>
-            This page <em>is</em> the track record — frozen before kickoff, graded after full
+            This page <em>is</em> the track record: frozen before kickoff, graded after full
             time, never back-filled.
           </>
         }
@@ -124,14 +124,14 @@ export function RecordPage() {
               </span>
             )}
             <EmptyState big="0" title="graded official forecasts">
-              No official forecast has been graded yet —{" "}
+              No official forecast has been graded yet.{" "}
               {frozenAwaiting > 0
-                ? "official forecasts are frozen; grades follow the first full-time results."
+                ? "Official forecasts are frozen; grades follow the first full-time results."
                 : nextCutoff && nextCutoff.getTime() > Date.now()
-                  ? `the first freeze lands ${kickoffLocal(nextCutoff.toISOString())}, and grades follow the results.`
+                  ? `The first freeze lands ${kickoffLocal(nextCutoff.toISOString())}, and grades follow the results.`
                   : nextCutoff
-                    ? "the first official forecast is locked and anchors at the next hourly run."
-                    : "grades follow the first full-time results."}{" "}
+                    ? "The first official forecast is locked and anchors at the next hourly run."
+                    : "Grades follow the first full-time results."}{" "}
               <Link to="/forecasts">See upcoming fixtures →</Link>
             </EmptyState>
           </>
@@ -157,8 +157,8 @@ export function RecordPage() {
               <span
                 className="chip hint"
                 tabIndex={0} /* the popover reveals on :focus-visible — keyboard-reachable */
-                title="ln(3) — guessing ⅓/⅓/⅓ every match"
-                data-hint="ln(3) — the log loss of guessing ⅓/⅓/⅓ every match. Scores below it mean the model knew something."
+                title="ln(3), the score for guessing ⅓/⅓/⅓ every match"
+                data-hint="ln(3) is the log loss of guessing ⅓/⅓/⅓ every match. Scores below it mean the model knew something."
               >
                 {KNEW_NOTHING_LL.toFixed(4)} = knew-nothing baseline
               </span>
@@ -167,10 +167,10 @@ export function RecordPage() {
                 it just asks for 90 instead of 1. The record's tamper-evidence, countable. */}
             <SealStrip />
             <p className="blurb" style={{ fontSize: "var(--text-xs)" }}>
-              Small live samples are extremely noisy — judge this record in months, not
+              Small live samples are extremely noisy. Judge this record in months, not
               matchdays. On each card the coloured rule under the bar marks the outcome that
               actually happened, and its width <em>is</em> the probability the frozen forecast
-              gave that outcome — the number inside the hash, not a re-derivation. A
+              gave that outcome (the number inside the hash, not a re-derivation). A
               knew-nothing guess would have given 33.3% to whatever happened, and the log loss
               chip is that same comparison in nats ({KNEW_NOTHING_LL.toFixed(4)} = knew
               nothing). Every card gets the

@@ -44,7 +44,7 @@ export type Verdict = {
 const HIT: Verdict = {
   word: "HIT",
   label: "top pick hit",
-  title: "Top pick hit — the outcome we gave the highest probability is the one that happened.",
+  title: "Top pick hit: the outcome we gave the highest probability is the one that happened.",
   fillClass: "hit",
   edgeClass: "pick-hit",
 };
@@ -53,7 +53,7 @@ const MISS: Verdict = {
   word: "MISS",
   label: "top pick missed",
   title:
-    "Top pick missed — the outcome we gave the highest probability is not the one that happened.",
+    "Top pick missed: the outcome we gave the highest probability is not the one that happened.",
   fillClass: "miss",
   edgeClass: "pick-miss",
 };

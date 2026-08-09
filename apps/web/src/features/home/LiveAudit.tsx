@@ -128,14 +128,14 @@ export function LiveAudit() {
           <p className="blurb">
             The target is{" "}
             {target.graded
-              ? "the newest match on the graded record"
-              : "the newest sealed official forecast"}{" "}
-            — <strong>{teamName(target.home)}</strong> vs{" "}
+              ? "the newest match on the graded record:"
+              : "the newest sealed official forecast:"}{" "}
+            <strong>{teamName(target.home)}</strong> vs{" "}
             <strong>{teamName(target.away)}</strong>, {dateShort(target.kickoff)}, hash{" "}
             <span className="mono">⬡ {shortHash(target.hash)}</span>. One click: recompute
             its SHA-256 from the canonical document, fetch the day's anchor file from
             GitHub's CDN, find the line, and recompute the day's Merkle root from the public
-            file — all in this tab. If that day is already sealed, the root is checked against
+            file, all of it in this tab. If that day is already sealed, the root is checked against
             the committed seal; a day seals at 12:00 UTC the next day.
           </p>
           {/* aria-disabled, not disabled — the states.tsx busy-button rule */}
@@ -163,7 +163,7 @@ export function LiveAudit() {
           <div className="card la-card">
             <p className="blurb">
               Auditing the official forecast for <strong>{teamName(state.t.home)}</strong> vs{" "}
-              <strong>{teamName(state.t.away)}</strong> — the full proof bench has the
+              <strong>{teamName(state.t.away)}</strong>. The full proof bench has the
               document field by field: <Link to={`/match/${state.t.id}`}>open it →</Link>
             </p>
             <HashProof
@@ -183,7 +183,7 @@ export function LiveAudit() {
           <div className="card la-card">
             <p className="blurb">
               The server did not release a canonical document for the forecast this card
-              named (hash <span className="mono">⬡ {shortHash(state.t.hash)}</span>) — it
+              named (hash <span className="mono">⬡ {shortHash(state.t.hash)}</span>). It
               only does so when its own recompute matches, and a voided-and-reissued forecast
               keeps its old hash on the record. Inspect it on{" "}
               <Link to={`/match/${state.t.id}`}>the full proof bench →</Link>

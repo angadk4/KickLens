@@ -27,13 +27,13 @@ describe("activityPhrase — ledger events", () => {
 
   it("a failed anchor push names its recovery in the same breath, flagged", () => {
     const p = activityPhrase(ledger("AnchorPushFailed"));
-    expect(p.action).toBe("anchor push failed — the next run re-pushes it");
+    expect(p.action).toBe("anchor push failed; the next run re-pushes it");
     expect(p.flag).toBe("failed");
   });
 
   it("Voided reuses voidPhrase — 'match postponed', never a generic 'superseded'", () => {
     const p = activityPhrase(ledger("Voided", { reason: "postponed" }));
-    expect(p.action).toBe("forecast voided — match postponed");
+    expect(p.action).toBe("forecast voided: match postponed");
     expect(p.flag).toBe("voided");
     // an unmapped/missing reason degrades to the bare fact
     expect(activityPhrase(ledger("Voided")).action).toBe("forecast voided");

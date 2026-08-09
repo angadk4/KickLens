@@ -69,7 +69,7 @@ export function describeCall(args: {
   const matches = args.n === 1 ? "this one match" : `these ${args.n} matches`;
   const caveat =
     args.n < NOISE_N
-      ? ` On ${args.n === 1 ? "one match" : `${args.n} matches`} that is noise — an edge, if it` +
+      ? ` On ${args.n === 1 ? "one match" : `${args.n} matches`} that is noise: an edge, if it` +
         ` exists, is only visible over hundreds.`
       : "";
   return {

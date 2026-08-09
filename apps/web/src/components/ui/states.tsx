@@ -78,7 +78,7 @@ export function ErrorState({
         <circle className="skb-line" cx={11} cy={16} r={5.5} />
       </svg>
       <span>
-        Couldn't load {what ?? "this data"} — the API is unreachable. Showing nothing
+        Couldn't load {what ?? "this data"}. The API is unreachable. Showing nothing
         rather than something stale without saying so.{" "}
         {retry && (
           /* aria-disabled, NOT disabled: a disabled button drops keyboard focus to <body>
@@ -91,7 +91,7 @@ export function ErrorState({
             aria-busy={retrying || undefined}
           >
             {retrying && <span className="spinner" aria-hidden />}
-            {retrying ? "retrying — a cold start can take a few seconds…" : "retry"}
+            {retrying ? "retrying, a cold start can take a few seconds…" : "retry"}
           </button>
         )}
       </span>

@@ -481,7 +481,7 @@ def methodology(conn: Conn, response: Response) -> dict[str, Any]:
         "metric is tagged with its scope and sample size",
         "honesty_notes": [
             "the model is statistically equivalent to a plain Elo baseline on dev data "
-            "(difference +0.0001 nats, CI [-0.003, +0.003]) - no superiority claim is made",
+            "(difference +0.0001 nats, CI [-0.003, +0.003]); no superiority claim is made",
             "the de-vigged closing market outperforms the model by ~0.02 nats on dev data; "
             "closing odds embed later information than the T-3h cutoff",
             "draws are the hardest outcome; accuracy is a diagnostic, never a selection metric",
@@ -510,8 +510,8 @@ def methodology(conn: Conn, response: Response) -> dict[str, Any]:
         "baselines": {
             "scope": "dev",
             "n": 3012,
-            "note": "sealed 2026-07-06 walk-forward ladder (2018-2024, 210 matchweek blocks) - "
-            "docs/baselines.md; scopes never merged",
+            "note": "sealed 2026-07-06 walk-forward ladder (2018-2024, 210 matchweek blocks), "
+            "published in docs/baselines.md; scopes never merged",
             "ladder": _BASELINE_LADDER,
         },
         "anchor_repo_html_url": None
@@ -855,7 +855,7 @@ def _compute_ratings(conn: psycopg.Connection) -> dict[str, Any]:
         "season": latest_season,
         "n_rated_matches": len(matches),
         "method": "chronological Elo replay (K=20, home adv 60, MOV multiplier, ADR-001 draws)"
-        " - the same engine that feeds the model's elo_diff feature",
+        ", run by the same engine that feeds the model's elo_diff feature",
         "teams": teams,
     }
 

@@ -87,7 +87,7 @@ export const SCHEDULE: JobRow[] = [
     spec: { kind: "daily", hours: [8, 20], minute: 0 },
     rules: 2,
     evidence: "full-ingest",
-    note: "fixtures, kickoff moves, results — the 7-day schedule window",
+    note: "fixtures, kickoff moves, results, across the 7-day schedule window",
   },
   {
     key: "ingest-results",
@@ -96,7 +96,7 @@ export const SCHEDULE: JobRow[] = [
     spec: { kind: "hourly", minute: 0, hourWindow: [1, 6] },
     rules: 1,
     evidence: "results-sweep",
-    note: "results only — the night window MLS finals land in",
+    note: "results only, the night window MLS finals land in",
   },
   {
     key: "odds",
@@ -153,7 +153,7 @@ export const SCHEDULE: JobRow[] = [
     spec: { kind: "daily", hours: [12], minute: 0 },
     rules: 1,
     evidence: "merkle",
-    note: "commits the previous UTC day's root — the tamper seal",
+    note: "commits the previous UTC day's root, the tamper seal",
   },
 ];
 

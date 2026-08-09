@@ -367,10 +367,10 @@ export function EloHistory({
       <figcaption>
         {compared.length
           ? `${compared.map((c) => teamName(c.team.team)).join(" · ")} over the league.`
-          : "No team selected — pick a row below to plot its trajectory."}{" "}
+          : "No team selected. Pick a row below to plot its trajectory."}{" "}
         The last 40 rated matches per team (about 1.2 seasons; 40 is the API's maximum), one
         point per completed regular-season match.{" "}
-        <strong>A flat stretch means that team did not play</strong> — the axis is calendar
+        <strong>A flat stretch means that team did not play</strong>; the axis is calendar
         date, so a rating holds its last value until the next match rather than being missing.{" "}
         {canHover
           ? "Hover a faint line to name it; click it, or a table row, to compare it."

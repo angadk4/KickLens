@@ -77,7 +77,7 @@ export function MonthlyRecord({ rows }: { rows: MonthlyRow[] }) {
             const cy = PAD_TOP + i * ROW_H + ROW_H / 2;
             return (
               <g key={r.key}>
-                <title>{`${r.label}: ${nats(r.logLoss)} over ${r.n} graded forecast${r.n === 1 ? "" : "s"}${r.small ? " — small sample" : ""}`}</title>
+                <title>{`${r.label}: ${nats(r.logLoss)} over ${r.n} graded forecast${r.n === 1 ? "" : "s"}${r.small ? " · small sample" : ""}`}</title>
                 <text
                   x={LABEL_W - 10}
                   y={cy + 4}
