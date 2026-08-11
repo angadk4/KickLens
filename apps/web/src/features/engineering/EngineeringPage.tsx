@@ -122,7 +122,7 @@ export function EngineeringPage() {
           <>
             KickLens is an MLS forecaster whose real product is the tamper-evident public
             record; this page covers the system, <Link to="/methodology">Methodology</Link>{" "}
-            covers the modeling discipline. Constraints: one developer, ~$0 monthly
+            covers the modeling discipline. Constraints: one developer, ~$2/month
             infrastructure with a $5 tripwire, no staging environment, and a read-only
             public surface.
           </>
@@ -131,8 +131,8 @@ export function EngineeringPage() {
         <div className="grid-4">
           <StatTile label="Tests green" value={TESTS_CI_PASSED} scope="none" n={null}
             sub={`leakage, write-once, hash & canary suites vs a real Postgres in CI · +${TESTS_CI_SKIPPED} documented skip`} />
-          <StatTile label="Monthly infra" value="~$0" scope="none" n={null}
-            sub="serverless, scale-to-zero; the $5/mo budget alarm is a documented stop condition" />
+          <StatTile label="Monthly infra" value="~$2" scope="none" n={null}
+            sub="the compute is $0: serverless, scale-to-zero. The whole bill is the domain and its DNS. The $5/mo budget alarm is a documented stop condition" />
           <StatTile label="Schedules + alarms" value={`${CRON_RULES} + ${ALARM_COUNT}`} scope="none" n={null}
             sub="EventBridge crons; Errors AND Throttles per job → SNS email" />
           <StatTile label="Forecast freeze" value="T−3h" scope="none" n={null}

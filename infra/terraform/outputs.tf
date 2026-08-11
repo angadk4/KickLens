@@ -11,7 +11,13 @@ output "site_bucket" {
 }
 
 output "site_url" {
-  value = "https://${aws_cloudfront_distribution.site.domain_name}"
+  value = "https://${local.site_domain}"
+}
+
+# the distribution hostname is still worth having: it is what you curl when you need to
+# bypass DNS and ask the CDN directly
+output "site_cloudfront_domain" {
+  value = aws_cloudfront_distribution.site.domain_name
 }
 
 output "ecr_jobs_repo" {

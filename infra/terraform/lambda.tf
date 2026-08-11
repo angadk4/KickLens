@@ -58,7 +58,7 @@ resource "aws_lambda_function" "api" {
   handler          = "apps.api.lambda_handler.handler"
   filename         = "${path.module}/../../dist/kicklens-api.zip"
   source_code_hash = filesha256("${path.module}/../../dist/kicklens-api.zip")
-  timeout = 29
+  timeout          = 29
   # Lambda allocates CPU linearly with memory: one full vCPU at 1769 MB. At 512 MB this
   # function ran on ~0.29 vCPU for every Python import, TLS handshake, JSON serialize and gzip
   # — while `feature` and `inference`, which no human ever waits on, had twice that. Billing is

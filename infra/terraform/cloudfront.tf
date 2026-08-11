@@ -72,6 +72,9 @@ resource "aws_cloudfront_distribution" "site" {
   default_root_object = "index.html"
   price_class         = "PriceClass_100"
 
+  # apex + www, both served by this one distribution (see domain.tf)
+  aliases = local.site_aliases
+
   origin {
     domain_name              = aws_s3_bucket.site.bucket_regional_domain_name
     origin_id                = "site-s3"
@@ -108,7 +111,12 @@ resource "aws_cloudfront_distribution" "site" {
     }
   }
 
+  # The *_validation resource, not the certificate itself: referencing the raw ARN would let an
+  # apply attach a certificate that has not finished validating, which CloudFront rejects.
+  # TLSv1.2_2021 is the current AWS-recommended floor; sni-only avoids the $600/mo dedicated IP.
   viewer_certificate {
-    cloudfront_default_certificate = true
+    acm_certificate_arn      = aws_acm_certificate_validation.site.certificate_arn
+    ssl_support_method       = "sni-only"
+    minimum_protocol_version = "TLSv1.2_2021"
   }
 }

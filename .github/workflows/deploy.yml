@@ -75,25 +75,31 @@ jobs:
           VITE_API_URL=$API_URL npm run build
       - name: Sync to S3 + invalidate
         run: |
-          # Two passes, because the two kinds of file want opposite caching.
+          # Two passes, because the dist splits cleanly into two kinds of file that want
+          # OPPOSITE caching, and the split is exactly "is the name content-hashed".
           #
-          # Everything under assets/ carries a content hash in its filename, so the bytes behind
-          # a given URL can never change: cache it for a year and mark it immutable, which tells
-          # the browser not to revalidate at all. Previously the sync set NO Cache-Control, so
-          # CloudFront fell back to its default TTL and the browser revalidated every asset on
-          # every navigation — a round trip per file for bytes it already had.
-          aws s3 sync apps/web/dist s3://$SITE_BUCKET --delete \
-            --exclude "index.html" \
+          # 1. assets/ — every filename carries a content hash, so the bytes behind a given URL
+          #    can never change. Cache for a year and mark immutable so the browser does not even
+          #    revalidate. These never need invalidating: a new build writes new URLs.
+          aws s3 sync apps/web/dist/assets s3://$SITE_BUCKET/assets --delete \
             --cache-control "public, max-age=31536000, immutable"
-          # index.html is the one mutable file: it names the hashed assets, so it must never be
-          # served stale or the page loads a previous deploy's bundle.
+          # 2. Everything at the root has a STABLE name — index.html, favicon.svg, og.png,
+          #    robots.txt — so the same URL must be able to serve new bytes. Marking these
+          #    immutable (an earlier version of this file did) means a changed favicon or OG
+          #    image can never reach anyone who has already loaded it, for a year, with no way
+          #    to force it short of renaming the file.
+          #    index.html is the strictest case: it names the hashed assets, so a stale copy
+          #    loads a previous deploy's bundle entirely.
+          aws s3 sync apps/web/dist s3://$SITE_BUCKET --delete --exclude "assets/*" \
+            --cache-control "public, max-age=300, must-revalidate"
           aws s3 cp apps/web/dist/index.html s3://$SITE_BUCKET/index.html \
             --cache-control "no-cache, must-revalidate" \
             --content-type "text/html; charset=utf-8"
-          # Only index.html can go stale at the edge now. Invalidating "/*" also flushed the
-          # fonts and hashed chunks on every deploy, discarding edge cache for files whose URLs
-          # guarantee they never needed it (and burning free-tier invalidation paths).
-          aws cloudfront create-invalidation --distribution-id $CLOUDFRONT_ID --paths "/index.html"
+          # Invalidate ONLY the stable-named files. "/*" also flushed the fonts and hashed
+          # chunks on every deploy, discarding edge cache for URLs that by construction never
+          # needed it (and burning free-tier invalidation paths).
+          aws cloudfront create-invalidation --distribution-id $CLOUDFRONT_ID \
+            --paths "/" "/index.html" "/favicon.svg" "/og.png" "/robots.txt"
 
       # ---- infra drift ----
       - uses: hashicorp/setup-terraform@v3
