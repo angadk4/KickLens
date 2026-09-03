@@ -13,21 +13,25 @@ export const REPO_URL = "https://github.com/angadk4/KickLens";
 export const ANCHORS_URL = `${REPO_URL}/tree/main/anchors`;
 
 // ——— test suite (Engineering page + architecture diagram) ———
-// The count of the suite THIS deploy ships with: 218 passed, 1 skipped against the real
-// Postgres service container. Refreshed 2026-08-07 — it had sat at 199/2026-07-23 through
-// five green CI runs while the suite grew by 19 (the audit, verdict, RS-filter and
-// facts-vs-Terraform tickets each added their own), so the page understated its own coverage
-// on the one page whose eyebrow reads "everything links to proof". This file's header rule
-// is the fix: update on a new green CI run, never by editing page copy.
+// The count of the suite THIS deploy ships with: 222 passed, 1 skipped against the real
+// Postgres service container. Refreshed 2026-08-12 (+4: the /board composite endpoint's
+// parity, params, no-cache and health-degradation tests).
+//
+// This constant has now drifted TWICE — 199 sat stale through five green CI runs, then 218
+// through the performance pass — on the one page whose eyebrow reads "everything links to
+// proof". Both times the page understated its own coverage. The rule is unchanged and is the
+// only fix: update this on a new green CI run, never by editing page copy.
 // The skip is data-gated: a market-aggregation check (tests/test_market.py) that needs the
 // full historical dataset, which a fresh CI database doesn't hold; the recompute-parity
 // leakage checks with the same need run in the sealed training environment.
 // NOTE this is the BACKEND suite only, which is what the page's wording claims ("vs a real
-// Postgres in CI"). The frontend adds 282 vitest specs that are deliberately not counted here.
-export const TESTS_CI_PASSED = 218;
+// Postgres in CI"). The frontend adds 316 vitest specs that are deliberately not counted here,
+// so the whole automated suite is 538 — a different number from the one this page shows, on
+// purpose.
+export const TESTS_CI_PASSED = 222;
 export const TESTS_CI_SKIPPED = 1;
 /** UTC date the counts above were verified. */
-export const TESTS_ASOF = "2026-08-07";
+export const TESTS_ASOF = "2026-08-12";
 
 // ——— seal & evaluation dates (ISO everywhere — one format site-wide) ———
 /** Dev selection sealed: model + calibration frozen before the test — docs/selection.md. */
