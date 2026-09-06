@@ -13,9 +13,9 @@ export const REPO_URL = "https://github.com/angadk4/KickLens";
 export const ANCHORS_URL = `${REPO_URL}/tree/main/anchors`;
 
 // ——— test suite (Engineering page + architecture diagram) ———
-// The count of the suite THIS deploy ships with: 222 passed, 1 skipped against the real
-// Postgres service container. Refreshed 2026-08-12 (+4: the /board composite endpoint's
-// parity, params, no-cache and health-degradation tests).
+// The count of the suite THIS deploy ships with: 224 passed, 1 skipped against the real
+// Postgres service container. Refreshed 2026-09-03 (+2: finish_job's dead-connection retry
+// and its cannot-fail-quietly guard).
 //
 // This constant has now drifted TWICE — 199 sat stale through five green CI runs, then 218
 // through the performance pass — on the one page whose eyebrow reads "everything links to
@@ -28,10 +28,10 @@ export const ANCHORS_URL = `${REPO_URL}/tree/main/anchors`;
 // Postgres in CI"). The frontend adds 316 vitest specs that are deliberately not counted here,
 // so the whole automated suite is 538 — a different number from the one this page shows, on
 // purpose.
-export const TESTS_CI_PASSED = 222;
+export const TESTS_CI_PASSED = 224;
 export const TESTS_CI_SKIPPED = 1;
 /** UTC date the counts above were verified. */
-export const TESTS_ASOF = "2026-08-12";
+export const TESTS_ASOF = "2026-09-03";
 
 // ——— seal & evaluation dates (ISO everywhere — one format site-wide) ———
 /** Dev selection sealed: model + calibration frozen before the test — docs/selection.md. */

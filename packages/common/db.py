@@ -129,6 +129,11 @@ def claim_job(conn: psycopg.Connection, job_name: str, idempotency_key: str) -> 
     return None if row is None else int(row[0])
 
 
+_FINISH_SQL = (
+    "UPDATE job_run SET status = %s, finished_at_utc = %s, details = %s WHERE job_run_id = %s"
+)
+
+
 def finish_job(
     conn: psycopg.Connection,
     job_run_id: int,
@@ -137,8 +142,44 @@ def finish_job(
 ) -> None:
     """Close a claimed run. `details` records a degraded-but-successful outcome (e.g. fixtures
     skipped for unmapped teams, ADR-006) so it survives the log-retention window and the daily
-    canary can surface it — a run can be 'done' and still have something needing attention."""
-    conn.execute(
-        "UPDATE job_run SET status = %s, finished_at_utc = %s, details = %s WHERE job_run_id = %s",
-        (status, datetime.now(UTC), Json(details) if details is not None else None, job_run_id),
+    canary can surface it — a run can be 'done' and still have something needing attention.
+
+    RETRIES ONCE ON A FRESH CONNECTION if `conn` is already dead. This function is the only thing
+    that records a run's outcome, so it has to be the most robust step in the pipeline, and it was
+    the least: it inherits a connection that may have dropped during the work it is reporting on.
+
+    On 2026-09-02T03:00Z an ingest sweep completed its work and then died here with "the
+    connection is closed". The caller's except-branch called finish_job again on the SAME dead
+    connection and failed identically, so the row sat at 'running' forever. claim_job's
+    15-minute lease meant the next run recovered the slot, so nothing stalled — but the details
+    were lost, and the call site in jobs/handlers.py explains exactly why that costs something:
+    without the sweep kind, /activity's coalesce reads a failed results-only sweep as a failed
+    FULL sweep (the conflation /health was fixed to avoid), and without the refusal list the
+    canary stops raising about fixtures the RS filter could not classify.
+
+    The finish timestamp is taken BEFORE the first attempt, so a retry records when the work
+    actually ended rather than when the reconnect happened. If the fresh connection also fails,
+    the error propagates: a job that cannot record its own outcome must alarm, not pass quietly.
+    """
+    params = (
+        status,
+        datetime.now(UTC),
+        Json(details) if details is not None else None,
+        job_run_id,
     )
+    try:
+        conn.execute(_FINISH_SQL, params)
+        return
+    except psycopg.Error:
+        # fall through to one attempt on a new connection
+        pass
+
+    # imported lazily: common.config does not import this module, but keeping it off the
+    # module-level graph means the happy path never pays for it
+    from common.config import load_settings
+
+    fresh = connect(load_settings(dotenv_path=None).database_url)
+    try:
+        fresh.execute(_FINISH_SQL, params)
+    finally:
+        fresh.close()

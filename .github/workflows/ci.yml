@@ -37,6 +37,22 @@ jobs:
           # nothing — a hollow guarantee, exactly the never-cut-suite failure mode).
           fetch-depth: 0
 
+      # The M1 integration suite (tests/test_ingestion_pipeline.py) loads the REAL
+      # football-data.co.uk USA.csv. `fetch_usa_csv` already has a cached-snapshot fallback for
+      # the case where that host is unreachable — a Contract fallback — but a fresh checkout has
+      # no cache, so the fallback could never fire HERE. That made CI's green depend on a third
+      # party's uptime: on 2026-09-05 the host went fully 503 and every run went red on commits
+      # that touched nothing but anchors/. Carrying data/raw between runs gives the fallback
+      # something to fall back TO, so the suite still runs against real data during an outage.
+      # The key rotates per run so a reachable upstream still refreshes the snapshot; the
+      # restore-key prefix pulls the newest cache otherwise.
+      - name: Restore cached USA.csv snapshot
+        uses: actions/cache/restore@v4
+        with:
+          path: data/raw
+          key: usa-csv-${{ github.run_id }}
+          restore-keys: usa-csv-
+
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
@@ -71,6 +87,15 @@ jobs:
             exit 1
           fi
           echo "never-cut suites executed against Postgres"
+
+      # Saved even when the job failed: a red run that DID reach the network still holds a
+      # snapshot worth carrying forward, and that is precisely the run whose successor needs it.
+      - name: Save USA.csv snapshot cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: data/raw
+          key: usa-csv-${{ github.run_id }}
 
       - name: Secret scan (gitleaks)
         uses: gitleaks/gitleaks-action@v2
