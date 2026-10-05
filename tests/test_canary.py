@@ -207,6 +207,39 @@ if DATABASE_URL:
         with pytest.raises(RuntimeError, match="KICKLENS_API_URL"):
             handlers.canary({}, None)
 
+    def test_duplicate_fixture_rows_raise(env, monkeypatch: pytest.MonkeyPatch) -> None:  # type: ignore[no-untyped-def]
+        """2026-10-04 incident: two rows for one real fixture double-count it in Elo and the
+        form features, and nothing else in the canary can see that. Two regular-season rows
+        for the same pair within ±30h must raise; a second meeting days apart must not."""
+        monkeypatch.setattr(
+            "urllib.request.urlopen",
+            _fake_urlopen({"status": "ok", "freshness_ok": True, "last_ingest": "now"}),
+        )
+        conn = env["conn"]
+        ko = datetime.now(UTC) + timedelta(days=20)  # future: no missed/overdue noise
+        ids = [
+            int(
+                conn.execute(
+                    "INSERT INTO match (season_id, home_team_id, away_team_id, kickoff_utc,"
+                    " status) VALUES (%s,%s,%s,%s,'scheduled') RETURNING match_id",
+                    (env["season"], env["h"], env["a"], ko + timedelta(hours=offset)),
+                ).fetchone()[0]
+            )
+            for offset in (0, 2)
+        ]
+        try:
+            with pytest.raises(RuntimeError, match="1 duplicate fixture"):
+                handlers.canary({}, None)
+            # the same pair meeting again days later is a different fixture, not a twin
+            conn.execute(
+                "UPDATE match SET kickoff_utc = kickoff_utc + interval '5 days'"
+                " WHERE match_id = %s",
+                (ids[1],),
+            )
+            assert handlers.canary({}, None)["duplicate_fixtures"] == 0
+        finally:
+            conn.execute("DELETE FROM match WHERE match_id = ANY(%s)", (ids,))
+
     # ---------- T-281: the unconfigured-Decision-Day warning ----------
 
     def test_decision_day_warning_fires_inside_the_lead_window(  # type: ignore[no-untyped-def]

@@ -29,6 +29,8 @@ class ReconciliationReport:
     source: str
     inserted: int = 0
     unchanged: int = 0
+    # current-season rows the live ingest already owns: skipped whole, never re-inserted
+    live_owned: int = 0
     conflicts: list[Conflict] = field(default_factory=list)
 
     def record_conflict(
@@ -48,5 +50,5 @@ class ReconciliationReport:
     def summary(self) -> str:
         return (
             f"source={self.source} inserted={self.inserted} unchanged={self.unchanged} "
-            f"conflicts={len(self.conflicts)}"
+            f"live_owned={self.live_owned} conflicts={len(self.conflicts)}"
         )

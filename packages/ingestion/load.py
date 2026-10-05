@@ -71,6 +71,31 @@ def insert_match(
     away = al.resolve_or_raise(teams, SOURCE, m.away_name)
     rs = is_regular_season(m.season_year, m.natural_key_date)
     neutral = is_neutral_site(m.season_year, m.natural_key_date)
+    # A match the LIVE ingest created has no natural_key_date (live.py builds rows from
+    # provider fixtures, which carry no file date), so the partial unique index the INSERT
+    # below relies on cannot see it. Until 2026-10-04 that meant every monthly retrain
+    # re-inserted the current season's live matches as second rows: 185 duplicates, each
+    # live result counted twice by Elo and the form features for every forecast frozen from
+    # 2026-08-01 (docs/incidents/2026-10-duplicate-live-matches.md). Look for the live row
+    # by the same rule live.py uses to recognise a fixture (same pair, kickoff within ±30h)
+    # and leave it completely alone: for the current season the live provider owns the
+    # result (Contract §5), so a disagreement is logged, never applied, and no closing odds
+    # are attached.
+    live = conn.execute(
+        "SELECT match_id, home_goals, away_goals, result FROM match"
+        " WHERE season_id=%s AND home_team_id=%s AND away_team_id=%s"
+        "   AND natural_key_date IS NULL"
+        "   AND kickoff_utc BETWEEN %s - interval '30 hours' AND %s + interval '30 hours'",
+        (season_id, home, away, m.kickoff_utc, m.kickoff_utc),
+    ).fetchone()
+    if live is not None:
+        stored_live = (live[1], live[2], live[3])
+        incoming_live = (m.home_goals, m.away_goals, m.result)
+        if live[3] is not None and stored_live != incoming_live:
+            key = f"{m.season_year}:{m.natural_key_date}:{m.home_name}v{m.away_name}"
+            report.record_conflict(key, "result", stored_live, incoming_live, applied=False)
+        report.live_owned += 1
+        return None
     row = conn.execute(
         "INSERT INTO match (season_id, home_team_id, away_team_id, natural_key_date,"
         " kickoff_utc, kickoff_approx, status, is_regular_season, neutral_site,"

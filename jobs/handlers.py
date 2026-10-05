@@ -399,6 +399,20 @@ def canary(event: dict[str, Any], context: Any) -> dict[str, Any]:
             "         WHERE e.prediction_id = p.prediction_id AND e.event_type='Voided'))"
         ).fetchone()
         n_missed = 0 if missed is None else int(missed[0])
+        # 2026-10-04 incident: a second row for a real fixture is invisible to every other
+        # check here. The monthly historical load re-inserted each live match as a twin for two
+        # months, every twin was counted by Elo and the form features, and the only symptom
+        # was the missed-forecast check above firing once, when a twin happened to land inside
+        # its 48h window. Look for the duplication itself: two regular-season rows for the same
+        # pair within ±30h, the same window live.py and load.py use to recognise one fixture.
+        dupes = conn.execute(
+            "SELECT count(*) FROM match a JOIN match b"
+            "   ON a.season_id = b.season_id AND a.home_team_id = b.home_team_id"
+            "  AND a.away_team_id = b.away_team_id AND a.match_id < b.match_id"
+            "  AND abs(extract(epoch FROM a.kickoff_utc - b.kickoff_utc)) <= 30 * 3600"
+            " WHERE a.is_regular_season AND b.is_regular_season"
+        ).fetchone()
+        n_dupes = 0 if dupes is None else int(dupes[0])
         # anchors stuck unpublished: latest anchor event is a push failure (the inference
         # job's catch-up should clear these within an hour; persistent = PAT/API problem)
         unpub = conn.execute(
@@ -470,6 +484,11 @@ def canary(event: dict[str, Any], context: Any) -> dict[str, Any]:
         problems.append(
             f"{n_missed} match(es) kicked off in the last 48h with NO official forecast"
         )
+    if n_dupes:
+        problems.append(
+            f"{n_dupes} duplicate fixture row(s): same teams, kickoffs within 30h — every "
+            "duplicate is counted twice by Elo and the form features"
+        )
     if n_unpub:
         problems.append(f"{n_unpub} official forecast(s) with unpublished anchors")
     if problems:
@@ -480,4 +499,5 @@ def canary(event: dict[str, Any], context: Any) -> dict[str, Any]:
         "overdue_results": 0,
         "missed_forecasts": 0,
         "unpublished_anchors": 0,
+        "duplicate_fixtures": 0,
     }
